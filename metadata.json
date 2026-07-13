@@ -1,0 +1,6 @@
+{
+  "name": "XAUUSD Tracker",
+  "description": "Daily XAUUSD gold price tracker updated at 6:00 AM MYT.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
