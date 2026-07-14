@@ -3,6 +3,8 @@ const ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/gold-icon-192.png',
+  '/gold-icon-512.png',
   '/gold-icon.svg'
 ];
 
