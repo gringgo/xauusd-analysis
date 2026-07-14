@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="128" fill="#020202"/>
+  <rect width="496" height="496" x="8" y="8" rx="120" fill="none" stroke="#ffd700" stroke-width="4" stroke-opacity="0.2"/>
+  
+  <!-- Subtle Grid Accent -->
+  <path d="M 50 150 L 462 150 M 50 250 L 462 250 M 50 350 L 462 350 M 150 50 L 150 462 M 250 50 L 250 462 M 350 50 L 350 462" stroke="#ffffff" stroke-width="1" stroke-opacity="0.05"/>
+
+  <!-- Candlesticks / Gold Bars theme -->
+  <!-- Candle 1: Bearish (Red) -->
+  <line x1="160" y1="200" x2="160" y2="380" stroke="#ef4444" stroke-width="6"/>
+  <rect x="140" y="240" width="40" height="100" rx="4" fill="#ef4444"/>
+
+  <!-- Candle 2: Bullish (Gold Shimmer) -->
+  <line x1="256" y1="120" x2="256" y2="340" stroke="#ffd700" stroke-width="6"/>
+  <rect x="236" y="160" width="40" height="140" rx="4" fill="url(#goldGradient)"/>
+
+  <!-- Candle 3: Bullish (Green) -->
+  <line x1="352" y1="80" x2="352" y2="280" stroke="#22c55e" stroke-width="6"/>
+  <rect x="332" y="110" width="40" height="110" rx="4" fill="#22c55e"/>
+
+  <!-- Gold Shimmer Gradient Definition -->
+  <defs>
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe259" />
+      <stop offset="100%" stop-color="#ffa751" />
+    </linearGradient>
+  </defs>
+</svg>

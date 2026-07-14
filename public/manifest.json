@@ -1,0 +1,18 @@
+{
+  "short_name": "XAUUSD Analysis",
+  "name": "XAUUSD Tracker & Gold Analysis",
+  "description": "Daily XAUUSD gold price tracker and FVG analysis updated in real-time.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#020202",
+  "theme_color": "#020202",
+  "icons": [
+    {
+      "src": "/gold-icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -208,9 +208,20 @@ function findLiquidity(d1: any[], h4: any[], currentPrice: number) {
   }
   
   
-  const h1Res = await fetchWithTimeout(`/api/klines?interval=1h${queryParams}`);
-  if (!h1Res.ok) throw new Error("H1 fetch failed: " + h1Res.status);
-  const h1Raw = await h1Res.json();
+  let h1Raw;
+  try {
+    // Cuba buat fetch terus dari KuCoin API (menyokong CORS dan sesuai untuk 'direct static hosting' / Cloudflare Pages)
+    const directUrl = `https://api.kucoin.com/api/v1/market/candles?type=1hour&symbol=PAXG-USDT${queryParams}`;
+    const h1Res = await fetchWithTimeout(directUrl);
+    if (!h1Res.ok) throw new Error("Direct KuCoin fetch status: " + h1Res.status);
+    h1Raw = await h1Res.json();
+  } catch (directErr) {
+    console.warn("Direct KuCoin fetch failed or blocked by CORS, falling back to local proxy API...", directErr);
+    // Fallback sekiranya local proxy diperlukan (e.g., Express server)
+    const h1Res = await fetchWithTimeout(`/api/klines?interval=1h${queryParams}`);
+    if (!h1Res.ok) throw new Error("H1 proxy fetch failed: " + h1Res.status);
+    h1Raw = await h1Res.json();
+  }
   let h1RawData = h1Raw.data;
 
   if (targetDate) {
@@ -345,16 +356,11 @@ function findLiquidity(d1: any[], h4: any[], currentPrice: number) {
   const h4Extremes = getLocalMinMax(h4.slice(-20));
   const h4Visible = h4.slice(-15);
   const h1Visible = h1.slice(-15);
-  let fvgTimeframe = "H4";
-  let fvg = findFVG(h4Visible);
-  if (!fvg) {
-    fvg = findFVG(h1Visible);
-    if (fvg) fvgTimeframe = "H1";
-  }
-  if (!fvg) {
-    fvg = { direction: isBullish ? "BULLISH" : "BEARISH", top: currentPrice + 10, bottom: currentPrice - 10, candleIndex: 10 };
-    fvgTimeframe = "H4";
-  }
+  let h4Fvg = findFVG(h4Visible);
+  let h1Fvg = findFVG(h1Visible);
+  let fvgTimeframe = h4Fvg ? "H4" : (h1Fvg ? "H1" : "H4");
+  let fvg = h4Fvg || h1Fvg || { direction: isBullish ? "BULLISH" : "BEARISH", top: currentPrice + 10, bottom: currentPrice - 10, candleIndex: 10 };
+
 
   const res = h4Extremes.max;
   const sup = h4Extremes.min;
@@ -414,23 +420,27 @@ function findLiquidity(d1: any[], h4: any[], currentPrice: number) {
   // Determine FVG Box in normalized coordinates for H4
   let h4FvgBox = null;
   let h1FvgBox = null;
-  if (fvg) {
+  
+  if (h4Fvg) {
     const step = 90 / 15;
-    const mappedIndex = fvg.candleIndex - (100 - 15); // Map from 100-array to 15-array
+    const mappedIndex = h4Fvg.candleIndex - (100 - 15);
     const x = 5 + (mappedIndex) * step;
     const box = { x: Math.max(0, x), w: 100 - Math.max(0, x) };
+    const range = h4Chart.max - h4Chart.min;
+    const topY = 100 - ((h4Fvg.top - h4Chart.min) / range * 100);
+    const bottomY = 100 - ((h4Fvg.bottom - h4Chart.min) / range * 100);
+    h4FvgBox = { ...box, y: Math.min(topY, bottomY), h: Math.max(2, Math.abs(bottomY - topY)) };
+  }
 
-    if (fvgTimeframe === "H4") {
-      const range = h4Chart.max - h4Chart.min;
-      const topY = 100 - ((fvg.top - h4Chart.min) / range * 100);
-      const bottomY = 100 - ((fvg.bottom - h4Chart.min) / range * 100);
-      h4FvgBox = { ...box, y: Math.min(topY, bottomY), h: Math.max(2, Math.abs(bottomY - topY)) };
-    } else {
-      const range = h1Chart.max - h1Chart.min;
-      const topY = 100 - ((fvg.top - h1Chart.min) / range * 100);
-      const bottomY = 100 - ((fvg.bottom - h1Chart.min) / range * 100);
-      h1FvgBox = { ...box, y: Math.min(topY, bottomY), h: Math.max(2, Math.abs(bottomY - topY)) };
-    }
+  if (h1Fvg) {
+    const step = 90 / 15;
+    const mappedIndex = h1Fvg.candleIndex - (100 - 15);
+    const x = 5 + (mappedIndex) * step;
+    const box = { x: Math.max(0, x), w: 100 - Math.max(0, x) };
+    const range = h1Chart.max - h1Chart.min;
+    const topY = 100 - ((h1Fvg.top - h1Chart.min) / range * 100);
+    const bottomY = 100 - ((h1Fvg.bottom - h1Chart.min) / range * 100);
+    h1FvgBox = { ...box, y: Math.min(topY, bottomY), h: Math.max(2, Math.abs(bottomY - topY)) };
   }
 
   const target = targetDate || new Date();
@@ -471,6 +481,8 @@ function findLiquidity(d1: any[], h4: any[], currentPrice: number) {
       direction: fvg.direction,
       timeframe: fvgTimeframe,
       range: `${fvg.bottom.toFixed(2)} - ${fvg.top.toFixed(2)}`,
+      h4: h4Fvg ? { direction: h4Fvg.direction, range: `${h4Fvg.bottom.toFixed(2)} - ${h4Fvg.top.toFixed(2)}` } : null,
+      h1: h1Fvg ? { direction: h1Fvg.direction, range: `${h1Fvg.bottom.toFixed(2)} - ${h1Fvg.top.toFixed(2)}` } : null,
       notes: [
         "Kawasan ini berpotensi jadi S/R.",
         "Tunggu reaksi harga di sini."

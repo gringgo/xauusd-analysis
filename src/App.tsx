@@ -12,7 +12,8 @@ import {
   BarChart3,
   BookOpen,
   Save,
-  X
+  X,
+  Smartphone
 } from 'lucide-react';
 import { getLiveAnalysis } from './liveData';
 import * as htmlToImage from 'html-to-image';
@@ -148,6 +149,36 @@ export default function App() {
   });
 
   const [showJournal, setShowJournal] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Check if already installed / standalone
+    if (window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone) {
+      setShowInstallBtn(false);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User installed app: ${outcome}`);
+    setDeferredPrompt(null);
+    setShowInstallBtn(false);
+  };
   const [journal, setJournal] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem('trading_journal');
@@ -246,7 +277,13 @@ export default function App() {
   return (
     <>
       <div className="min-h-screen bg-[#020202] text-white font-sans p-1 sm:p-2 md:p-4 flex flex-col items-center">
-      <div className={`w-full max-w-[1300px] flex justify-end mb-2 transition-opacity duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+      <div className={`w-full max-w-[1300px] flex justify-end gap-2 mb-2 transition-opacity duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+        {showInstallBtn && (
+          <button onClick={handleInstallClick} className="flex items-center gap-1.5 bg-[#22c55e] text-black px-3 py-1.5 rounded-md font-bold text-sm sm:text-base hover:bg-green-400 transition-colors shadow-lg shadow-green-500/20">
+            <Smartphone className="w-4 h-4 sm:w-5 sm:h-5 text-black" />
+            PASANG APLIKASI
+          </button>
+        )}
         <button onClick={handleDownloadImage} className="flex items-center gap-2 bg-[#ffcc00] text-black px-3 py-1.5 rounded-md font-bold text-sm sm:text-base hover:bg-yellow-400 transition-colors shadow-lg shadow-yellow-500/20">
           <Download className="w-4 h-4 sm:w-5 sm:h-5" />
           DOWNLOAD GAMBAR
@@ -456,11 +493,37 @@ export default function App() {
                 <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">FVG (FAIR VALUE GAP)</span>
               </div>
               <div className="p-3">
-                <div className={`font-bold text-xs sm:text-sm mb-2 tracking-wide ${data.fvg.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
-                  {data.fvg.direction} FVG ({data.fvg.timeframe})
-                </div>
-                <div className="bg-[#1e3a8a] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm mb-3 shadow-lg shadow-blue-900/20">
-                  {data.fvg.range}
+                <div className="flex flex-col gap-3 mb-3">
+                  {data.fvg.h4 && (
+                    <div>
+                      <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.fvg.h4.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+                        {data.fvg.h4.direction} FVG (H4)
+                      </div>
+                      <div className="bg-[#1e3a8a] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-blue-900/20">
+                        {data.fvg.h4.range}
+                      </div>
+                    </div>
+                  )}
+                  {data.fvg.h1 && (
+                    <div>
+                      <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.fvg.h1.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+                        {data.fvg.h1.direction} FVG (H1)
+                      </div>
+                      <div className="bg-[#1e3a8a] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-blue-900/20">
+                        {data.fvg.h1.range}
+                      </div>
+                    </div>
+                  )}
+                  {!data.fvg.h4 && !data.fvg.h1 && (
+                     <div>
+                      <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.fvg.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+                        {data.fvg.direction} FVG ({data.fvg.timeframe})
+                      </div>
+                      <div className="bg-[#1e3a8a] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-blue-900/20">
+                        {data.fvg.range}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <ul className="text-xs text-gray-200 space-y-1.5 mb-2">
                   {data.fvg.notes.map((note, i) => (
