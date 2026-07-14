@@ -1,0 +1,6 @@
+{
+  "appId": "com.xauusd.tracker",
+  "appName": "XAUUSD Tracker",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
