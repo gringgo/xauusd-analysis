@@ -1,0 +1,27 @@
+{
+  "collections": {
+    "users": {
+      "document": {
+        "userId": "string",
+        "email": "string",
+        "createdAt": "timestamp"
+      },
+      "allowRead": "request.auth != null && request.auth.uid == documentId",
+      "allowWrite": "request.auth != null && request.auth.uid == documentId"
+    },
+    "journal": {
+      "document": {
+        "id": "string",
+        "userId": "string",
+        "date": "string",
+        "bias": "string",
+        "bos": "string",
+        "fvg": "string",
+        "status": "string",
+        "createdAt": "timestamp"
+      },
+      "allowRead": "request.auth != null && request.auth.uid == resource.data.userId",
+      "allowWrite": "request.auth != null && request.auth.uid == request.resource.data.userId"
+    }
+  }
+}

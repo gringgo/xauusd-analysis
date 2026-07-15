@@ -13,11 +13,39 @@ import {
   BookOpen,
   Save,
   X,
-  Smartphone
+  Smartphone,
+  Cloud,
+  User,
+  LogIn,
+  LogOut,
+  Lock,
+  Mail,
+  RefreshCw
 } from 'lucide-react';
 import { getLiveAnalysis } from './liveData';
 import * as htmlToImage from 'html-to-image';
 import { Download } from 'lucide-react';
+
+// Firebase imports
+import { 
+  collection, 
+  query, 
+  where, 
+  onSnapshot, 
+  doc, 
+  setDoc,
+  updateDoc,
+  deleteDoc
+} from 'firebase/firestore';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged,
+  signInAnonymously
+} from 'firebase/auth';
+import { auth, db } from './lib/firebase';
+
 
 
 const MockCandleChart = ({ title, subtitle, data, yLabels, xLabels, heightClass = "h-[200px]", fvgBox }: any) => {
@@ -179,21 +207,164 @@ export default function App() {
     setDeferredPrompt(null);
     setShowInstallBtn(false);
   };
-  const [journal, setJournal] = useState<any[]>(() => {
-    try {
-      const saved = localStorage.getItem('trading_journal');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Firebase Auth states
+  const [user, setUser] = useState<any>(null);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
+  // Auth state listener
   useEffect(() => {
-    localStorage.setItem('trading_journal', JSON.stringify(journal));
-  }, [journal]);
+    const unsub = onAuthStateChanged(auth, (usr) => {
+      setUser(usr);
+    });
+    return () => unsub();
+  }, []);
 
-  const saveToJournal = () => {
+  const [journal, setJournal] = useState<any[]>([]);
+
+  // Listen to Firestore when user is authenticated, otherwise use local storage
+  useEffect(() => {
+    let unsubscribe: any;
+    if (user) {
+      const q = query(
+        collection(db, "journal"),
+        where("userId", "==", user.uid)
+      );
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const list: any[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push({ ...docSnap.data() });
+        });
+        // sort by createdAt desc
+        list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        setJournal(list);
+      }, (err) => {
+        console.error("Firestore listener error:", err);
+      });
+    } else {
+      try {
+        const saved = localStorage.getItem('trading_journal');
+        setJournal(saved ? JSON.parse(saved) : []);
+      } catch {
+        setJournal([]);
+      }
+    }
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user]);
+
+  // Keep localStorage updated if guest user
+  useEffect(() => {
+    if (!user) {
+      localStorage.setItem('trading_journal', JSON.stringify(journal));
+    }
+  }, [journal, user]);
+
+  const syncLocalJournalToFirestore = async (userId: string, localEntries: any[]) => {
+    try {
+      for (const entry of localEntries) {
+        const entryId = entry.id || Date.now();
+        await setDoc(doc(db, "journal", `${userId}_${entryId}`), {
+          id: entryId,
+          date: entry.date,
+          bias: entry.bias,
+          bos: entry.bos,
+          fvg: entry.fvg,
+          status: entry.status,
+          userId: userId,
+          createdAt: entry.createdAt || Date.now()
+        }, { merge: true });
+      }
+    } catch (err) {
+      console.error("Error syncing local entries:", err);
+    }
+  };
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthSuccessMsg(null);
+    
+    if (!authEmail || !authPassword) {
+      setAuthError("Sila masukkan e-mel dan kata laluan.");
+      return;
+    }
+    
+    try {
+      if (isSignUp) {
+        const userCred = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+        setAuthSuccessMsg("Pendaftaran berjaya! Akaun anda sedia digunakan.");
+        // Sync any local journal items to Firestore
+        const localSaved = localStorage.getItem('trading_journal');
+        if (localSaved) {
+          const localEntries = JSON.parse(localSaved);
+          if (localEntries.length > 0) {
+            setSyncing(true);
+            await syncLocalJournalToFirestore(userCred.user.uid, localEntries);
+            localStorage.removeItem('trading_journal');
+            setSyncing(false);
+          }
+        }
+      } else {
+        const userCred = await signInWithEmailAndPassword(auth, authEmail, authPassword);
+        setAuthSuccessMsg("Log masuk berjaya!");
+        // Sync local journal items to Firestore
+        const localSaved = localStorage.getItem('trading_journal');
+        if (localSaved) {
+          const localEntries = JSON.parse(localSaved);
+          if (localEntries.length > 0) {
+            setSyncing(true);
+            await syncLocalJournalToFirestore(userCred.user.uid, localEntries);
+            localStorage.removeItem('trading_journal');
+            setSyncing(false);
+          }
+        }
+      }
+      setTimeout(() => {
+        setShowAuthModal(false);
+        setAuthSuccessMsg(null);
+        setAuthEmail('');
+        setAuthPassword('');
+      }, 1500);
+    } catch (err: any) {
+      console.error(err);
+      let errMsg = "Ralat berlaku. Sila cuba lagi.";
+      if (err.code === "auth/email-already-in-use") {
+        errMsg = "E-mel ini telah didaftarkan.";
+      } else if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found") {
+        errMsg = "E-mel atau kata laluan salah.";
+      } else if (err.code === "auth/weak-password") {
+        errMsg = "Kata laluan mestilah sekurang-kurangnya 6 aksara.";
+      } else if (err.code === "auth/invalid-email") {
+        errMsg = "Format e-mel tidak sah.";
+      }
+      setAuthError(errMsg);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("Sign out error:", err);
+    }
+  };
+
+  const saveToJournal = async () => {
     if (!data) return;
+    
+    // Prevent duplicate entries for the same date
+    if (journal.find(j => j.date === data.date)) {
+      setShowJournal(true);
+      return;
+    }
+
     const newEntry = {
       id: Date.now(),
       date: data.date,
@@ -202,20 +373,35 @@ export default function App() {
       fvg: `${data.fvg.direction} FVG`,
       status: 'PENDING'
     };
-    if (!journal.find(j => j.date === data.date)) {
+
+    if (user) {
+      try {
+        const entryId = Date.now();
+        await setDoc(doc(db, "journal", `${user.uid}_${entryId}`), {
+          id: entryId,
+          date: data.date,
+          bias: data.bias.direction,
+          bos: data.bos.structure,
+          fvg: `${data.fvg.direction} FVG`,
+          status: 'PENDING',
+          userId: user.uid,
+          createdAt: Date.now()
+        });
+      } catch (err) {
+        console.error("Failed to save to Firestore:", err);
+        alert("Gagal menyimpan ke awan. Sila cuba lagi.");
+      }
+    } else {
       setJournal([newEntry, ...journal]);
     }
     setShowJournal(true);
   };
-  
   
   const handleDownloadImage = async () => {
     const element = document.getElementById('export-container');
     if (!element) return;
     
     try {
-      // Create a cloned element style for better quality if needed, 
-      // but html-to-image works well with defaults.
       const dataUrl = await htmlToImage.toPng(element, { 
         backgroundColor: '#000000',
         pixelRatio: 2
@@ -231,11 +417,28 @@ export default function App() {
     }
   };
 
-  const updateJournalStatus = (id: number, status: string) => {
-    setJournal(journal.map(j => j.id === id ? { ...j, status } : j));
+  const updateJournalStatus = async (id: number, status: string) => {
+    if (user) {
+      try {
+        await setDoc(doc(db, "journal", `${user.uid}_${id}`), { status }, { merge: true });
+      } catch (err) {
+        console.error("Failed to update Firestore document:", err);
+      }
+    } else {
+      setJournal(journal.map(j => j.id === id ? { ...j, status } : j));
+    }
   };
-  const deleteJournalEntry = (id: number) => {
-    setJournal(journal.filter(j => j.id !== id));
+
+  const deleteJournalEntry = async (id: number) => {
+    if (user) {
+      try {
+        await deleteDoc(doc(db, "journal", `${user.uid}_${id}`));
+      } catch (err) {
+        console.error("Failed to delete from Firestore:", err);
+      }
+    } else {
+      setJournal(journal.filter(j => j.id !== id));
+    }
   };
 
   useEffect(() => {
@@ -277,15 +480,26 @@ export default function App() {
   return (
     <>
       <div className="min-h-screen bg-[#020202] text-white font-sans p-1 sm:p-2 md:p-4 flex flex-col items-center">
-      <div className={`w-full max-w-[1300px] flex justify-end gap-2 mb-2 transition-opacity duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+      <div className={`w-full max-w-[1300px] flex justify-end flex-wrap gap-2 mb-2 transition-opacity duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+        {user ? (
+          <button onClick={handleSignOut} className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-md font-bold text-xs sm:text-sm tracking-wide transition-colors shadow-lg shadow-red-600/20">
+            <LogOut className="w-4 h-4" />
+            LOG KELUAR ({user.email})
+          </button>
+        ) : (
+          <button onClick={() => setShowAuthModal(true)} className="flex items-center gap-1.5 bg-[#1e3a8a] hover:bg-blue-800 text-white px-3 py-1.5 rounded-md font-bold text-xs sm:text-sm tracking-wide transition-colors border border-blue-500/30 shadow-lg shadow-blue-500/10">
+            <Cloud className="w-4 h-4" />
+            DAFTAR / LOG MASUK (SYNC FIREBASE)
+          </button>
+        )}
         {showInstallBtn && (
-          <button onClick={handleInstallClick} className="flex items-center gap-1.5 bg-[#22c55e] text-black px-3 py-1.5 rounded-md font-bold text-sm sm:text-base hover:bg-green-400 transition-colors shadow-lg shadow-green-500/20">
-            <Smartphone className="w-4 h-4 sm:w-5 sm:h-5 text-black" />
+          <button onClick={handleInstallClick} className="flex items-center gap-1.5 bg-[#22c55e] text-black px-3 py-1.5 rounded-md font-bold text-xs sm:text-sm hover:bg-green-400 transition-colors shadow-lg shadow-green-500/20">
+            <Smartphone className="w-4 h-4 text-black" />
             PASANG APLIKASI
           </button>
         )}
-        <button onClick={handleDownloadImage} className="flex items-center gap-2 bg-[#ffcc00] text-black px-3 py-1.5 rounded-md font-bold text-sm sm:text-base hover:bg-yellow-400 transition-colors shadow-lg shadow-yellow-500/20">
-          <Download className="w-4 h-4 sm:w-5 sm:h-5" />
+        <button onClick={handleDownloadImage} className="flex items-center gap-2 bg-[#ffcc00] text-black px-3 py-1.5 rounded-md font-bold text-xs sm:text-sm hover:bg-yellow-400 transition-colors shadow-lg shadow-yellow-500/20">
+          <Download className="w-4 h-4" />
           DOWNLOAD GAMBAR
         </button>
       </div>
@@ -722,6 +936,102 @@ export default function App() {
                  )}
                </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showAuthModal && (
+        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-[#0a0a0a] border-2 border-[#b49a45] rounded-xl w-full max-w-md flex flex-col shadow-[0_0_30px_rgba(180,154,69,0.25)] overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-800 bg-[#111]">
+              <div className="flex items-center gap-2 text-[#ffcc00] font-bold text-base sm:text-lg">
+                <Cloud className="w-5 h-5 text-[#ffcc00]" />
+                {isSignUp ? "DAFTAR AKAUN BARU" : "LOG MASUK SYNC AWAN"}
+              </div>
+              <button onClick={() => { setShowAuthModal(false); setAuthError(null); setAuthSuccessMsg(null); }} className="text-gray-400 hover:text-white transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleAuthSubmit} className="p-4 sm:p-6 space-y-4">
+              <p className="text-xs text-gray-400">
+                {isSignUp 
+                  ? "Daftar akaun Firebase untuk menyimpan rekod Jurnal Trading anda di awan secara automatik dan mengaksesnya dari mana-mana peranti."
+                  : "Log masuk ke akaun Firebase anda untuk memuat turun dan menyegerakkan (sync) rekod Jurnal Trading anda."}
+              </p>
+
+              {authError && (
+                <div className="p-3 bg-red-950/40 border border-red-800 rounded text-xs text-red-400 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                  <span>{authError}</span>
+                </div>
+              )}
+
+              {authSuccessMsg && (
+                <div className="p-3 bg-green-950/40 border border-green-800 rounded text-xs text-green-400 flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                  <span>{authSuccessMsg}</span>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-300 block">ALAMAT E-MEL</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
+                  <input 
+                    type="email" 
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="nama@contoh.com"
+                    className="w-full bg-black border border-gray-800 focus:border-[#b49a45] rounded p-2 pl-9 text-sm text-white placeholder-gray-600 outline-none transition-colors"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-300 block">KATA LALUAN</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
+                  <input 
+                    type="password" 
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-black border border-gray-800 focus:border-[#b49a45] rounded p-2 pl-9 text-sm text-white placeholder-gray-600 outline-none transition-colors"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={syncing}
+                className="w-full bg-[#b49a45] hover:bg-[#ffcc00] text-black font-bold p-2.5 rounded transition-colors text-sm flex items-center justify-center gap-2 mt-2 cursor-pointer"
+              >
+                {syncing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    MENYEGARKAAN...
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    {isSignUp ? "DAFTAR SEKARANG" : "LOG MASUK"}
+                  </>
+                )}
+              </button>
+
+              <div className="text-center pt-2 border-t border-gray-900">
+                <button 
+                  type="button" 
+                  onClick={() => { setIsSignUp(!isSignUp); setAuthError(null); }}
+                  className="text-xs text-[#ffcc00] hover:underline font-semibold"
+                >
+                  {isSignUp ? "Sudah ada akaun? Log Masuk" : "Belum ada akaun? Daftar Baru"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

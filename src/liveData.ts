@@ -210,17 +210,21 @@ function findLiquidity(d1: any[], h4: any[], currentPrice: number) {
   
   let h1Raw;
   try {
-    // Cuba buat fetch terus dari KuCoin API (menyokong CORS dan sesuai untuk 'direct static hosting' / Cloudflare Pages)
-    const directUrl = `https://api.kucoin.com/api/v1/market/candles?type=1hour&symbol=PAXG-USDT${queryParams}`;
-    const h1Res = await fetchWithTimeout(directUrl);
-    if (!h1Res.ok) throw new Error("Direct KuCoin fetch status: " + h1Res.status);
-    h1Raw = await h1Res.json();
-  } catch (directErr) {
-    console.warn("Direct KuCoin fetch failed or blocked by CORS, falling back to local proxy API...", directErr);
-    // Fallback sekiranya local proxy diperlukan (e.g., Express server)
+    // Cuba dapatkan data dari local proxy dahulu kerana ia cepat, tiada isu CORS dan lebih dipercayai
     const h1Res = await fetchWithTimeout(`/api/klines?interval=1h${queryParams}`);
-    if (!h1Res.ok) throw new Error("H1 proxy fetch failed: " + h1Res.status);
+    if (!h1Res.ok) throw new Error("H1 proxy fetch status: " + h1Res.status);
     h1Raw = await h1Res.json();
+  } catch (proxyErr) {
+    console.warn("Local proxy fetch failed, falling back to direct KuCoin API...", proxyErr);
+    // Fallback sekiranya local proxy bermasalah atau jika di-host secara static sahaja
+    try {
+      const directUrl = `https://api.kucoin.com/api/v1/market/candles?type=1hour&symbol=PAXG-USDT${queryParams}`;
+      const h1Res = await fetchWithTimeout(directUrl);
+      if (!h1Res.ok) throw new Error("Direct KuCoin fetch status: " + h1Res.status);
+      h1Raw = await h1Res.json();
+    } catch (directErr: any) {
+      throw new Error("Gagal mengambil data dari proxy local mahupun direct KuCoin: " + directErr.message);
+    }
   }
   let h1RawData = h1Raw.data;
 
