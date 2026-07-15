@@ -180,20 +180,16 @@ export default function App() {
     setDeferredPrompt(null);
     setShowInstallBtn(false);
   };
-  const [journal, setJournal] = useState<any[]>(() => {
-    try {
-      const saved = localStorage.getItem('trading_journal');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [journal, setJournal] = useState<any[]>([]);
 
   useEffect(() => {
-    localStorage.setItem('trading_journal', JSON.stringify(journal));
-  }, [journal]);
+    fetch('/api/journal')
+      .then(res => res.json())
+      .then(data => setJournal(data))
+      .catch(console.error);
+  }, []);
 
-  const saveToJournal = () => {
+  const saveToJournal = async () => {
     if (!data) return;
     
     // Prevent duplicate entries for the same date
@@ -203,7 +199,6 @@ export default function App() {
     }
 
     const newEntry = {
-      id: Date.now(),
       date: data.date,
       bias: data.bias.direction,
       bos: data.bos.structure,
@@ -211,8 +206,19 @@ export default function App() {
       status: 'PENDING'
     };
 
-    setJournal([newEntry, ...journal]);
-    setShowJournal(true);
+    try {
+      const res = await fetch('/api/journal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newEntry)
+      });
+      const savedEntry = await res.json();
+      setJournal([savedEntry, ...journal]);
+      setShowJournal(true);
+    } catch (e) {
+      console.error(e);
+      alert('Gagal menyimpan jurnal ke awan.');
+    }
   };
   
   const handleDownloadImage = async () => {
@@ -235,12 +241,28 @@ export default function App() {
     }
   };
 
-  const updateJournalStatus = (id: number, status: string) => {
-    setJournal(journal.map(j => j.id === id ? { ...j, status } : j));
+  const updateJournalStatus = async (id: number, status: string) => {
+    try {
+      await fetch(`/api/journal/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      setJournal(journal.map(j => j.id === id ? { ...j, status } : j));
+    } catch (e) {
+      console.error(e);
+      alert('Gagal mengemas kini jurnal.');
+    }
   };
 
-  const deleteJournalEntry = (id: number) => {
-    setJournal(journal.filter(j => j.id !== id));
+  const deleteJournalEntry = async (id: number) => {
+    try {
+      await fetch(`/api/journal/${id}`, { method: 'DELETE' });
+      setJournal(journal.filter(j => j.id !== id));
+    } catch (e) {
+      console.error(e);
+      alert('Gagal memadam jurnal.');
+    }
   };
 
   useEffect(() => {
@@ -262,7 +284,7 @@ export default function App() {
     if (isToday) {
       interval = setInterval(() => {
         getLiveAnalysis(targetDate).then(setData).catch(e => setError(e.toString()));
-      }, 60000);
+      }, 600000); // 10 minutes
     }
     return () => { if (interval) clearInterval(interval); };
   }, [targetDate]);
@@ -270,7 +292,7 @@ export default function App() {
   useEffect(() => {
     const t = setTimeout(() => {
       if (!data && !error) setError("Timeout fetching data for " + targetDate.toDateString());
-    }, 15000);
+    }, 35000);
     return () => clearTimeout(t);
   }, [data, error]);
 

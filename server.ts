@@ -1,10 +1,69 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import { db } from "./src/db/index";
+import { journalEntries } from "./src/db/schema";
+import { desc, eq } from "drizzle-orm";
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  app.use(express.json());
+
+  // Journal API Routes
+  app.get("/api/journal", async (req, res) => {
+    try {
+      const entries = await db.select().from(journalEntries).orderBy(desc(journalEntries.createdAt));
+      res.json(entries);
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/journal", async (req, res) => {
+    try {
+      const { date, bias, bos, fvg, status } = req.body;
+      const result = await db.insert(journalEntries).values({
+        date,
+        bias,
+        bos,
+        fvg,
+        status: status || 'PENDING'
+      }).returning();
+      res.json(result[0]);
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.patch("/api/journal/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      const result = await db.update(journalEntries)
+        .set({ status })
+        .where(eq(journalEntries.id, id))
+        .returning();
+      res.json(result[0]);
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/journal/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(journalEntries).where(eq(journalEntries.id, id));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: e.message });
+    }
+  });
 
   // API route for Kucoin proxy
   app.get("/api/klines", async (req, res) => {

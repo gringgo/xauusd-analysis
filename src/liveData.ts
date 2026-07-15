@@ -124,7 +124,7 @@ function findFVG(candles: any[]) {
 
 const fetchWithTimeout = async (url: string) => {
     const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), 10000);
+    const id = setTimeout(() => controller.abort(), 30000);
     try {
       const res = await fetch(url, { signal: controller.signal, cache: "no-store" });
       clearTimeout(id);
