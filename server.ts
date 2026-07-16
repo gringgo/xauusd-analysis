@@ -108,6 +108,38 @@ async function startServer() {
     }
   });
 
+  // AI Summary API
+  app.post("/api/summary", async (req, res) => {
+    try {
+      const { data } = req.body;
+      const { GoogleGenAI } = require("@google/genai");
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+      const prompt = `Write a short summary in Malay (Bahasa Melayu) analyzing the current XAUUSD market based on this data: ${JSON.stringify(data)}.
+      Include:
+      1. Overall bias.
+      2. Key structure (BOS/FVG).
+      3. Upcoming high impact news.
+      Keep it brief and professional.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+      });
+
+      res.json({ text: response.text });
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -117,8 +149,18 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        }
+      }
+    }));
     app.get('*', (req, res) => {
+      if (req.path.startsWith('/assets/')) {
+        return res.status(404).send('Not found');
+      }
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

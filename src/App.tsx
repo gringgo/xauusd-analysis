@@ -1,3 +1,4 @@
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useState, useEffect } from 'react';
 import { format, toZonedTime } from 'date-fns-tz';
 import { 
@@ -16,12 +17,13 @@ import {
   Smartphone
 } from 'lucide-react';
 import { getLiveAnalysis } from './liveData';
+import { LightweightChart } from "./components/LightweightChart";
 import * as htmlToImage from 'html-to-image';
 import { Download } from 'lucide-react';
 
 
 
-const MockCandleChart = ({ title, subtitle, data, yLabels, xLabels, heightClass = "h-[200px]", fvgBox }: any) => {
+const MockCandleChart = (props: any) => null; const OldMockCandleChart = ({ title, subtitle, data, yLabels, xLabels, heightClass = "h-[200px]", fvgBox }: any) => {
   return (
     <div className="border border-gray-700 rounded bg-[#050505] overflow-hidden flex flex-col relative">
       {/* Top Bar inside chart */}
@@ -137,7 +139,74 @@ const FvgIllustration = () => (
   </div>
 )
 
+
+
+
+const JournalAnalytics = ({ journal }: { journal: any[] }) => {
+  const completed = journal.filter(j => j.status === 'WIN' || j.status === 'LOSS');
+  const wins = journal.filter(j => j.status === 'WIN').length;
+  const losses = journal.filter(j => j.status === 'LOSS').length;
+  const winRate = completed.length > 0 ? ((wins / completed.length) * 100).toFixed(1) : '0.0';
+  
+  const equityData = [{ trade: 0, balance: 100 }];
+  let currentBalance = 100;
+  // Journal entries are likely in reverse chronological order (newest first)
+  // So we reverse it to get chronological order for the equity curve
+  [...completed].reverse().forEach((j, i) => {
+    if (j.status === 'WIN') currentBalance += 2; // Assuming 1:2 RR risking 1%
+    else if (j.status === 'LOSS') currentBalance -= 1;
+    equityData.push({ trade: i + 1, balance: currentBalance, date: j.date });
+  });
+
+  return (
+    <div className="mb-6 flex flex-col gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-[#0a0a0a] border border-[#b49a45] rounded p-4 flex flex-col items-center justify-center">
+          <div className="text-gray-400 text-xs sm:text-sm mb-1 font-bold">Kadar Kemenangan (Win Rate)</div>
+          <div className="text-2xl sm:text-3xl font-black text-white">{winRate}%</div>
+          <div className="text-xs text-gray-500 mt-1">{wins} Win / {losses} Loss</div>
+        </div>
+        <div className="bg-[#0a0a0a] border border-[#b49a45] rounded p-4 flex flex-col items-center justify-center">
+          <div className="text-gray-400 text-xs sm:text-sm mb-1 font-bold">Nisbah R:R Purata</div>
+          <div className="text-2xl sm:text-3xl font-black text-[#4da6ff]">1:2</div>
+          <div className="text-xs text-gray-500 mt-1">Anggaran (Risiko 1%, Untung 2%)</div>
+        </div>
+        <div className="bg-[#0a0a0a] border border-[#b49a45] rounded p-4 flex flex-col items-center justify-center">
+          <div className="text-gray-400 text-xs sm:text-sm mb-1 font-bold">Jumlah Dagangan</div>
+          <div className="text-2xl sm:text-3xl font-black text-[#ffcc00]">{completed.length}</div>
+          <div className="text-xs text-gray-500 mt-1">Selesai (Menang/Kalah)</div>
+        </div>
+      </div>
+      
+      {completed.length > 0 && (
+        <div className="bg-[#0a0a0a] border border-[#b49a45] rounded p-4">
+          <div className="text-white font-bold text-sm mb-4">Graf Pertumbuhan Akaun (Simulasi)</div>
+          <div className="h-48 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={equityData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                <XAxis dataKey="trade" stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} />
+                <YAxis domain={['auto', 'auto']} stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} width={40} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#111', borderColor: '#333', color: '#fff', fontSize: '12px' }}
+                  itemStyle={{ color: '#4da6ff' }}
+                  formatter={(value) => [`${value}%`, 'Balance']}
+                  labelFormatter={(label) => `Dagangan #${label}`}
+                />
+                <Line type="stepAfter" dataKey="balance" stroke="#4da6ff" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#ffcc00' }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+};
+
+
 export default function App() {
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [targetDate, setTargetDate] = useState<Date>(new Date());
@@ -188,6 +257,27 @@ export default function App() {
       .then(data => setJournal(data))
       .catch(console.error);
   }, []);
+
+  
+  const fetchAiSummary = async () => {
+    if (!data) return;
+    setIsLoadingAi(true);
+    setAiSummary(null);
+    try {
+      const res = await fetch('/api/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data })
+      });
+      const result = await res.json();
+      setAiSummary(result.text);
+    } catch (e) {
+      console.error(e);
+      setAiSummary("Gagal mendapatkan rumusan AI.");
+    } finally {
+      setIsLoadingAi(false);
+    }
+  };
 
   const saveToJournal = async () => {
     if (!data) return;
@@ -366,32 +456,24 @@ export default function App() {
             
             {/* Charts Column */}
             <div className="flex flex-col gap-3">
-              <MockCandleChart 
+              <LightweightChart 
                 title="D1 CHART (DAILY)" 
                 subtitle="D1"
-                data={data.charts.d1.candles}
-                yLabels={data.charts.d1.yLabels}
-                xLabels={data.charts.d1.xLabels}
+                data={data.charts.d1.rawCandles}
                 heightClass="h-[160px] sm:h-[200px]"
               />
 
-              <MockCandleChart 
+              <LightweightChart 
                 title="H4 CHART (4 HOUR)" 
                 subtitle="H4"
-                data={data.charts.h4.candles}
-                fvgBox={data.charts.h4.fvgBox}
-                yLabels={data.charts.h4.yLabels}
-                xLabels={data.charts.h4.xLabels}
+                data={data.charts.h4.rawCandles}
                 heightClass="h-[160px] sm:h-[190px]"
               />
 
-              <MockCandleChart 
+              <LightweightChart 
                 title="H1 CHART (1 HOUR)" 
                 subtitle="H1"
-                data={data.charts.h1.candles}
-                fvgBox={data.charts.h1.fvgBox}
-                yLabels={data.charts.h1.yLabels}
-                xLabels={data.charts.h1.xLabels}
+                data={data.charts.h1.rawCandles}
                 heightClass="h-[150px] sm:h-[180px]"
               />
             </div>
@@ -469,6 +551,34 @@ export default function App() {
           {/* RIGHT COLUMN (Analysis Panels) */}
           <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-3 lg:gap-4">
             
+            
+            {/* AI SUMMARY */}
+            <div className="border border-[#b49a45] rounded bg-[#0a0a0a]">
+              <div className="border-b border-[#b49a45] px-3 py-1 flex justify-between items-center">
+                <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide flex items-center gap-2">
+                  <span className="text-lg">🤖</span> GEMINI AI RUMUSAN PASARAN
+                </span>
+              </div>
+              <div className="p-3">
+                {!aiSummary && !isLoadingAi && (
+                  <button onClick={fetchAiSummary} className="w-full py-2 bg-blue-900/40 text-blue-400 border border-blue-500/50 rounded font-bold hover:bg-blue-800/40 transition-colors text-sm flex items-center justify-center gap-2">
+                    <span className="text-lg">✨</span> Jana Rumusan Pasaran (AI)
+                  </button>
+                )}
+                {isLoadingAi && (
+                  <div className="text-center text-sm text-gray-400 py-4 flex flex-col items-center gap-2">
+                    <div className="w-5 h-5 border-2 border-[#4da6ff] border-t-transparent rounded-full animate-spin"></div>
+                    Menganalisis pasaran...
+                  </div>
+                )}
+                {aiSummary && (
+                  <div className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
+                    {aiSummary}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* BIAS UTAMA */}
             <div className="border border-[#b49a45] rounded bg-[#0a0a0a]">
               <div className="border-b border-[#b49a45] px-3 py-1">
@@ -696,44 +806,47 @@ export default function App() {
                   <p className="text-sm mt-2">Buka Pelan Dagangan harian dan tekan "Simpan Jurnal".</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {journal.map((entry) => (
-                    <div key={entry.id} className="border border-gray-800 bg-black rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <div className="font-bold text-white text-lg">{entry.date}</div>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          <span className={`text-xs px-2 py-0.5 rounded font-bold ${entry.bias === 'BULLISH' ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
-                            {entry.bias}
-                          </span>
-                          <span className="text-xs px-2 py-0.5 rounded font-bold bg-gray-800 text-gray-300">
-                            {entry.bos}
-                          </span>
-                          <span className="text-xs px-2 py-0.5 rounded font-bold bg-blue-900/50 text-blue-400">
-                            {entry.fvg}
-                          </span>
+                <>
+                  <JournalAnalytics journal={journal} />
+                  <div className="space-y-4">
+                    {journal.map((entry) => (
+                      <div key={entry.id} className="border border-gray-800 bg-black rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                          <div className="font-bold text-white text-lg">{entry.date}</div>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <span className={`text-xs px-2 py-0.5 rounded font-bold ${entry.bias === 'BULLISH' ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                              {entry.bias}
+                            </span>
+                            <span className="text-xs px-2 py-0.5 rounded font-bold bg-gray-800 text-gray-300">
+                              {entry.bos}
+                            </span>
+                            <span className="text-xs px-2 py-0.5 rounded font-bold bg-blue-900/50 text-blue-400">
+                              {entry.fvg}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <select 
+                            value={entry.status}
+                            onChange={(e) => updateJournalStatus(entry.id, e.target.value)}
+                            className={`text-sm font-bold px-3 py-1.5 rounded outline-none cursor-pointer ${
+                              entry.status === 'WIN' ? 'bg-[#22c55e] text-black' : 
+                              entry.status === 'LOSS' ? 'bg-[#ef4444] text-white' : 
+                              'bg-gray-700 text-white'
+                            }`}
+                          >
+                            <option value="PENDING">PENDING</option>
+                            <option value="WIN">WIN 🏆</option>
+                            <option value="LOSS">LOSS ❌</option>
+                          </select>
+                          <button onClick={() => deleteJournalEntry(entry.id)} className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-gray-800 rounded transition-colors">
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <select 
-                          value={entry.status}
-                          onChange={(e) => updateJournalStatus(entry.id, e.target.value)}
-                          className={`text-sm font-bold px-3 py-1.5 rounded outline-none cursor-pointer ${
-                            entry.status === 'WIN' ? 'bg-[#22c55e] text-black' : 
-                            entry.status === 'LOSS' ? 'bg-[#ef4444] text-white' : 
-                            'bg-gray-700 text-white'
-                          }`}
-                        >
-                          <option value="PENDING">PENDING</option>
-                          <option value="WIN">WIN 🏆</option>
-                          <option value="LOSS">LOSS ❌</option>
-                        </select>
-                        <button onClick={() => deleteJournalEntry(entry.id)} className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-gray-800 rounded transition-colors">
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
             

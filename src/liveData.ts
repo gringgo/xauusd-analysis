@@ -401,8 +401,8 @@ function findLiquidity(d1: any[], h4: any[], currentPrice: number) {
   };
 
   const d1Chart = formatChart(d1, 'dd MMM');
-  const h4Chart = formatChart(h4, 'dd MMM HH:mm');
-  const h1Chart = formatChart(h1, 'dd MMM HH:mm');
+  const h4Chart = formatChart(h4, 'dd MMM hh:mm a');
+  const h1Chart = formatChart(h1, 'dd MMM hh:mm a');
 
   // Normalize candles to 0-100 range for SVG drawing
   const normalize = (c: any, min: number, max: number) => {
@@ -449,7 +449,7 @@ function findLiquidity(d1: any[], h4: any[], currentPrice: number) {
 
   const target = targetDate || new Date();
   const dateStr = format(toZonedTime(target, 'Asia/Kuala_Lumpur'), 'dd MMM yyyy').toUpperCase();
-  const timeStr = format(toZonedTime(target, 'Asia/Kuala_Lumpur'), 'HH:mm:ss').toUpperCase();
+  const timeStr = format(toZonedTime(target, 'Asia/Kuala_Lumpur'), 'hh:mm:ss a').toUpperCase();
 
   return {
     date: dateStr,
@@ -458,17 +458,20 @@ function findLiquidity(d1: any[], h4: any[], currentPrice: number) {
     charts: {
       d1: {
         candles: d1Norm,
+        rawCandles: d1Chart.candles,
         yLabels: d1Chart.yLabels,
         xLabels: d1Chart.xLabels
       },
       h4: {
         candles: h4Norm,
+        rawCandles: h4Chart.candles,
         fvgBox: h4FvgBox,
         yLabels: h4Chart.yLabels,
         xLabels: h4Chart.xLabels
       },
       h1: {
         candles: h1Norm,
+        rawCandles: h1Chart.candles,
         fvgBox: h1FvgBox,
         yLabels: h1Chart.yLabels,
         xLabels: h1Chart.xLabels
