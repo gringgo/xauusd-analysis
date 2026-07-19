@@ -402,50 +402,104 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
 
   
   
+  let liveNewsData = [];
+  try {
+    const newsRes = await fetchWithTimeout('/api/news');
+    if (newsRes.ok) {
+      const allNews = await newsRes.json();
+      
+      // Filter for USD news and sort by date
+      if (Array.isArray(allNews)) {
+        liveNewsData = allNews
+          .filter(n => n.country === 'USD')
+          .map(n => {
+            const dateObj = new Date(n.date);
+            const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            
+            let impact = "LOW";
+            if (n.impact === "High") impact = "HIGH";
+            else if (n.impact === "Medium") impact = "MED";
+            
+            return {
+              time: timeStr,
+              event: n.title,
+              impact: impact,
+              date: dateObj,
+              forecast: n.forecast || "-",
+              previous: n.previous || "-"
+            };
+          });
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch live news:", e);
+  }
+
   let formattedNews = [];
   try {
     const d = targetDate || new Date();
-    const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday ... 6 = Saturday
     
-    // Generate some realistic daily news based on the day of the week
-    const weeklyNews = {
-      1: [ // Monday
-        { time: "08:30 PM", event: "Core Retail Sales m/m", impact: "MED" },
-        { time: "10:00 PM", event: "ISM Manufacturing PMI", impact: "HIGH" }
-      ],
-      2: [ // Tuesday
-        { time: "08:30 PM", event: "Core CPI m/m", impact: "HIGH" },
-        { time: "08:30 PM", event: "CPI m/m", impact: "HIGH" },
-        { time: "10:00 PM", event: "JOLTS Job Openings", impact: "MED" }
-      ],
-      3: [ // Wednesday
-        { time: "08:15 PM", event: "ADP Non-Farm Employment Change", impact: "MED" },
-        { time: "10:00 PM", event: "ISM Services PMI", impact: "HIGH" },
-        { time: "02:00 AM", event: "FOMC Economic Projections", impact: "HIGH" },
-        { time: "02:00 AM", event: "FOMC Statement", impact: "HIGH" },
-        { time: "02:30 AM", event: "FOMC Press Conference", impact: "HIGH" }
-      ],
-      4: [ // Thursday
-        { time: "08:30 PM", event: "Core PPI m/m", impact: "MED" },
-        { time: "08:30 PM", event: "Unemployment Claims", impact: "HIGH" },
-        { time: "10:00 PM", event: "Fed Chair Powell Speaks", impact: "HIGH" }
-      ],
-      5: [ // Friday
-        { time: "08:30 PM", event: "Average Hourly Earnings m/m", impact: "MED" },
-        { time: "08:30 PM", event: "Non-Farm Employment Change", impact: "HIGH" },
-        { time: "08:30 PM", event: "Unemployment Rate", impact: "HIGH" },
-        { time: "10:00 PM", event: "Prelim UoM Consumer Sentiment", impact: "MED" }
-      ],
-      6: [ // Saturday
-        { time: "-", event: "Pasaran Tutup (Hujung Minggu)", impact: "INFO" }
-      ],
-      0: [ // Sunday
-        { time: "-", event: "Pasaran Tutup (Hujung Minggu)", impact: "INFO" }
-      ]
-    };
-    
-    formattedNews = weeklyNews[dayOfWeek] || weeklyNews[1];
-    
+    if (liveNewsData.length > 0) {
+      // Find today's news
+      const startOfDay = new Date(d);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(d);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      const todaysNews = liveNewsData.filter(n => n.date >= startOfDay && n.date <= endOfDay);
+      
+      if (todaysNews.length > 0) {
+        formattedNews = todaysNews.map(n => ({ 
+          time: n.time, 
+          event: n.event, 
+          impact: n.impact,
+          forecast: n.forecast,
+          previous: n.previous 
+        }));
+      } else {
+        formattedNews = [{ time: "-", event: "Tiada news USD hari ini", impact: "INFO", forecast: "-", previous: "-" }];
+      }
+    } else {
+      const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday ... 6 = Saturday
+      
+      // Generate some realistic daily news based on the day of the week
+      const weeklyNews: any = {
+        1: [ // Monday
+          { time: "08:30 PM", event: "Core Retail Sales m/m", impact: "MED", forecast: "-", previous: "-" },
+          { time: "10:00 PM", event: "ISM Manufacturing PMI", impact: "HIGH", forecast: "-", previous: "-" }
+        ],
+        2: [ // Tuesday
+          { time: "08:30 PM", event: "Core CPI m/m", impact: "HIGH", forecast: "-", previous: "-" },
+          { time: "08:30 PM", event: "CPI m/m", impact: "HIGH", forecast: "-", previous: "-" },
+          { time: "10:00 PM", event: "JOLTS Job Openings", impact: "MED", forecast: "-", previous: "-" }
+        ],
+        3: [ // Wednesday
+          { time: "08:15 PM", event: "ADP Non-Farm Employment Change", impact: "MED", forecast: "-", previous: "-" },
+          { time: "10:00 PM", event: "ISM Services PMI", impact: "HIGH", forecast: "-", previous: "-" },
+          { time: "02:00 AM", event: "FOMC Economic Projections", impact: "HIGH", forecast: "-", previous: "-" },
+          { time: "02:00 AM", event: "FOMC Statement", impact: "HIGH", forecast: "-", previous: "-" },
+          { time: "02:30 AM", event: "FOMC Press Conference", impact: "HIGH", forecast: "-", previous: "-" }
+        ],
+        4: [ // Thursday
+          { time: "08:30 PM", event: "Core PPI m/m", impact: "MED", forecast: "-", previous: "-" },
+          { time: "08:30 PM", event: "Unemployment Claims", impact: "HIGH", forecast: "-", previous: "-" },
+          { time: "10:00 PM", event: "Fed Chair Powell Speaks", impact: "HIGH", forecast: "-", previous: "-" }
+        ],
+        5: [ // Friday
+          { time: "08:30 PM", event: "Average Hourly Earnings m/m", impact: "MED", forecast: "-", previous: "-" },
+          { time: "08:30 PM", event: "Non-Farm Employment Change", impact: "HIGH", forecast: "-", previous: "-" },
+          { time: "08:30 PM", event: "Unemployment Rate", impact: "HIGH", forecast: "-", previous: "-" },
+          { time: "10:00 PM", event: "Prelim UoM Consumer Sentiment", impact: "MED", forecast: "-", previous: "-" }
+        ],
+        6: [ // Saturday
+          { time: "-", event: "Pasaran Tutup (Hujung Minggu)", impact: "INFO", forecast: "-", previous: "-" }
+        ],
+        0: [ // Sunday
+          { time: "-", event: "Pasaran Tutup (Hujung Minggu)", impact: "INFO", forecast: "-", previous: "-" }
+        ]
+      };
+      formattedNews = weeklyNews[dayOfWeek] || weeklyNews[1];
+    }
   } catch(e) {
     console.error("Failed to generate news:", e);
     formattedNews = [{ time: "-", event: "Tiada news USD berimpak tinggi hari ini", impact: "-" }];

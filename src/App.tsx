@@ -519,15 +519,17 @@ export default function App() {
               <div className="border border-[#b49a45] rounded bg-[#0a0a0a] flex flex-col">
                 <div className="bg-[#1e3a8a] px-3 py-1.5 flex items-center gap-2 border-b border-[#b49a45]">
                   <img src="https://flagcdn.com/w20/us.png" alt="US" className="w-5" />
-                  <span className="text-white font-bold text-xs sm:text-sm tracking-wide">FUNDAMENTAL (USD)</span>
+                  <span className="text-white font-bold text-xs sm:text-sm tracking-wide">LIVE NEWS FEED (USD)</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[10px] sm:text-xs text-left text-gray-200">
                     <thead className="text-gray-400 border-b border-gray-700 bg-black/50">
                       <tr>
-                        <th className="px-2 py-1.5 font-normal text-center w-20">TIME (MYT)</th>
+                        <th className="px-2 py-1.5 font-normal text-center w-20">TIME</th>
                         <th className="px-2 py-1.5 font-normal">NEWS</th>
-                        <th className="px-2 py-1.5 font-normal text-center w-20">IMPACT</th>
+                        <th className="px-1 py-1.5 font-normal text-center w-12 hidden sm:table-cell">FCST</th>
+                        <th className="px-1 py-1.5 font-normal text-center w-12 hidden sm:table-cell">PREV</th>
+                        <th className="px-2 py-1.5 font-normal text-center w-16">IMPACT</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800">
@@ -535,6 +537,8 @@ export default function App() {
                         <tr key={i}>
                           <td className="px-2 py-1.5 text-center">{item.time}</td>
                           <td className="px-2 py-1.5">{item.event}</td>
+                          <td className="px-1 py-1.5 text-center text-gray-400 hidden sm:table-cell">{item.forecast}</td>
+                          <td className="px-1 py-1.5 text-center text-gray-400 hidden sm:table-cell">{item.previous}</td>
                           <td className={`px-2 py-1.5 font-bold text-center ${item.impact === 'HIGH' ? 'text-[#ef4444]' : (item.impact === 'MED' ? 'text-[#eab308]' : (item.impact === 'INFO' ? 'text-[#3b82f6]' : 'text-gray-400'))}`}>{item.impact}</td>
                         </tr>
                       ))}
