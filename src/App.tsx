@@ -148,7 +148,7 @@ const JournalAnalytics = ({ journal }: { journal: any[] }) => {
   const losses = journal.filter(j => j.status === 'LOSS').length;
   const winRate = completed.length > 0 ? ((wins / completed.length) * 100).toFixed(1) : '0.0';
   
-  const equityData = [{ trade: 0, balance: 100 }];
+  const equityData: any[] = [{ trade: 0, balance: 100, date: "" }];
   let currentBalance = 100;
   // Journal entries are likely in reverse chronological order (newest first)
   // So we reverse it to get chronological order for the equity curve
@@ -203,6 +203,40 @@ const JournalAnalytics = ({ journal }: { journal: any[] }) => {
   )
 };
 
+
+const renderFormattedSummary = (text: string) => {
+  return text.split('\n').map((line, i) => {
+    let content = line;
+    const isBullet = line.trim().startsWith('-') || line.trim().startsWith('*');
+    if (isBullet) {
+      content = line.replace(/^[\s-*•]+/, '');
+    }
+
+    // Parse **bold** parts
+    const parts = content.split(/(\*\*.*?\*\*)/g);
+    const renderedParts = parts.map((part, j) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={j} className="text-[#ffcc00] font-bold">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+
+    if (isBullet) {
+      return (
+        <div key={i} className="flex gap-2 items-start ml-2 my-1 sm:my-1.5 leading-relaxed">
+          <span className="text-[#ffcc00] shrink-0 mt-1">•</span>
+          <span className="flex-1 text-gray-200">{renderedParts}</span>
+        </div>
+      );
+    }
+
+    return (
+      <div key={i} className="min-h-[1.2em] my-1 text-gray-200 leading-relaxed">
+        {renderedParts}
+      </div>
+    );
+  });
+};
 
 export default function App() {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
@@ -507,11 +541,21 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
-                <div className="p-2 border-t border-[#b49a45] flex gap-2 items-start bg-[#111] mt-auto">
-                  <BarChart3 className="w-5 h-5 text-[#ffcc00] shrink-0 mt-0.5" />
-                  <div className="text-[10px] sm:text-xs text-gray-300 leading-tight">
-                    <span className="font-bold text-white">High Impact = Volatiliti Tinggi</span><br/>
-                    Pastikan risk management & jangan overtrade!
+                <div className="p-3 border-t border-[#b49a45] flex flex-col gap-2 bg-[#111] mt-auto">
+                  <div className="text-xs text-[#ffcc00] font-bold border-b border-gray-700 pb-1 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4" /> 
+                    AI PREDICTION
+                  </div>
+                  <div className="text-[10px] sm:text-[11px] text-gray-300 space-y-1.5 leading-relaxed">
+                    <p><span className="font-bold text-white">Suggest:</span> MENUNGGU DATA</p>
+                    <p><span className="font-bold text-white">Huraian:</span> Sentimen pasaran akan dinilai berdasarkan perbezaan antara data jangkaan (forecast) dan data sebenar (actual).</p>
+                    <p><span className="font-bold text-white">Kebarangkalian:</span> <span className="text-gray-500">N/A</span></p>
+                  </div>
+                  <div className="flex gap-2 items-start mt-1 p-2 bg-blue-900/20 border border-blue-900/50 rounded">
+                    <AlertTriangle className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
+                    <div className="text-[9px] sm:text-[10px] text-blue-300 italic">
+                      *Robot akan cari data 30 minit sebelum news..
+                    </div>
                   </div>
                 </div>
               </div>
@@ -572,8 +616,8 @@ export default function App() {
                   </div>
                 )}
                 {aiSummary && (
-                  <div className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
-                    {aiSummary}
+                  <div className="text-sm">
+                    {renderFormattedSummary(aiSummary)}
                   </div>
                 )}
               </div>
@@ -596,6 +640,85 @@ export default function App() {
               </div>
             </div>
 
+            
+            {/* SBR & RBS */}
+            <div className="border border-[#b49a45] rounded bg-[#0a0a0a]">
+              <div className="border-b border-[#b49a45] px-3 py-1">
+                <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">SBR & RBS (Support/Resistance)</span>
+              </div>
+              <div className="p-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="font-bold text-[#ef4444] text-xs sm:text-sm mb-2">H4 SBR/RBS</div>
+                    {data.sbr_rbs?.h4?.sbr && (
+                      <div className="text-gray-300 text-xs sm:text-sm mb-1">
+                        SBR: <span className="font-bold text-white">{data.sbr_rbs.h4.sbr}</span>
+                      </div>
+                    )}
+                    {data.sbr_rbs?.h4?.rbs && (
+                      <div className="text-gray-300 text-xs sm:text-sm">
+                        RBS: <span className="font-bold text-white">{data.sbr_rbs.h4.rbs}</span>
+                      </div>
+                    )}
+                    {!data.sbr_rbs?.h4?.sbr && !data.sbr_rbs?.h4?.rbs && (
+                      <div className="text-gray-500 text-xs italic">Tiada di H4</div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-bold text-[#22c55e] text-xs sm:text-sm mb-2">H1 SBR/RBS</div>
+                    {data.sbr_rbs?.h1?.sbr && (
+                      <div className="text-gray-300 text-xs sm:text-sm mb-1">
+                        SBR: <span className="font-bold text-white">{data.sbr_rbs.h1.sbr}</span>
+                      </div>
+                    )}
+                    {data.sbr_rbs?.h1?.rbs && (
+                      <div className="text-gray-300 text-xs sm:text-sm">
+                        RBS: <span className="font-bold text-white">{data.sbr_rbs.h1.rbs}</span>
+                      </div>
+                    )}
+                    {!data.sbr_rbs?.h1?.sbr && !data.sbr_rbs?.h1?.rbs && (
+                      <div className="text-gray-500 text-xs italic">Tiada di H1</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+
+            
+            
+            {/* ANALISIS HARI INI */}
+            {data.dailyAnalysis && (
+              <div className="border border-[#b49a45] rounded bg-[#0a0a0a] md:col-span-2 lg:col-span-3">
+                <div className="border-b border-[#b49a45] px-3 py-1 bg-[#1a1a1a]">
+                  <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">💡 ANALISIS GRINGGO HARI INI</span>
+                </div>
+                
+                {/* GRINGGO ANALYSIS CHART */}
+                <div className="p-3">
+                   <LightweightChart 
+                     title="ANALYSIS CHART (H1)" 
+                     subtitle="SBR/RBS, Liq, OB, FVG"
+                     data={data.charts.h1.rawCandles}
+                     heightClass="h-[250px] sm:h-[300px]"
+                     markers={{
+                       sbr: data.sbr_rbs?.h1?.sbr || data.sbr_rbs?.h4?.sbr,
+                       rbs: data.sbr_rbs?.h1?.rbs || data.sbr_rbs?.h4?.rbs,
+                       buySideLiq: data.liquidity?.buySide?.map(l => l.price),
+                       sellSideLiq: data.liquidity?.sellSide?.map(l => l.price),
+                       ob: data.orderBlock?.h1 || data.orderBlock?.h4,
+                       fvg: data.fvg?.h1 || data.fvg?.h4
+                     }}
+                   />
+                </div>
+
+                <div className="p-4 pt-0 text-gray-200 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                  {data.dailyAnalysis}
+                </div>
+              </div>
+            )}
+
+
             {/* LIQUIDITY */}
             <div className="border border-[#b49a45] rounded bg-[#0a0a0a]">
               <div className="border-b border-[#b49a45] px-3 py-1">
@@ -607,7 +730,7 @@ export default function App() {
                   {data.liquidity.buySide.map((item, i) => (
                     <div key={i} className="flex justify-between items-center text-xs sm:text-sm text-gray-200 py-0.5">
                       <span>{item.price} {item.label}</span>
-                      {i < 2 && <ArrowUp className="w-4 h-4 text-[#22c55e]" strokeWidth={3} />}
+                      <ArrowUp className="w-4 h-4 text-[#22c55e]" strokeWidth={3} />
                     </div>
                   ))}
                 </div>
@@ -617,9 +740,46 @@ export default function App() {
                   {data.liquidity.sellSide.map((item, i) => (
                     <div key={i} className="flex justify-between items-center text-xs sm:text-sm text-gray-200 py-0.5">
                       <span>{item.price} {item.label}</span>
-                      {i < 2 && <ArrowDown className="w-4 h-4 text-[#ef4444]" strokeWidth={3} />}
+                      <ArrowDown className="w-4 h-4 text-[#ef4444]" strokeWidth={3} />
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+
+            
+            {/* ORDER BLOCK */}
+            <div className="border border-[#b49a45] rounded bg-[#0a0a0a]">
+              <div className="border-b border-[#b49a45] px-3 py-1">
+                <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">ORDER BLOCK (OB)</span>
+              </div>
+              <div className="p-3">
+                <div className="flex flex-col gap-3">
+                  {data.orderBlock && data.orderBlock.h4 && (
+                    <div>
+                      <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.orderBlock.h4.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+                        {data.orderBlock.h4.direction} OB (H4)
+                      </div>
+                      <div className="bg-[#4c1d95] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-purple-900/20">
+                        {data.orderBlock.h4.range}
+                      </div>
+                    </div>
+                  )}
+                  {data.orderBlock && data.orderBlock.h1 && (
+                    <div>
+                      <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.orderBlock.h1.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+                        {data.orderBlock.h1.direction} OB (H1)
+                      </div>
+                      <div className="bg-[#4c1d95] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-purple-900/20">
+                        {data.orderBlock.h1.range}
+                      </div>
+                    </div>
+                  )}
+                  {(!data.orderBlock || (!data.orderBlock.h4 && !data.orderBlock.h1)) && (
+                    <div className="text-gray-400 text-xs sm:text-sm italic">
+                      Tiada Order Block yang jelas ditemui pada H4/H1.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -763,7 +923,7 @@ export default function App() {
           <div className="flex-1 border-2 border-[#b49a45] rounded-md bg-[#0a0a0a] p-3 sm:p-4 flex items-start gap-3 sm:gap-4 shadow-[0_0_15px_rgba(180,154,69,0.1)]">
             <AlertTriangle className="w-10 h-10 sm:w-12 sm:h-12 text-[#ffcc00] shrink-0 mt-1" />
             <div>
-              <div className="text-[#ffcc00] font-bold text-sm sm:text-base mb-1 tracking-wider">PERINGATAN MAXX</div>
+              <div className="text-[#ffcc00] font-bold text-sm sm:text-base mb-1 tracking-wider">PERINGATAN GRINGGO</div>
               <p className="text-xs sm:text-sm text-gray-300 leading-relaxed font-medium">
                 Pasaran boleh buat Judas Swing sebelum/selepas news.<br className="hidden sm:block"/>
                 Jangan FOMO. Tunggu liquidity disapu dulu,<br className="hidden sm:block"/>
@@ -779,7 +939,7 @@ export default function App() {
                 Disiplin hari ini, konsisten esok,<br/>
                 profit akan jadi kebiasaan.
               </p>
-              <div className="text-[#ffcc00] font-bold text-sm sm:text-base mt-2 tracking-wider">- MAXX</div>
+              <div className="text-[#ffcc00] font-bold text-sm sm:text-base mt-2 tracking-wider">- GRINGGO</div>
             </div>
           </div>
         </div>
@@ -792,7 +952,7 @@ export default function App() {
             <div className="flex justify-between items-center p-4 border-b border-gray-800 bg-[#111]">
               <div className="flex items-center gap-2 text-[#ffcc00] font-bold text-lg">
                 <BookOpen className="w-5 h-5" />
-                JURNAL TRADING MAXX
+                JURNAL TRADING GRINGGO
               </div>
               <button onClick={() => setShowJournal(false)} className="text-gray-400 hover:text-white transition-colors">
                 <X className="w-6 h-6" />

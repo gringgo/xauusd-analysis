@@ -1,9 +1,11 @@
+import "dotenv/config";
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { db } from "./src/db/index";
 import { journalEntries } from "./src/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { GoogleGenAI } from "@google/genai";
 
 async function startServer() {
   const app = express();
@@ -112,21 +114,32 @@ async function startServer() {
   app.post("/api/summary", async (req, res) => {
     try {
       const { data } = req.body;
-      const { GoogleGenAI } = require("@google/genai");
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("GEMINI_API_KEY environment variable is not defined");
+      }
       const ai = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY,
+        apiKey: apiKey,
         httpOptions: {
           headers: {
             'User-Agent': 'aistudio-build',
           }
         }
       });
-      const prompt = `Write a short summary in Malay (Bahasa Melayu) analyzing the current XAUUSD market based on this data: ${JSON.stringify(data)}.
-      Include:
-      1. Overall bias.
-      2. Key structure (BOS/FVG).
-      3. Upcoming high impact news.
-      Keep it brief and professional.`;
+      const prompt = `Anda adalah penganalisis pasaran XAUUSD (Emas) profesional (GRINGGO).
+Tulis rumusan analisis pasaran semasa yang ringkas dan padat dalam Bahasa Melayu berdasarkan data ini: ${JSON.stringify(data)}.
+
+Sila patuhi arahan ketat ini:
+1. TERUS MULA dengan kandungan analisis tanpa sebarang ayat pengenalan atau pembuka bicara (JANGAN tulis "Berikut adalah...", "Ini adalah...", "Tentu...", "Sebagai penganalisis...", dsb).
+2. JANGAN sertakan ayat penutup (JANGAN tulis "Semoga bermanfaat", "Selamat berdagang", dsb).
+3. Formatkan dengan menggunakan poin-poin (bullet points) Markdown yang kemas dan emoji yang sesuai.
+4. Strukturkan kepada bahagian berikut:
+   - 🎯 **Bias Utama**: (Sebutkan bias Bullish/Bearish/Sideway berserta huraian ringkas)
+   - 📊 **Struktur Kunci & Tahap Penting**: (Sebutkan SBR/RBS, Order Block (OB), FVG, atau Liquidity berdasarkan data)
+   - 📰 **Berita Berimpak Tinggi**: (Sebutkan berita berimpak tinggi yang akan datang berserta impak potensi)
+   - 💡 **Saranan Dagangan**: (Tips ringkas untuk pengurusan risiko)
+
+Tulis terus dalam nada profesional, tegas, padat dan mudah dibaca.`;
 
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",

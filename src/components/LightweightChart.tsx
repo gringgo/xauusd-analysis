@@ -6,9 +6,17 @@ interface LightweightChartProps {
   subtitle: string;
   data: any[];
   heightClass?: string;
+  markers?: {
+    sbr?: string | null;
+    rbs?: string | null;
+    buySideLiq?: string[];
+    sellSideLiq?: string[];
+    ob?: { top: number; bottom: number; direction: string } | null;
+    fvg?: { top: number; bottom: number; direction: string } | null;
+  };
 }
 
-export const LightweightChart: React.FC<LightweightChartProps> = ({ title, subtitle, data, heightClass = "h-[200px]" }) => {
+export const LightweightChart: React.FC<LightweightChartProps> = ({ title, subtitle, data, heightClass = "h-[200px]", markers }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -67,6 +75,45 @@ export const LightweightChart: React.FC<LightweightChartProps> = ({ title, subti
     series.setData(formattedData);
     chart.timeScale().fitContent();
 
+    if (markers) {
+      const s = series;
+      
+      // SBR & RBS
+      if (markers.sbr) {
+        s.createPriceLine({ price: parseFloat(markers.sbr), color: '#ef4444', lineWidth: 2, lineStyle: 2, title: 'SBR' });
+      }
+      if (markers.rbs) {
+        s.createPriceLine({ price: parseFloat(markers.rbs), color: '#22c55e', lineWidth: 2, lineStyle: 2, title: 'RBS' });
+      }
+
+      // Liquidity
+      if (markers.buySideLiq) {
+        markers.buySideLiq.forEach(price => {
+          s.createPriceLine({ price: parseFloat(price), color: '#3b82f6', lineWidth: 1, lineStyle: 1, title: 'BSL' });
+        });
+      }
+      if (markers.sellSideLiq) {
+        markers.sellSideLiq.forEach(price => {
+          s.createPriceLine({ price: parseFloat(price), color: '#f59e0b', lineWidth: 1, lineStyle: 1, title: 'SSL' });
+        });
+      }
+
+      // Order Block
+      if (markers.ob) {
+        const color = markers.ob.direction === 'BULLISH' ? '#22c55e' : '#ef4444';
+        s.createPriceLine({ price: markers.ob.top, color: color, lineWidth: 2, lineStyle: 0, title: 'OB Top' });
+        s.createPriceLine({ price: markers.ob.bottom, color: color, lineWidth: 2, lineStyle: 0, title: 'OB Btm' });
+      }
+
+      // FVG
+      if (markers.fvg) {
+        const color = markers.fvg.direction === 'BULLISH' ? '#22c55e' : '#ef4444';
+        s.createPriceLine({ price: markers.fvg.top, color: color, lineWidth: 1, lineStyle: 3, title: 'FVG Top' });
+        s.createPriceLine({ price: markers.fvg.bottom, color: color, lineWidth: 1, lineStyle: 3, title: 'FVG Btm' });
+      }
+    }
+
+
     chartRef.current = chart;
     seriesRef.current = series;
 
@@ -74,7 +121,7 @@ export const LightweightChart: React.FC<LightweightChartProps> = ({ title, subti
     return () => {
       chart.remove();
     };
-  }, [data]);
+  }, [data, markers]);
 
   return (
     <div className={`border border-gray-700 rounded bg-[#050505] overflow-hidden flex flex-col relative w-full ${heightClass}`}>
