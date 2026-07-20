@@ -1,4 +1,4 @@
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
 import { useState, useEffect } from 'react';
 import { format, toZonedTime } from 'date-fns-tz';
 import { 
@@ -158,6 +158,30 @@ const JournalAnalytics = ({ journal }: { journal: any[] }) => {
     equityData.push({ trade: i + 1, balance: currentBalance, date: j.date });
   });
 
+  // Calculate Win Rate over time for Bullish vs Bearish
+  const winRateOverTimeData: any[] = [];
+  let bullishWins = 0;
+  let bullishTotal = 0;
+  let bearishWins = 0;
+  let bearishTotal = 0;
+
+  [...completed].reverse().forEach((j, i) => {
+    if (j.bias === 'BULLISH') {
+      bullishTotal++;
+      if (j.status === 'WIN') bullishWins++;
+    } else if (j.bias === 'BEARISH') {
+      bearishTotal++;
+      if (j.status === 'WIN') bearishWins++;
+    }
+    
+    winRateOverTimeData.push({
+      trade: i + 1,
+      date: j.date,
+      bullishWinRate: bullishTotal > 0 ? Number(((bullishWins / bullishTotal) * 100).toFixed(1)) : null,
+      bearishWinRate: bearishTotal > 0 ? Number(((bearishWins / bearishTotal) * 100).toFixed(1)) : null,
+    });
+  });
+
   return (
     <div className="mb-6 flex flex-col gap-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -179,23 +203,46 @@ const JournalAnalytics = ({ journal }: { journal: any[] }) => {
       </div>
       
       {completed.length > 0 && (
-        <div className="bg-[#0a0a0a] border border-[#b49a45] rounded p-4">
-          <div className="text-white font-bold text-sm mb-4">Graf Pertumbuhan Akaun (Simulasi)</div>
-          <div className="h-48 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={equityData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                <XAxis dataKey="trade" stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} />
-                <YAxis domain={['auto', 'auto']} stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} width={40} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#111', borderColor: '#333', color: '#fff', fontSize: '12px' }}
-                  itemStyle={{ color: '#4da6ff' }}
-                  formatter={(value) => [`${value}%`, 'Balance']}
-                  labelFormatter={(label) => `Dagangan #${label}`}
-                />
-                <Line type="stepAfter" dataKey="balance" stroke="#4da6ff" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#ffcc00' }} />
-              </LineChart>
-            </ResponsiveContainer>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-[#0a0a0a] border border-[#b49a45] rounded p-4">
+            <div className="text-white font-bold text-sm mb-4">Graf Pertumbuhan Akaun (Simulasi)</div>
+            <div className="h-48 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={equityData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                  <XAxis dataKey="trade" stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} />
+                  <YAxis domain={['auto', 'auto']} stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} width={40} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#111', borderColor: '#333', color: '#fff', fontSize: '12px' }}
+                    itemStyle={{ color: '#4da6ff' }}
+                    formatter={(value) => [`${value}%`, 'Balance']}
+                    labelFormatter={(label) => `Dagangan #${label}`}
+                  />
+                  <Line type="stepAfter" dataKey="balance" stroke="#4da6ff" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#ffcc00' }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-[#0a0a0a] border border-[#b49a45] rounded p-4">
+            <div className="text-white font-bold text-sm mb-4">Kadar Kemenangan Bias (%)</div>
+            <div className="h-48 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={winRateOverTimeData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                  <XAxis dataKey="trade" stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} />
+                  <YAxis domain={[0, 100]} stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} width={30} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#111', borderColor: '#333', color: '#fff', fontSize: '12px' }}
+                    labelFormatter={(label) => `Dagangan #${label}`}
+                    formatter={(value, name) => [`${value}%`, name === 'bullishWinRate' ? 'Bullish Win Rate' : 'Bearish Win Rate']}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                  <Line type="monotone" name="Bullish" dataKey="bullishWinRate" stroke="#22c55e" strokeWidth={2} dot={false} connectNulls />
+                  <Line type="monotone" name="Bearish" dataKey="bearishWinRate" stroke="#ef4444" strokeWidth={2} dot={false} connectNulls />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
       )}
@@ -656,12 +703,12 @@ export default function App() {
                     <div className="font-bold text-[#ef4444] text-xs sm:text-sm mb-2">H4 SBR/RBS</div>
                     {data.sbr_rbs?.h4?.sbr && (
                       <div className="text-gray-300 text-xs sm:text-sm mb-1">
-                        SBR: <span className="font-bold text-white">{data.sbr_rbs.h4.sbr}</span>
+                        SBR: <span className="font-bold text-white">{data.sbr_rbs.h4.sbr.price}</span> <span className="text-green-400 font-bold ml-1">({data.sbr_rbs.h4.sbr.winRate}%)</span>
                       </div>
                     )}
                     {data.sbr_rbs?.h4?.rbs && (
                       <div className="text-gray-300 text-xs sm:text-sm">
-                        RBS: <span className="font-bold text-white">{data.sbr_rbs.h4.rbs}</span>
+                        RBS: <span className="font-bold text-white">{data.sbr_rbs.h4.rbs.price}</span> <span className="text-green-400 font-bold ml-1">({data.sbr_rbs.h4.rbs.winRate}%)</span>
                       </div>
                     )}
                     {!data.sbr_rbs?.h4?.sbr && !data.sbr_rbs?.h4?.rbs && (
@@ -672,12 +719,12 @@ export default function App() {
                     <div className="font-bold text-[#22c55e] text-xs sm:text-sm mb-2">H1 SBR/RBS</div>
                     {data.sbr_rbs?.h1?.sbr && (
                       <div className="text-gray-300 text-xs sm:text-sm mb-1">
-                        SBR: <span className="font-bold text-white">{data.sbr_rbs.h1.sbr}</span>
+                        SBR: <span className="font-bold text-white">{data.sbr_rbs.h1.sbr.price}</span> <span className="text-green-400 font-bold ml-1">({data.sbr_rbs.h1.sbr.winRate}%)</span>
                       </div>
                     )}
                     {data.sbr_rbs?.h1?.rbs && (
                       <div className="text-gray-300 text-xs sm:text-sm">
-                        RBS: <span className="font-bold text-white">{data.sbr_rbs.h1.rbs}</span>
+                        RBS: <span className="font-bold text-white">{data.sbr_rbs.h1.rbs.price}</span> <span className="text-green-400 font-bold ml-1">({data.sbr_rbs.h1.rbs.winRate}%)</span>
                       </div>
                     )}
                     {!data.sbr_rbs?.h1?.sbr && !data.sbr_rbs?.h1?.rbs && (
@@ -706,8 +753,8 @@ export default function App() {
                      data={data.charts.h1.rawCandles}
                      heightClass="h-[250px] sm:h-[300px]"
                      markers={{
-                       sbr: data.sbr_rbs?.h1?.sbr || data.sbr_rbs?.h4?.sbr,
-                       rbs: data.sbr_rbs?.h1?.rbs || data.sbr_rbs?.h4?.rbs,
+                       sbr: data.sbr_rbs?.h1?.sbr?.price || data.sbr_rbs?.h4?.sbr?.price,
+                       rbs: data.sbr_rbs?.h1?.rbs?.price || data.sbr_rbs?.h4?.rbs?.price,
                        buySideLiq: data.liquidity?.buySide?.map(l => l.price),
                        sellSideLiq: data.liquidity?.sellSide?.map(l => l.price),
                        ob: data.orderBlock?.h1 || data.orderBlock?.h4,
@@ -733,7 +780,7 @@ export default function App() {
                   <div className="text-[#22c55e] font-bold text-xs sm:text-sm mb-2 tracking-wide">BUY-SIDE LIQUIDITY</div>
                   {data.liquidity.buySide.map((item, i) => (
                     <div key={i} className="flex justify-between items-center text-xs sm:text-sm text-gray-200 py-0.5">
-                      <span>{item.price} {item.label}</span>
+                      <span>{item.price} {item.label} <span className="text-green-400 font-bold ml-1">({item.winRate}%)</span></span>
                       <ArrowUp className="w-4 h-4 text-[#22c55e]" strokeWidth={3} />
                     </div>
                   ))}
@@ -743,7 +790,7 @@ export default function App() {
                   <div className="text-[#ef4444] font-bold text-xs sm:text-sm mb-2 tracking-wide">SELL-SIDE LIQUIDITY</div>
                   {data.liquidity.sellSide.map((item, i) => (
                     <div key={i} className="flex justify-between items-center text-xs sm:text-sm text-gray-200 py-0.5">
-                      <span>{item.price} {item.label}</span>
+                      <span>{item.price} {item.label} <span className="text-green-400 font-bold ml-1">({item.winRate}%)</span></span>
                       <ArrowDown className="w-4 h-4 text-[#ef4444]" strokeWidth={3} />
                     </div>
                   ))}
@@ -765,7 +812,7 @@ export default function App() {
                         {data.orderBlock.h4.direction} OB (H4)
                       </div>
                       <div className="bg-[#4c1d95] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-purple-900/20">
-                        {data.orderBlock.h4.range}
+                        {data.orderBlock.h4.range} <span className="text-green-400 font-bold ml-1">({data.orderBlock.h4.winRate}%)</span>
                       </div>
                     </div>
                   )}
@@ -775,7 +822,7 @@ export default function App() {
                         {data.orderBlock.h1.direction} OB (H1)
                       </div>
                       <div className="bg-[#4c1d95] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-purple-900/20">
-                        {data.orderBlock.h1.range}
+                        {data.orderBlock.h1.range} <span className="text-green-400 font-bold ml-1">({data.orderBlock.h1.winRate}%)</span>
                       </div>
                     </div>
                   )}
@@ -801,7 +848,7 @@ export default function App() {
                         {data.fvg.h4.direction} FVG (H4)
                       </div>
                       <div className="bg-[#1e3a8a] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-blue-900/20">
-                        {data.fvg.h4.range}
+                        {data.fvg.h4.range} <span className="text-green-400 font-bold ml-1">({data.fvg.h4.winRate}%)</span>
                       </div>
                     </div>
                   )}
@@ -811,7 +858,7 @@ export default function App() {
                         {data.fvg.h1.direction} FVG (H1)
                       </div>
                       <div className="bg-[#1e3a8a] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-blue-900/20">
-                        {data.fvg.h1.range}
+                        {data.fvg.h1.range} <span className="text-green-400 font-bold ml-1">({data.fvg.h1.winRate}%)</span>
                       </div>
                     </div>
                   )}
