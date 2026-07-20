@@ -286,13 +286,31 @@ const renderFormattedSummary = (text: string) => {
 };
 
 export default function App() {
+  const getMarketStatus = () => {
+    const d = new Date();
+    const mytTime = new Date(d.getTime() + 8 * 3600 * 1000);
+    const day = mytTime.getUTCDay();
+    const hours = mytTime.getUTCHours();
+    if (day === 6 && hours >= 6) return false;
+    if (day === 0) return false;
+    if (day === 1 && hours < 6) return false;
+    return true;
+  };
+
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [targetDate, setTargetDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [marketOpen, setMarketOpen] = useState<boolean>(getMarketStatus());
   
+  // Update market status every minute
+  useEffect(() => {
+    const interval = setInterval(() => setMarketOpen(getMarketStatus()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Format for HTML date input: YYYY-MM-DD
   const [dateInput, setDateInput] = useState<string>(() => {
     const d = new Date();
@@ -501,7 +519,11 @@ export default function App() {
                 <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 <span className="text-white tracking-widest">{data.date} {data.time && `| ${data.time} MYT`}</span>
                 <span className="ml-2 px-1.5 py-0.5 bg-[#1e3a8a] text-white text-[10px] rounded font-bold border border-[#b49a45]">
-                  D1 OPEN: 8:00 AM MYT
+                  D1 OPEN: 6:00 AM MYT
+                </span>
+                
+                <span className={`ml-2 px-1.5 py-0.5 text-white text-[10px] rounded font-bold border ${marketOpen ? 'bg-green-600 border-green-400' : 'bg-red-600 border-red-400'}`}>
+                  {marketOpen ? 'PASARAN BUKA' : 'PASARAN TUTUP'}
                 </span>
     
                 <button onClick={() => setShowJournal(true)} className="ml-2 flex items-center gap-1 bg-[#b49a45] text-black px-2 py-1 rounded font-bold text-xs sm:text-sm hover:bg-[#ffcc00] transition-colors">
