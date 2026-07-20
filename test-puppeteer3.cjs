@@ -5,10 +5,15 @@ const puppeteer = require('puppeteer');
   
   page.on('console', msg => console.log('PAGE LOG:', msg.text()));
   page.on('pageerror', error => console.log('PAGE ERROR:', error.message));
-  page.on('requestfailed', request => console.log('REQUEST FAILED:', request.url(), request.failure()?.errorText));
   
   await page.goto('http://localhost:3000', { waitUntil: 'networkidle2' });
   
-  console.log("Done");
+  console.log("URL after navigation:", page.url());
+  const rootHtml = await page.$eval('#root', el => el.innerHTML);
+  console.log("Root HTML length:", rootHtml.length);
+  if (rootHtml.length < 500) {
+      console.log("Root HTML:", rootHtml);
+  }
+  
   await browser.close();
 })();

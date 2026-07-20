@@ -11,15 +11,15 @@
     <link rel="icon" type="image/svg+xml" href="/gold-icon.svg" />
     <link rel="apple-touch-icon" href="/gold-icon-192.png" />
   </head>
-  <body>
+  <body style="background-color: #020202; color: white;">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('Service Worker registered:', reg.scope))
-            .catch(err => console.log('Service Worker registration failed:', err));
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for(let registration of registrations) {
+            registration.unregister();
+          }
         });
       }
     </script>

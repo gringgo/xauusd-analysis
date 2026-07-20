@@ -170,7 +170,7 @@ Tulis terus dalam nada profesional, tegas, padat dan mudah dibaca.`;
       }
     }));
     app.get('*', (req, res) => {
-      if (req.path.startsWith('/assets/')) {
+      if (req.path.startsWith('/assets/') || req.path === '/sw.js') {
         return res.status(404).send('Not found');
       }
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
