@@ -1,7 +1,9 @@
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
+import { HighImpactNewsModal, NewsItem } from './components/HighImpactNewsModal';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, BarChart, Bar, Cell } from 'recharts';
 import { useState, useEffect } from 'react';
 import { format, toZonedTime } from 'date-fns-tz';
 import { 
+  Flame,
   Calendar, 
   ArrowUp, 
   ArrowDown, 
@@ -182,6 +184,78 @@ const JournalAnalytics = ({ journal }: { journal: any[] }) => {
     });
   });
 
+  // Helper to extract day of week (1 = Mon, 2 = Tue, 3 = Wed, 4 = Thu, 5 = Fri)
+  const getDayIndex = (entry: any): number => {
+    if (entry.date) {
+      let dStr = String(entry.date).trim();
+      const dLower = dStr.toLowerCase();
+      
+      if (dLower.includes('isnin') || dLower.includes('mon')) return 1;
+      if (dLower.includes('selasa') || dLower.includes('tue')) return 2;
+      if (dLower.includes('rabu') || dLower.includes('wed')) return 3;
+      if (dLower.includes('khamis') || dLower.includes('thu')) return 4;
+      if (dLower.includes('jumaat') || dLower.includes('fri')) return 5;
+
+      // Convert Malay month names for Date constructor compatibility
+      dStr = dStr
+        .replace(/mac/i, 'Mar')
+        .replace(/mei/i, 'May')
+        .replace(/jul/i, 'Jul')
+        .replace(/julai/i, 'Jul')
+        .replace(/ogos|ogo/i, 'Aug')
+        .replace(/okt|oktober/i, 'Oct')
+        .replace(/dis|disember/i, 'Dec');
+
+      const parsed = new Date(dStr);
+      if (!isNaN(parsed.getTime())) {
+        const day = parsed.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+        if (day >= 1 && day <= 5) return day;
+        if (day === 0 || day === 6) return 5; // Default weekend trades to Friday
+      }
+    }
+
+    if (entry.createdAt) {
+      const parsed = new Date(entry.createdAt);
+      if (!isNaN(parsed.getTime())) {
+        const day = parsed.getDay();
+        if (day >= 1 && day <= 5) return day;
+      }
+    }
+    return 1; // Default to Monday
+  };
+
+  const daysMap = [
+    { dayIdx: 1, name: 'Isnin', short: 'ISN' },
+    { dayIdx: 2, name: 'Selasa', short: 'SEL' },
+    { dayIdx: 3, name: 'Rabu', short: 'RAB' },
+    { dayIdx: 4, name: 'Khamis', short: 'KHA' },
+    { dayIdx: 5, name: 'Jumaat', short: 'JUM' },
+  ];
+
+  const dayStatsData = daysMap.map(day => {
+    const dayEntries = completed.filter(j => getDayIndex(j) === day.dayIdx);
+    const total = dayEntries.length;
+    const dayWins = dayEntries.filter(j => j.status === 'WIN').length;
+    const dayLosses = dayEntries.filter(j => j.status === 'LOSS').length;
+    const dayWinRate = total > 0 ? Number(((dayWins / total) * 100).toFixed(1)) : 0;
+    
+    // Risk 1% per trade: Win = +2%, Loss = -1%
+    const totalPnLPercent = (dayWins * 2) - (dayLosses * 1);
+    const avgPnLPercent = total > 0 ? Number((totalPnLPercent / total).toFixed(2)) : 0;
+    
+    return {
+      dayName: day.name,
+      shortName: day.short,
+      dayIdx: day.dayIdx,
+      total,
+      wins: dayWins,
+      losses: dayLosses,
+      winRate: dayWinRate,
+      avgPnLPercent,
+      avgPnLFormatted: avgPnLPercent > 0 ? `+${avgPnLPercent}%` : `${avgPnLPercent}%`
+    };
+  });
+
   return (
     <div className="mb-6 flex flex-col gap-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -203,48 +277,142 @@ const JournalAnalytics = ({ journal }: { journal: any[] }) => {
       </div>
       
       {completed.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-[#0a0a0a] border border-[#b49a45] rounded p-4">
-            <div className="text-white font-bold text-sm mb-4">Graf Pertumbuhan Akaun (Simulasi)</div>
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={equityData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                  <XAxis dataKey="trade" stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} />
-                  <YAxis domain={['auto', 'auto']} stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} width={40} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#111', borderColor: '#333', color: '#fff', fontSize: '12px' }}
-                    itemStyle={{ color: '#4da6ff' }}
-                    formatter={(value) => [`${value}%`, 'Balance']}
-                    labelFormatter={(label) => `Dagangan #${label}`}
-                  />
-                  <Line type="stepAfter" dataKey="balance" stroke="#4da6ff" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#ffcc00' }} />
-                </LineChart>
-              </ResponsiveContainer>
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-[#0a0a0a] border border-[#b49a45] rounded p-4">
+              <div className="text-white font-bold text-sm mb-4">Graf Pertumbuhan Akaun (Simulasi)</div>
+              <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={equityData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                    <XAxis dataKey="trade" stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} />
+                    <YAxis domain={['auto', 'auto']} stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} width={40} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#111', borderColor: '#333', color: '#fff', fontSize: '12px' }}
+                      itemStyle={{ color: '#4da6ff' }}
+                      formatter={(value) => [`${value}%`, 'Balance']}
+                      labelFormatter={(label) => `Dagangan #${label}`}
+                    />
+                    <Line type="stepAfter" dataKey="balance" stroke="#4da6ff" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: '#ffcc00' }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="bg-[#0a0a0a] border border-[#b49a45] rounded p-4">
+              <div className="text-white font-bold text-sm mb-4">Kadar Kemenangan Bias (%)</div>
+              <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={winRateOverTimeData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                    <XAxis dataKey="trade" stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} />
+                    <YAxis domain={[0, 100]} stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} width={30} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#111', borderColor: '#333', color: '#fff', fontSize: '12px' }}
+                      labelFormatter={(label) => `Dagangan #${label}`}
+                      formatter={(value, name) => [`${value}%`, name === 'bullishWinRate' ? 'Bullish Win Rate' : 'Bearish Win Rate']}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                    <Line type="monotone" name="Bullish" dataKey="bullishWinRate" stroke="#22c55e" strokeWidth={2} dot={false} connectNulls />
+                    <Line type="monotone" name="Bearish" dataKey="bearishWinRate" stroke="#ef4444" strokeWidth={2} dot={false} connectNulls />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
+          {/* Panel Prestasi Hari Dalam Seminggu */}
           <div className="bg-[#0a0a0a] border border-[#b49a45] rounded p-4">
-            <div className="text-white font-bold text-sm mb-4">Kadar Kemenangan Bias (%)</div>
-            <div className="h-48 w-full">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <div>
+                <div className="text-[#ffcc00] font-bold text-sm sm:text-base flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-[#ffcc00]" />
+                  Prestasi Mengikut Hari (Isnin - Jumaat)
+                </div>
+                <div className="text-gray-400 text-xs mt-0.5">
+                  Peratus kemenangan (Win Rate) & purata untung/rugi per trade bagi setiap hari dalam seminggu.
+                </div>
+              </div>
+            </div>
+
+            {/* Grid 5 Hari */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-5">
+              {dayStatsData.map((d) => (
+                <div key={d.dayIdx} className="bg-black border border-gray-800 hover:border-[#b49a45]/60 transition-colors rounded-lg p-3 flex flex-col justify-between">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="font-extrabold text-xs text-white tracking-wider">{d.dayName.toUpperCase()}</span>
+                    <span className="text-[10px] bg-gray-900 border border-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                      {d.total} trade
+                    </span>
+                  </div>
+
+                  {/* Win Rate */}
+                  <div className="my-1">
+                    <div className="flex justify-between items-center text-[11px] mb-1">
+                      <span className="text-gray-400 font-medium">Win Rate:</span>
+                      <span className={`font-bold ${d.total === 0 ? 'text-gray-500' : d.winRate >= 50 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
+                        {d.total === 0 ? '0%' : `${d.winRate}%`}
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-gray-900 h-2 rounded-full overflow-hidden border border-gray-800">
+                      <div 
+                        className={`h-full transition-all duration-500 ${
+                          d.total === 0 ? 'bg-gray-800' : d.winRate >= 50 ? 'bg-gradient-to-r from-emerald-500 to-green-400' : 'bg-gradient-to-r from-red-600 to-rose-400'
+                        }`}
+                        style={{ width: `${d.winRate}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Purata PnL */}
+                  <div className="mt-2 pt-2 border-t border-gray-900 flex justify-between items-center text-[11px]">
+                    <span className="text-gray-400">Purata PnL:</span>
+                    <span className={`font-black font-mono ${
+                      d.total === 0 ? 'text-gray-500' : d.avgPnLPercent > 0 ? 'text-[#22c55e]' : d.avgPnLPercent < 0 ? 'text-[#ef4444]' : 'text-gray-300'
+                    }`}>
+                      {d.total === 0 ? '0.0%' : d.avgPnLFormatted}
+                    </span>
+                  </div>
+
+                  <div className="text-[9px] text-gray-500 mt-1 text-right">
+                    {d.wins} W / {d.losses} L
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Recharts Bar Chart */}
+            <div className="h-44 w-full pt-2 border-t border-gray-900">
+              <div className="text-xs text-gray-400 mb-2 font-medium">Carta Nisbah Kemenangan (%) Bagi Setiap Hari:</div>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={winRateOverTimeData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                  <XAxis dataKey="trade" stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} />
-                  <YAxis domain={[0, 100]} stroke="#666" tick={{fill: '#888', fontSize: 10}} tickLine={false} axisLine={false} width={30} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#111', borderColor: '#333', color: '#fff', fontSize: '12px' }}
-                    labelFormatter={(label) => `Dagangan #${label}`}
-                    formatter={(value, name) => [`${value}%`, name === 'bullishWinRate' ? 'Bullish Win Rate' : 'Bearish Win Rate']}
+                <BarChart data={dayStatsData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                  <XAxis dataKey="dayName" stroke="#666" tick={{ fill: '#aaa', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 100]} stroke="#666" tick={{ fill: '#777', fontSize: 10 }} unit="%" axisLine={false} tickLine={false} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#0a0a0a', borderColor: '#b49a45', borderRadius: '6px', color: '#fff', fontSize: '12px' }}
+                    formatter={(value: any, name: any) => {
+                      if (name === 'winRate') return [`${value}%`, 'Kadar Kemenangan'];
+                      if (name === 'avgPnLPercent') return [`${value}%`, 'Purata PnL'];
+                      return [value, name];
+                    }}
+                    labelFormatter={(label) => `Hari ${label}`}
                   />
-                  <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                  <Line type="monotone" name="Bullish" dataKey="bullishWinRate" stroke="#22c55e" strokeWidth={2} dot={false} connectNulls />
-                  <Line type="monotone" name="Bearish" dataKey="bearishWinRate" stroke="#ef4444" strokeWidth={2} dot={false} connectNulls />
-                </LineChart>
+                  <Bar dataKey="winRate" radius={[4, 4, 0, 0]} maxBarSize={45}>
+                    {dayStatsData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.total === 0 ? '#262626' : entry.winRate >= 50 ? '#22c55e' : '#ef4444'} 
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   )
@@ -318,6 +486,74 @@ export default function App() {
   });
 
   const [showJournal, setShowJournal] = useState(false);
+  const [showNewsModal, setShowNewsModal] = useState(false);
+  const [newsHistoryList, setNewsHistoryList] = useState<NewsItem[]>([]);
+
+  useEffect(() => {
+    fetch('/api/news-history')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setNewsHistoryList(data);
+      })
+      .catch(console.error);
+  }, []);
+
+  const handleAddNews = async (item: Partial<NewsItem>) => {
+    try {
+      const res = await fetch('/api/news-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item)
+      });
+      const saved = await res.json();
+      setNewsHistoryList([saved, ...newsHistoryList]);
+    } catch (e) {
+      console.error(e);
+      alert('Gagal menyimpan ramalan news.');
+    }
+  };
+
+  const handleUpdateNews = async (id: number, updates: Partial<NewsItem>) => {
+    try {
+      const res = await fetch(`/api/news-history/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      const updated = await res.json();
+      setNewsHistoryList(newsHistoryList.map(n => n.id === id ? updated : n));
+    } catch (e) {
+      console.error(e);
+      alert('Gagal mengemas kini news.');
+    }
+  };
+
+  const handleDeleteNews = async (id: number) => {
+    try {
+      await fetch(`/api/news-history/${id}`, { method: 'DELETE' });
+      setNewsHistoryList(newsHistoryList.filter(n => n.id !== id));
+    } catch (e) {
+      console.error(e);
+      alert('Gagal memadam news.');
+    }
+  };
+
+  const handleAutoSyncNews = async () => {
+    const res = await fetch('/api/auto-sync-news', { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Gagal sinkronkan news.');
+    }
+    const synced = await res.json();
+    if (Array.isArray(synced)) {
+      setNewsHistoryList(prev => {
+        // merge unique items
+        const existingIds = new Set(prev.map(p => p.id));
+        const newItems = synced.filter((s: any) => !existingIds.has(s.id));
+        return [...newItems, ...prev];
+      });
+    }
+  };
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
 
@@ -531,6 +767,11 @@ export default function App() {
                   JURNAL
                 </button>
 
+                <button onClick={() => setShowNewsModal(true)} className="ml-2 flex items-center gap-1 bg-red-600 text-white px-2 py-1 rounded font-black text-xs sm:text-sm hover:bg-red-500 transition-colors shadow-lg shadow-red-900/40">
+                  <Flame className="w-4 h-4 text-[#ffcc00]" />
+                  NEWS IMPAK TINGGI
+                </button>
+
     <input 
       type="date" 
       value={dateInput}
@@ -586,9 +827,18 @@ export default function App() {
               
               {/* Fundamentals */}
               <div className="border border-[#b49a45] rounded bg-[#0a0a0a] flex flex-col">
-                <div className="bg-[#1e3a8a] px-3 py-1.5 flex items-center gap-2 border-b border-[#b49a45]">
-                  <img src="https://flagcdn.com/w20/us.png" alt="US" className="w-5" />
-                  <span className="text-white font-bold text-xs sm:text-sm tracking-wide">LIVE NEWS FEED (USD)</span>
+                <div className="bg-[#1e3a8a] px-3 py-1.5 flex items-center justify-between border-b border-[#b49a45]">
+                  <div className="flex items-center gap-2">
+                    <img src="https://flagcdn.com/w20/us.png" alt="US" className="w-5" />
+                    <span className="text-white font-bold text-xs sm:text-sm tracking-wide">LIVE NEWS FEED (USD)</span>
+                  </div>
+                  <button 
+                    onClick={() => setShowNewsModal(true)}
+                    className="flex items-center gap-1 bg-red-600 hover:bg-red-500 text-white text-[10px] sm:text-xs font-black px-2 py-0.5 rounded shadow transition-colors"
+                  >
+                    <Flame className="w-3 h-3 text-[#ffcc00]" />
+                    ANALISIS & HISTORY NEWS
+                  </button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[10px] sm:text-xs text-left text-gray-200">
@@ -1099,7 +1349,15 @@ export default function App() {
         </div>
       )}
 
-
+      <HighImpactNewsModal 
+        isOpen={showNewsModal}
+        onClose={() => setShowNewsModal(false)}
+        newsList={newsHistoryList}
+        onAddNews={handleAddNews}
+        onUpdateNews={handleUpdateNews}
+        onDeleteNews={handleDeleteNews}
+        onAutoSyncNews={handleAutoSyncNews}
+      />
 
     </>
   );
