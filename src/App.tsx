@@ -761,6 +761,90 @@ const RiskCalculator = ({ entryPrice, slPrice }: { entryPrice: string | number, 
   );
 };
 
+const HighImpactNewsBanner = ({ news, targetDate }: { news: any[], targetDate: Date }) => {
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const mytTime = toZonedTime(time, 'Asia/Kuala_Lumpur');
+  const currentHour = mytTime.getHours();
+  const currentMinute = mytTime.getMinutes();
+  
+  const highImpactNews = news?.filter((n: any) => n.impact === "HIGH") || [];
+  if (highImpactNews.length === 0) return null;
+
+  let upcomingNews = null;
+  let minMinutesLeft = Infinity;
+
+  const isToday = targetDate.toDateString() === new Date().toDateString();
+  if (!isToday) return null;
+
+  for (const n of highImpactNews) {
+    if (!n.time || n.time === "-") continue;
+    const match = n.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!match) continue;
+    
+    let h = parseInt(match[1]);
+    const m = parseInt(match[2]);
+    const p = match[3].toUpperCase();
+    if (p === "PM" && h !== 12) h += 12;
+    if (p === "AM" && h === 12) h = 0;
+    
+    const newsTotalMinutes = h * 60 + m;
+    const currentTotalMinutes = currentHour * 60 + currentMinute;
+    
+    let minutesLeft = newsTotalMinutes - currentTotalMinutes;
+    if (minutesLeft < 0) {
+      if (h < 6 && currentHour > 18) {
+         minutesLeft += 24 * 60; 
+      }
+    }
+    
+    if (minutesLeft >= 0 && minutesLeft < minMinutesLeft) {
+      minMinutesLeft = minutesLeft;
+      upcomingNews = n;
+    }
+  }
+
+  if (!upcomingNews || minMinutesLeft === Infinity) return null;
+
+  const hoursLeft = Math.floor(minMinutesLeft / 60);
+  const minsLeft = minMinutesLeft % 60;
+
+  return (
+    <div className="w-full mb-6 overflow-hidden rounded-xl border border-red-500/50 bg-gradient-to-r from-red-950/80 via-red-900/50 to-red-950/80 shadow-[0_0_30px_rgba(239,68,68,0.2)] relative">
+      <div className="absolute top-0 left-0 w-full h-1 bg-red-500 animate-pulse"></div>
+      <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="bg-red-500/20 p-2.5 sm:p-3 rounded-full border border-red-500/50 animate-pulse">
+             <Flame className="w-6 h-6 sm:w-8 sm:h-8 text-red-500" />
+          </div>
+          <div>
+            <div className="text-red-400 font-bold text-[10px] sm:text-xs tracking-widest mb-0.5">AMARAN NEWS BERIMPAK TINGGI</div>
+            <div className="text-lg sm:text-2xl font-black text-white">{upcomingNews.event}</div>
+          </div>
+        </div>
+        
+        <div className="flex flex-col items-center sm:items-end bg-black/60 p-2 sm:p-3 rounded-lg border border-red-900/50 min-w-[160px] sm:min-w-[200px]">
+          <div className="text-gray-400 text-[10px] sm:text-xs font-bold mb-0.5">MASA TINGGAL</div>
+          <div className="flex items-baseline gap-1.5">
+            <div className="text-2xl sm:text-4xl font-black text-[#ffcc00]">{hoursLeft}</div>
+            <div className="text-[10px] sm:text-xs text-gray-300 font-bold">JAM</div>
+            <div className="text-2xl sm:text-4xl font-black text-[#ffcc00] ml-1">{minsLeft}</div>
+            <div className="text-[10px] sm:text-xs text-gray-300 font-bold">MIN</div>
+          </div>
+          <div className="text-red-400 text-[9px] sm:text-[10px] font-bold mt-1 tracking-wider uppercase">
+            EXPECTED: {upcomingNews.time} MYT
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const getMarketStatus = () => {
     const d = new Date();
@@ -1152,6 +1236,8 @@ export default function App() {
           </div>
         </header>
 
+        <HighImpactNewsBanner news={data.news} targetDate={targetDate} />
+
         {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4">
           
@@ -1207,15 +1293,27 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800">
-                      {data.news.map((item, i) => (
-                        <tr key={i}>
-                          <td className="px-3 py-2 sm:px-2 sm:py-1.5 text-center">{item.time}</td>
-                          <td className="px-3 py-2 sm:px-2 sm:py-1.5">{item.event}</td>
-                          <td className="px-1 py-1.5 text-center text-gray-400 hidden sm:table-cell">{item.forecast}</td>
-                          <td className="px-1 py-1.5 text-center text-gray-400 hidden sm:table-cell">{item.previous}</td>
-                          <td className={`px-3 py-2 sm:px-2 sm:py-1.5 font-bold text-center ${item.impact === 'HIGH' ? 'text-[#ef4444]' : (item.impact === 'MED' ? 'text-[#eab308]' : (item.impact === 'INFO' ? 'text-[#3b82f6]' : 'text-gray-400'))}`}>{item.impact}</td>
-                        </tr>
-                      ))}
+                      {(() => {
+                        const medHighNews = data.news?.filter((item: any) => item.impact === 'HIGH' || item.impact === 'MED') || [];
+                        if (medHighNews.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={5} className="px-3 py-3 text-center text-gray-400 italic">
+                                Tiada news MED / HIGH impak USD hari ini
+                              </td>
+                            </tr>
+                          );
+                        }
+                        return medHighNews.map((item: any, i: number) => (
+                          <tr key={i}>
+                            <td className="px-3 py-2 sm:px-2 sm:py-1.5 text-center">{item.time}</td>
+                            <td className="px-3 py-2 sm:px-2 sm:py-1.5">{item.event}</td>
+                            <td className="px-1 py-1.5 text-center text-gray-400 hidden sm:table-cell">{item.forecast}</td>
+                            <td className="px-1 py-1.5 text-center text-gray-400 hidden sm:table-cell">{item.previous}</td>
+                            <td className={`px-3 py-2 sm:px-2 sm:py-1.5 font-bold text-center ${item.impact === 'HIGH' ? 'text-[#ef4444]' : 'text-[#eab308]'}`}>{item.impact}</td>
+                          </tr>
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
