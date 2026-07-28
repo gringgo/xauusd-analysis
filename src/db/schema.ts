@@ -6,6 +6,7 @@ export const journalEntries = pgTable("journal_entries", {
   bias: varchar("bias", { length: 255 }).notNull(),
   bos: varchar("bos", { length: 255 }).notNull(),
   fvg: varchar("fvg", { length: 255 }).notNull(),
+  plan: varchar("plan", { length: 50 }),
   status: varchar("status", { length: 50 }).notNull().default('PENDING'),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

@@ -16,7 +16,8 @@ import {
   BookOpen,
   Save,
   X,
-  Smartphone
+  Smartphone,
+  Copy
 } from 'lucide-react';
 import { getLiveAnalysis } from './liveData';
 import { LightweightChart } from "./components/LightweightChart";
@@ -146,7 +147,7 @@ const FvgIllustration = () => (
 
 const ConfluenceScore = ({ data }: { data: any }) => {
   let score = 20;
-  let zones: { name: string, price: string, type: 'BULLISH' | 'BEARISH' }[] = [];
+  let zones: { name: string, price: string, type: 'BULLISH' | 'BEARISH', isMicro?: boolean }[] = [];
   
   if (data?.fvg?.h4 && data?.sbr_rbs?.h1) {
     const fTop = data.fvg.h4.top;
@@ -154,17 +155,17 @@ const ConfluenceScore = ({ data }: { data: any }) => {
     const fDir = data.fvg.h4.direction;
     
     if (fDir === 'BEARISH' && data.sbr_rbs.h1.sbr) {
-      const sPrice = data.sbr_rbs.h1.sbr.price;
+      const sPrice = Number(data.sbr_rbs.h1.sbr.price);
       if (sPrice >= fBot * 0.998 && sPrice <= fTop * 1.002) {
          zones.push({ name: "H4 FVG + H1 SBR", price: `${fBot.toFixed(2)} - ${fTop.toFixed(2)}`, type: 'BEARISH' });
-         score += 40;
+         score += 30;
       }
     }
     if (fDir === 'BULLISH' && data.sbr_rbs.h1.rbs) {
-      const rPrice = data.sbr_rbs.h1.rbs.price;
+      const rPrice = Number(data.sbr_rbs.h1.rbs.price);
       if (rPrice >= fBot * 0.998 && rPrice <= fTop * 1.002) {
          zones.push({ name: "H4 FVG + H1 RBS", price: `${fBot.toFixed(2)} - ${fTop.toFixed(2)}`, type: 'BULLISH' });
-         score += 40;
+         score += 30;
       }
     }
   }
@@ -179,7 +180,7 @@ const ConfluenceScore = ({ data }: { data: any }) => {
     
     if (oDir === fDir && ((fBot >= oBot * 0.998 && fBot <= oTop * 1.002) || (fTop >= oBot * 0.998 && fTop <= oTop * 1.002))) {
       zones.push({ name: "H4 OB + H1 FVG", price: `${Math.min(oBot, fBot).toFixed(2)} - ${Math.max(oTop, fTop).toFixed(2)}`, type: oDir });
-      score += 40;
+      score += 30;
     }
   }
 
@@ -188,23 +189,61 @@ const ConfluenceScore = ({ data }: { data: any }) => {
     const oBot = data.orderBlock.h4.bottom;
     const oDir = data.orderBlock.h4.direction;
     if (oDir === 'BEARISH' && data.sbr_rbs.h4.sbr) {
-      const sPrice = data.sbr_rbs.h4.sbr.price;
+      const sPrice = Number(data.sbr_rbs.h4.sbr.price);
       if (sPrice >= oBot * 0.998 && sPrice <= oTop * 1.002) {
          zones.push({ name: "H4 OB + H4 SBR", price: `${oBot.toFixed(2)} - ${oTop.toFixed(2)}`, type: 'BEARISH' });
-         score += 30;
+         score += 25;
       }
     }
     if (oDir === 'BULLISH' && data.sbr_rbs.h4.rbs) {
-      const rPrice = data.sbr_rbs.h4.rbs.price;
+      const rPrice = Number(data.sbr_rbs.h4.rbs.price);
       if (rPrice >= oBot * 0.998 && rPrice <= oTop * 1.002) {
          zones.push({ name: "H4 OB + H4 RBS", price: `${oBot.toFixed(2)} - ${oTop.toFixed(2)}`, type: 'BULLISH' });
-         score += 30;
+         score += 25;
       }
     }
   }
 
-  if (data?.bos?.structure?.includes('HH') && data?.bias?.direction === 'BULLISH') score += 20;
-  if (data?.bos?.structure?.includes('LL') && data?.bias?.direction === 'BEARISH') score += 20;
+  // ZON KEBENARAN KECIL / MIKRO (Refined Precision Zone)
+  if (data?.fvg?.h1) {
+    const f1Top = data.fvg.h1.top;
+    const f1Bot = data.fvg.h1.bottom;
+    const f1Dir = data.fvg.h1.direction;
+    const f1Mid = (f1Top + f1Bot) / 2;
+    
+    let addedMicro = false;
+    if (data?.orderBlock?.h1 && data.orderBlock.h1.direction === f1Dir) {
+      const o1Top = data.orderBlock.h1.top;
+      const o1Bot = data.orderBlock.h1.bottom;
+      const overlapBot = Math.max(f1Bot, o1Bot);
+      const overlapTop = Math.min(f1Top, o1Top);
+      if (overlapBot < overlapTop) {
+        zones.push({
+          name: "🎯 ZON KECIL PRESISI (H1 OB + FVG Pertindihan Tight)",
+          price: `${overlapBot.toFixed(2)} - ${overlapTop.toFixed(2)}`,
+          type: f1Dir,
+          isMicro: true
+        });
+        score += 35;
+        addedMicro = true;
+      }
+    }
+    
+    if (!addedMicro) {
+      const microLow = f1Mid - 0.75;
+      const microHigh = f1Mid + 0.75;
+      zones.push({
+        name: "⚡ ZON KECIL TAJAM (H1 FVG 50% Equilibrium CE)",
+        price: `${microLow.toFixed(2)} - ${microHigh.toFixed(2)}`,
+        type: f1Dir,
+        isMicro: true
+      });
+      score += 25;
+    }
+  }
+
+  if (data?.bos?.structure?.includes('HH') && data?.bias?.direction === 'BULLISH') score += 15;
+  if (data?.bos?.structure?.includes('LL') && data?.bias?.direction === 'BEARISH') score += 15;
 
   score = Math.min(100, score);
 
@@ -214,7 +253,7 @@ const ConfluenceScore = ({ data }: { data: any }) => {
     <div className="border border-[#b49a45] rounded bg-[#0a0a0a] mb-3 lg:mb-4 shadow-[0_0_15px_rgba(77,166,255,0.1)]">
        <div className="border-b border-[#b49a45] px-3 py-1 flex justify-between items-center bg-[#1a1a1a]">
          <span className="text-[#4da6ff] font-bold text-xs sm:text-sm tracking-wide flex items-center gap-2">
-           🎯 ZON KEBENARAN (HIGH CONFLUENCE)
+           🎯 ZON KEBENARAN (HIGH CONFLUENCE ZONES)
          </span>
          <span className={`text-black px-2 py-0.5 rounded text-xs font-bold ${score >= 80 ? 'bg-[#22c55e]' : 'bg-[#ffcc00]'}`}>
            SKOR: {score}%
@@ -224,11 +263,21 @@ const ConfluenceScore = ({ data }: { data: any }) => {
          <p className="text-xs text-gray-300 mb-2 font-medium">Terdapat pertindihan (confluence) yang kuat antara timeframe berbeza:</p>
          <div className="space-y-2">
            {zones.map((z, i) => (
-             <div key={i} className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-black border border-gray-800 p-2 rounded">
-               <span className="text-[#ffcc00] font-bold text-xs sm:text-sm">{z.name}</span>
-               <span className={`font-mono font-bold text-xs mt-1 sm:mt-0 px-2 py-0.5 rounded border ${z.type === 'BEARISH' ? 'text-[#ef4444] border-red-900/50 bg-red-950/30' : 'text-[#22c55e] border-green-900/50 bg-green-950/30'}`}>
-                 {z.price}
-               </span>
+             <div key={i} className={`flex flex-col sm:flex-row sm:justify-between sm:items-center bg-black border p-2 rounded ${z.isMicro ? 'border-[#ffcc00]/60 bg-[#141208]' : 'border-gray-800'}`}>
+               <div className="flex items-center gap-1.5">
+                 <span className={`${z.isMicro ? 'text-[#ffcc00]' : 'text-gray-200'} font-bold text-xs sm:text-sm`}>{z.name}</span>
+                 {z.isMicro && (
+                   <span className="text-[10px] bg-[#ffcc00]/20 text-[#ffcc00] border border-[#ffcc00]/40 px-1 py-0.2 rounded font-semibold">
+                     ZON KECIL
+                   </span>
+                 )}
+               </div>
+               <div className="flex items-center gap-1.5 mt-1 sm:mt-0">
+                 <span className={`font-mono font-bold text-xs px-2 py-0.5 rounded border ${z.type === 'BEARISH' ? 'text-[#ef4444] border-red-900/50 bg-red-950/30' : 'text-[#22c55e] border-green-900/50 bg-green-950/30'}`}>
+                   {z.price}
+                 </span>
+                 <QuickCopyBtn text={z.price} />
+               </div>
              </div>
            ))}
          </div>
@@ -613,6 +662,81 @@ const renderFormattedSummary = (text: string) => {
   });
 };
 
+const QuickCopyBtn = ({ text, label }: { text: string | number, label?: string }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(String(text));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button 
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded text-[10px] ml-1 transition-colors border border-gray-700"
+      title="Salin ke MT5"
+    >
+      {copied ? <Check className="w-3 h-3 text-[#22c55e]" /> : <Copy className="w-3 h-3" />}
+      {label && <span>{copied ? 'Disalin' : label}</span>}
+    </button>
+  );
+};
+
+const RiskCalculator = ({ entryPrice, slPrice }: { entryPrice: string | number, slPrice: string | number }) => {
+  const [balance, setBalance] = useState(100);
+  const [riskPercent, setRiskPercent] = useState(1);
+
+  // XAUUSD pip is typically 1 pip = 0.1, or 10 pips = $1 movement.
+  // Standard gold pip calculation: distance * 10
+  const entry = Number(entryPrice);
+  const sl = Number(slPrice);
+  const pips = Math.abs(entry - sl) * 10;
+  
+  const riskAmount = (balance * riskPercent) / 100;
+  // Lot size = Risk Amount / (Pips * 10) (Standard for Gold where 1 lot = $10 per pip)
+  const lotSize = pips > 0 ? (riskAmount / (pips * 10)).toFixed(2) : "0.00";
+
+  return (
+    <div className="bg-[#111] p-3 rounded mt-3 border border-gray-800">
+      <div className="flex items-center gap-2 mb-2 text-[#4da6ff] font-bold text-xs sm:text-sm">
+        <DollarSign className="w-4 h-4" />
+        Kalkulator Saiz Lot (XAUUSD)
+      </div>
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label className="text-[10px] text-gray-400 block mb-1">Baki Akaun ($)</label>
+          <input 
+            type="number" 
+            value={balance} 
+            onChange={(e) => setBalance(Number(e.target.value))}
+            className="w-full bg-black border border-gray-700 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-[#4da6ff]"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-gray-400 block mb-1">Risiko (%)</label>
+          <input 
+            type="number" 
+            value={riskPercent} 
+            onChange={(e) => setRiskPercent(Number(e.target.value))}
+            className="w-full bg-black border border-gray-700 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-[#4da6ff]"
+          />
+        </div>
+      </div>
+      <div className="flex justify-between items-center bg-black p-2 rounded border border-gray-800">
+        <div>
+          <div className="text-[10px] text-gray-400">Jarak SL</div>
+          <div className="text-white text-xs font-mono">{pips.toFixed(1)} Pips</div>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] text-gray-400">Saiz Lot (Anggaran)</div>
+          <div className="text-[#ffcc00] text-sm font-bold font-mono">{lotSize} Lot</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const getMarketStatus = () => {
     const d = new Date();
@@ -753,6 +877,52 @@ export default function App() {
       .catch(console.error);
   }, []);
 
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  const [notifiedZones, setNotifiedZones] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!data || !data.currentPrice) return;
+    
+    const p = data.currentPrice;
+    const checkZone = async (top: number, bottom: number, name: string) => {
+      const margin = 2; // threshold
+      if (p >= bottom - margin && p <= top + margin) {
+         if (!notifiedZones.has(name)) {
+            const messageStr = `Harga semasa (${p.toFixed(2)}) hampir masuk ke zon ${name} (${bottom.toFixed(2)} - ${top.toFixed(2)})`;
+            
+            // Browser Notification
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification(`Amaran Harga XAUUSD`, {
+                 body: messageStr,
+              });
+            }
+
+            // Telegram Notification
+            try {
+              await fetch('/api/telegram-alert', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: `🚨 <b>Amaran Harga XAUUSD</b>\n\n${messageStr}` })
+              });
+            } catch (err) {
+              console.error("Failed to send telegram alert", err);
+            }
+
+            setNotifiedZones(prev => new Set(prev).add(name));
+         }
+      }
+    }
+    
+    if (data.fvg?.h1) checkZone(data.fvg.h1.top, data.fvg.h1.bottom, "FVG H1");
+    if (data.fvg?.h4) checkZone(data.fvg.h4.top, data.fvg.h4.bottom, "FVG H4");
+    if (data.orderBlock?.h1) checkZone(data.orderBlock.h1.top, data.orderBlock.h1.bottom, "OB H1");
+    if (data.orderBlock?.h4) checkZone(data.orderBlock.h4.top, data.orderBlock.h4.bottom, "OB H4");
+  }, [data?.currentPrice]);
   
   const fetchAiSummary = async () => {
     if (!data) return;
@@ -774,11 +944,11 @@ export default function App() {
     }
   };
 
-  const saveToJournal = async () => {
+  const saveToJournal = async (plan: string) => {
     if (!data) return;
     
-    // Prevent duplicate entries for the same date
-    if (journal.find(j => j.date === data.date)) {
+    // Prevent duplicate entries for the same date and plan
+    if (journal.find(j => j.date === data.date && j.plan === plan)) {
       setShowJournal(true);
       return;
     }
@@ -788,6 +958,7 @@ export default function App() {
       bias: data.bias.direction,
       bos: data.bos.structure,
       fvg: `${data.fvg.direction} FVG`,
+      plan: plan,
       status: 'PENDING'
     };
 
@@ -1346,10 +1517,6 @@ export default function App() {
                 <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">TRADING PLAN</span>
                 
                 <div className="flex items-center gap-2">
-                  <button onClick={saveToJournal} className="flex items-center gap-1 bg-[#1e3a8a] text-white px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold hover:bg-blue-800 transition-colors">
-                    <Save className="w-3 h-3" />
-                    SIMPAN JURNAL
-                  </button>
                   <div className="flex items-center gap-1 opacity-60">
                     <span className="text-white text-xs tracking-wider">@eskey969</span>
                   </div>
@@ -1358,8 +1525,14 @@ export default function App() {
               </div>
               <div className="p-3 text-xs sm:text-sm space-y-4">
                 <div>
-                  <div className="flex items-center gap-1.5 text-[#22c55e] font-bold mb-2 tracking-wide text-sm">
-                    <Check className="w-4 h-4" strokeWidth={3} /> {data.tradingPlan.planA.title}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5 text-[#22c55e] font-bold tracking-wide text-sm">
+                      <Check className="w-4 h-4" strokeWidth={3} /> {data.tradingPlan.planA.title}
+                    </div>
+                    <button onClick={() => saveToJournal('PLAN A')} className="flex items-center gap-1 bg-[#1e3a8a] text-white px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold hover:bg-blue-800 transition-colors">
+                      <Save className="w-3 h-3" />
+                      SIMPAN PLAN A
+                    </button>
                   </div>
                   <ul className="text-gray-200 space-y-1.5 list-disc pl-4 ml-2">
                     {data.tradingPlan.planA.steps.map((step, i) => {
@@ -1372,22 +1545,52 @@ export default function App() {
                       }
                       return <li key={i}>{step}</li>
                     })}
-                    <li className="flex items-center gap-2 pt-1">
+                    <li className="flex items-center gap-2 pt-1 flex-wrap">
                       <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                      Entry <span className="text-[#ef4444] font-bold border border-red-500/30 px-1.5 py-0.5 rounded ml-1 bg-red-500/10">{data.tradingPlan.planA.entry}</span>
+                      <span className="flex items-center">
+                        Entry <span className="text-[#ef4444] font-bold border border-red-500/30 px-1.5 py-0.5 rounded mx-1 bg-red-500/10">{data.tradingPlan.planA.entry}</span>
+                        {data.tradingPlan.planA.entryPrice && (
+                          <span className="font-mono text-gray-300 ml-1">
+                            @ {data.tradingPlan.planA.entryPrice}
+                            <QuickCopyBtn text={data.tradingPlan.planA.entryPrice} />
+                          </span>
+                        )}
+                      </span>
                     </li>
-                    <li>SL: {data.tradingPlan.planA.sl}</li>
+                    <li className="flex items-center flex-wrap">
+                      SL: <span className="font-mono text-gray-300 ml-1 mr-1">{data.tradingPlan.planA.sl}</span>
+                      <QuickCopyBtn text={data.tradingPlan.planA.sl} />
+                    </li>
                   </ul>
-                  <div className="flex justify-between text-gray-300 mt-3 ml-6 font-mono text-xs bg-[#111] p-2 rounded border border-gray-800">
-                    <span>TP1: {data.tradingPlan.planA.tp1}</span>
-                    <span>TP2: {data.tradingPlan.planA.tp2}</span>
-                    <span className="text-[#22c55e] font-bold">TP3: {data.tradingPlan.planA.tp3}</span>
+                  <div className="flex flex-col sm:flex-row justify-between text-gray-300 mt-3 ml-0 sm:ml-6 font-mono text-xs bg-[#111] p-2 rounded border border-gray-800 gap-2 sm:gap-0">
+                    <div className="flex items-center justify-between sm:justify-start">
+                      <span>TP1: {data.tradingPlan.planA.tp1}</span>
+                      <QuickCopyBtn text={data.tradingPlan.planA.tp1} />
+                    </div>
+                    <div className="flex items-center justify-between sm:justify-start">
+                      <span>TP2: {data.tradingPlan.planA.tp2}</span>
+                      <QuickCopyBtn text={data.tradingPlan.planA.tp2} />
+                    </div>
+                    <div className="flex items-center justify-between sm:justify-start">
+                      <span className="text-[#22c55e] font-bold">TP3: {data.tradingPlan.planA.tp3}</span>
+                      <QuickCopyBtn text={data.tradingPlan.planA.tp3} />
+                    </div>
                   </div>
+                  
+                  {data.tradingPlan.planA.entryPrice && data.tradingPlan.planA.sl && (
+                    <RiskCalculator entryPrice={data.tradingPlan.planA.entryPrice} slPrice={data.tradingPlan.planA.sl} />
+                  )}
                 </div>
                 
                 <div className="border-t border-gray-800 pt-3">
-                  <div className="text-[#ef4444] font-bold mb-2 tracking-wide text-sm">
-                    &gt; {data.tradingPlan.planB.title}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-[#ef4444] font-bold tracking-wide text-sm">
+                      &gt; {data.tradingPlan.planB.title}
+                    </div>
+                    <button onClick={() => saveToJournal('PLAN B')} className="flex items-center gap-1 bg-[#1e3a8a] text-white px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold hover:bg-blue-800 transition-colors">
+                      <Save className="w-3 h-3" />
+                      SIMPAN PLAN B
+                    </button>
                   </div>
                   <ul className="text-gray-300 space-y-1.5 list-disc pl-4 ml-2">
                     {data.tradingPlan.planB.steps.map((step, i) => (
@@ -1466,6 +1669,11 @@ export default function App() {
                             <span className="text-xs px-2 py-0.5 rounded font-bold bg-blue-900/50 text-blue-400">
                               {entry.fvg}
                             </span>
+                            {entry.plan && (
+                              <span className="text-xs px-2 py-0.5 rounded font-bold bg-[#b49a45]/20 text-[#ffcc00] border border-[#b49a45]/50">
+                                {entry.plan}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">

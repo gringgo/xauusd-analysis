@@ -550,12 +550,13 @@ Kembalikan jawapan dalam format JSON sahaja seperti berikut:
 
   app.post("/api/journal", async (req, res) => {
     try {
-      const { date, bias, bos, fvg, status } = req.body;
+      const { date, bias, bos, fvg, plan, status } = req.body;
       const result = await db.insert(journalEntries).values({
         date,
         bias,
         bos,
         fvg,
+        plan,
         status: status || 'PENDING'
       }).returning();
       res.json(result[0]);
@@ -630,6 +631,39 @@ Kembalikan jawapan dalam format JSON sahaja seperti berikut:
       const data = await response.json();
       res.json(data);
     } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Telegram Alert API
+  app.post("/api/telegram-alert", async (req, res) => {
+    try {
+      const { message } = req.body;
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;
+      const chatId = process.env.TELEGRAM_CHAT_ID;
+      
+      if (!botToken || !chatId) {
+        return res.status(400).json({ error: "Telegram bot token or chat ID is missing in environment variables" });
+      }
+
+      const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'HTML'
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        return res.status(response.status).json({ error: "Failed to send telegram message", details: errData });
+      }
+
+      res.json({ success: true });
+    } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
   });

@@ -711,6 +711,7 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
   return {
     date: dateStr,
     time: timeStr,
+    currentPrice: currentPrice,
     author: "GRINGGO",
     charts: {
       d1: {
@@ -763,6 +764,7 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
           `  - BOS ${fvg.direction === 'BULLISH' ? 'bullish' : 'bearish'} (M5-M15)`,
         ],
         entry: fvg.direction === "BULLISH" ? "BUY" : "SELL",
+        entryPrice: ((fvg.top + fvg.bottom) / 2).toFixed(2),
         sl: fvg.direction === "BULLISH" ? (fvg.bottom - 5).toFixed(2) : (fvg.top + 5).toFixed(2),
         tp1: fvg.direction === "BULLISH" ? (res).toFixed(2) : (sup).toFixed(2),
         tp2: fvg.direction === "BULLISH" ? (res + 15).toFixed(2) : (sup - 15).toFixed(2),
