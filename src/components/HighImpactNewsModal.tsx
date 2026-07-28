@@ -18,6 +18,7 @@ export interface NewsItem {
   id: number;
   event: string;
   category: 'NFP' | 'FOMC' | 'CPI' | 'PPI' | 'RETAIL_SALES' | 'OTHER' | string;
+  impact?: 'HIGH' | 'MED' | string;
   date: string;
   forecast: string;
   previous: string;
@@ -58,6 +59,7 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
   const [formData, setFormData] = useState({
     event: 'Non-Farm Employment Change (NFP)',
     category: 'NFP',
+    impact: 'HIGH',
     date: '07 Ogos 2026 | 08:30 PM',
     forecast: '165K',
     previous: '142K',
@@ -159,6 +161,7 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
     setFormData({
       event: 'Non-Farm Employment Change (NFP)',
       category: 'NFP',
+      impact: 'HIGH',
       date: '07 Ogos 2026 | 08:30 PM',
       forecast: '165K',
       previous: '142K',
@@ -175,6 +178,7 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
     setFormData({
       event: item.event,
       category: item.category,
+      impact: item.impact || 'HIGH',
       date: item.date,
       forecast: item.forecast || '-',
       previous: item.previous || '-',
@@ -202,6 +206,21 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
       default:
         return <span className="bg-gray-800 text-gray-300 border border-gray-700 px-2 py-0.5 rounded text-[10px] font-bold">NEWS</span>;
     }
+  };
+
+  const getImpactBadge = (impact?: string) => {
+    if (impact === 'MED' || impact === 'Med' || impact === 'Medium') {
+      return (
+        <span className="bg-amber-500 text-black font-black px-2 py-0.5 rounded text-[10px] tracking-wide border border-amber-300 flex items-center gap-1 shadow-sm">
+          ⚡ MED
+        </span>
+      );
+    }
+    return (
+      <span className="bg-red-600 text-white font-black px-2 py-0.5 rounded text-[10px] tracking-wide border border-red-400 flex items-center gap-1 shadow-sm">
+        🔥 HIGH
+      </span>
+    );
   };
 
   return (
@@ -351,6 +370,18 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
                     <option value="PPI">📊 PPI (Producer Price Index)</option>
                     <option value="RETAIL_SALES">🛍️ RETAIL SALES</option>
                     <option value="OTHER">LAIN-LAIN</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-gray-300 font-bold block mb-1">Tahap Impak (Impact)</label>
+                  <select 
+                    value={formData.impact}
+                    onChange={e => setFormData({ ...formData, impact: e.target.value })}
+                    className="w-full bg-black border border-gray-700 rounded px-2.5 py-1.5 text-white outline-none focus:border-[#ffcc00]"
+                  >
+                    <option value="HIGH">🔥 HIGH IMPACT (Impak Tinggi)</option>
+                    <option value="MED">⚡ MED IMPACT (Impak Sederhana)</option>
                   </select>
                 </div>
 
@@ -525,6 +556,7 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-800/80 pb-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       {getCategoryBadge(item.category)}
+                      {getImpactBadge(item.impact)}
                       <h3 className="text-white font-bold text-sm sm:text-base">{item.event}</h3>
                     </div>
 

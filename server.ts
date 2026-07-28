@@ -463,11 +463,12 @@ Kembalikan jawapan dalam format JSON sahaja seperti berikut:
 
   app.post("/api/news-history", async (req, res) => {
     try {
-      const { event, category, date, forecast, previous, actual, prediction, analysis, status, pipsWon } = req.body;
+      const { event, category, date, forecast, previous, actual, prediction, analysis, status, pipsWon, impact } = req.body;
       const newItem = {
         id: Date.now(),
         event,
         category: category || "OTHER",
+        impact: impact || "HIGH",
         date,
         forecast: forecast || "-",
         previous: previous || "-",

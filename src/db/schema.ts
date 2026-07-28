@@ -21,6 +21,7 @@ export const highImpactNews = pgTable("high_impact_news", {
   actual: varchar("actual", { length: 100 }),
   prediction: varchar("prediction", { length: 50 }).notNull(), // BULLISH, BEARISH, NEUTRAL
   analysis: text("analysis"),
+  impact: varchar("impact", { length: 50 }).default('HIGH'), // HIGH, MED
   status: varchar("status", { length: 50 }).notNull().default('PENDING'), // BETUL, SALAH, PENDING
   pipsWon: integer("pips_won").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
