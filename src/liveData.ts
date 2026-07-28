@@ -406,9 +406,28 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
   }
   let h1RawData = h1Raw.data;
 
+  let m5Raw;
+  try {
+    const m5Res = await fetchWithTimeout(`/api/klines?interval=5m`);
+    if (!m5Res.ok) throw new Error("M5 proxy fetch status: " + m5Res.status);
+    m5Raw = await m5Res.json();
+  } catch (proxyErr) {
+    console.warn("Local proxy fetch failed, falling back to direct KuCoin API...", proxyErr);
+    try {
+      const directUrl = `https://api.kucoin.com/api/v1/market/candles?type=5min&symbol=PAXG-USDT`;
+      const m5Res = await fetchWithTimeout(directUrl);
+      if (!m5Res.ok) throw new Error("Direct KuCoin fetch status: " + m5Res.status);
+      m5Raw = await m5Res.json();
+    } catch (directErr: any) {
+      throw new Error("Gagal mengambil data dari proxy local mahupun direct KuCoin: " + directErr.message);
+    }
+  }
+  let m5RawData = m5Raw.data;
+
   if (targetDate) {
     const targetTime = targetDate.getTime() / 1000;
     h1RawData = h1RawData.filter((d: any) => parseInt(d[0]) <= targetTime);
+    m5RawData = m5RawData.filter((d: any) => parseInt(d[0]) <= targetTime);
   }
 
 
@@ -520,10 +539,12 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
 
 
   
+  const allM5 = parseCandles(m5RawData.reverse());
   const allH1 = parseCandles(h1RawData.reverse());
   const allH4 = aggregateCandles(allH1, 4, 22);
   const allD1 = aggregateCandles(allH1, 24, 22);
 
+  const m5 = allM5.slice(-100);
   const h1 = allH1.slice(-100);
   const h4 = allH4.slice(-100);
   const d1 = allD1.slice(-100);
@@ -634,6 +655,7 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
     };
   };
 
+  const m5Chart = formatChart(m5, 'hh:mm a');
   const d1Chart = formatChart(d1, 'dd MMM');
   const h4Chart = formatChart(h4, 'dd MMM hh:mm a');
   const h1Chart = formatChart(h1, 'dd MMM hh:mm a');
@@ -651,6 +673,7 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
     }
   };
 
+  const m5Norm = m5Chart.candles.map(c => normalize(c, m5Chart.min, m5Chart.max));
   const d1Norm = d1Chart.candles.map(c => normalize(c, d1Chart.min, d1Chart.max));
   const h4Norm = h4Chart.candles.map(c => normalize(c, h4Chart.min, h4Chart.max));
   const h1Norm = h1Chart.candles.map(c => normalize(c, h1Chart.min, h1Chart.max));
@@ -714,6 +737,12 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
     currentPrice: currentPrice,
     author: "GRINGGO",
     charts: {
+      m5: {
+        candles: m5Norm,
+        rawCandles: m5Chart.candles,
+        yLabels: m5Chart.yLabels,
+        xLabels: m5Chart.xLabels
+      },
       d1: {
         candles: d1Norm,
         rawCandles: d1Chart.candles,

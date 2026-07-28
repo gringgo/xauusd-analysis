@@ -145,9 +145,9 @@ const FvgIllustration = () => (
 
 
 
-const ConfluenceScore = ({ data }: { data: any }) => {
+export const calculateConfluenceZones = (data: any) => {
   let score = 20;
-  let zones: { name: string, price: string, type: 'BULLISH' | 'BEARISH', isMicro?: boolean }[] = [];
+  let zones: { name: string, price: string, type: 'BULLISH' | 'BEARISH', isMicro?: boolean, top: number, bottom: number }[] = [];
   
   if (data?.fvg?.h4 && data?.sbr_rbs?.h1) {
     const fTop = data.fvg.h4.top;
@@ -157,14 +157,18 @@ const ConfluenceScore = ({ data }: { data: any }) => {
     if (fDir === 'BEARISH' && data.sbr_rbs.h1.sbr) {
       const sPrice = Number(data.sbr_rbs.h1.sbr.price);
       if (sPrice >= fBot * 0.998 && sPrice <= fTop * 1.002) {
-         zones.push({ name: "H4 FVG + H1 SBR", price: `${fBot.toFixed(2)} - ${fTop.toFixed(2)}`, type: 'BEARISH' });
+         const refinedTop = Math.min(fTop, sPrice + 2.5);
+         const refinedBot = Math.max(fBot, sPrice - 2.5);
+         zones.push({ name: "H4 FVG + H1 SBR", price: `${refinedBot.toFixed(2)} - ${refinedTop.toFixed(2)}`, type: 'BEARISH', top: refinedTop, bottom: refinedBot });
          score += 30;
       }
     }
     if (fDir === 'BULLISH' && data.sbr_rbs.h1.rbs) {
       const rPrice = Number(data.sbr_rbs.h1.rbs.price);
       if (rPrice >= fBot * 0.998 && rPrice <= fTop * 1.002) {
-         zones.push({ name: "H4 FVG + H1 RBS", price: `${fBot.toFixed(2)} - ${fTop.toFixed(2)}`, type: 'BULLISH' });
+         const refinedTop = Math.min(fTop, rPrice + 2.5);
+         const refinedBot = Math.max(fBot, rPrice - 2.5);
+         zones.push({ name: "H4 FVG + H1 RBS", price: `${refinedBot.toFixed(2)} - ${refinedTop.toFixed(2)}`, type: 'BULLISH', top: refinedTop, bottom: refinedBot });
          score += 30;
       }
     }
@@ -179,7 +183,13 @@ const ConfluenceScore = ({ data }: { data: any }) => {
     const fDir = data.fvg.h1.direction;
     
     if (oDir === fDir && ((fBot >= oBot * 0.998 && fBot <= oTop * 1.002) || (fTop >= oBot * 0.998 && fTop <= oTop * 1.002))) {
-      zones.push({ name: "H4 OB + H1 FVG", price: `${Math.min(oBot, fBot).toFixed(2)} - ${Math.max(oTop, fTop).toFixed(2)}`, type: oDir });
+      let overlapTop = Math.min(oTop, fTop);
+      let overlapBot = Math.max(oBot, fBot);
+      if (overlapTop < overlapBot) {
+         overlapTop = fTop;
+         overlapBot = fBot;
+      }
+      zones.push({ name: "H4 OB + H1 FVG", price: `${overlapBot.toFixed(2)} - ${overlapTop.toFixed(2)}`, type: oDir, top: overlapTop, bottom: overlapBot });
       score += 30;
     }
   }
@@ -191,14 +201,18 @@ const ConfluenceScore = ({ data }: { data: any }) => {
     if (oDir === 'BEARISH' && data.sbr_rbs.h4.sbr) {
       const sPrice = Number(data.sbr_rbs.h4.sbr.price);
       if (sPrice >= oBot * 0.998 && sPrice <= oTop * 1.002) {
-         zones.push({ name: "H4 OB + H4 SBR", price: `${oBot.toFixed(2)} - ${oTop.toFixed(2)}`, type: 'BEARISH' });
+         const refinedTop = Math.min(oTop, sPrice + 2.5);
+         const refinedBot = Math.max(oBot, sPrice - 2.5);
+         zones.push({ name: "H4 OB + H4 SBR", price: `${refinedBot.toFixed(2)} - ${refinedTop.toFixed(2)}`, type: 'BEARISH', top: refinedTop, bottom: refinedBot });
          score += 25;
       }
     }
     if (oDir === 'BULLISH' && data.sbr_rbs.h4.rbs) {
       const rPrice = Number(data.sbr_rbs.h4.rbs.price);
       if (rPrice >= oBot * 0.998 && rPrice <= oTop * 1.002) {
-         zones.push({ name: "H4 OB + H4 RBS", price: `${oBot.toFixed(2)} - ${oTop.toFixed(2)}`, type: 'BULLISH' });
+         const refinedTop = Math.min(oTop, rPrice + 2.5);
+         const refinedBot = Math.max(oBot, rPrice - 2.5);
+         zones.push({ name: "H4 OB + H4 RBS", price: `${refinedBot.toFixed(2)} - ${refinedTop.toFixed(2)}`, type: 'BULLISH', top: refinedTop, bottom: refinedBot });
          score += 25;
       }
     }
@@ -222,7 +236,9 @@ const ConfluenceScore = ({ data }: { data: any }) => {
           name: "🎯 ZON KECIL PRESISI (H1 OB + FVG Pertindihan Tight)",
           price: `${overlapBot.toFixed(2)} - ${overlapTop.toFixed(2)}`,
           type: f1Dir,
-          isMicro: true
+          isMicro: true,
+          top: overlapTop,
+          bottom: overlapBot
         });
         score += 35;
         addedMicro = true;
@@ -236,7 +252,9 @@ const ConfluenceScore = ({ data }: { data: any }) => {
         name: "⚡ ZON KECIL TAJAM (H1 FVG 50% Equilibrium CE)",
         price: `${microLow.toFixed(2)} - ${microHigh.toFixed(2)}`,
         type: f1Dir,
-        isMicro: true
+        isMicro: true,
+        top: microHigh,
+        bottom: microLow
       });
       score += 25;
     }
@@ -247,11 +265,17 @@ const ConfluenceScore = ({ data }: { data: any }) => {
 
   score = Math.min(100, score);
 
+  return { score, zones };
+};
+
+const ConfluenceScore = ({ data }: { data: any }) => {
+  const { score, zones } = calculateConfluenceZones(data);
+
   if (zones.length === 0) return null;
 
   return (
-    <div className="border border-[#b49a45] rounded bg-[#0a0a0a] mb-3 lg:mb-4 shadow-[0_0_15px_rgba(77,166,255,0.1)]">
-       <div className="border-b border-[#b49a45] px-3 py-1 flex justify-between items-center bg-[#1a1a1a]">
+    <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] overflow-hidden shadow-lg shadow-black mb-3 lg:mb-4">
+       <div className="border-b border-[#b49a45]/30 bg-[#111] px-3 py-2 flex justify-between items-center">
          <span className="text-[#4da6ff] font-bold text-xs sm:text-sm tracking-wide flex items-center gap-2">
            🎯 ZON KEBENARAN (HIGH CONFLUENCE ZONES)
          </span>
@@ -259,7 +283,7 @@ const ConfluenceScore = ({ data }: { data: any }) => {
            SKOR: {score}%
          </span>
        </div>
-       <div className="p-3">
+       <div className="p-4">
          <p className="text-xs text-gray-300 mb-2 font-medium">Terdapat pertindihan (confluence) yang kuat antara timeframe berbeza:</p>
          <div className="space-y-2">
            {zones.map((z, i) => (
@@ -325,7 +349,7 @@ const SessionWarning = () => {
   const isJudasZone = hoursLeft === 0 && minsLeft <= 60; // 1 hour before session
 
   return (
-    <div className={`mb-3 lg:mb-4 border rounded p-3 transition-colors duration-500 ${isJudasZone ? 'bg-red-950/40 border-red-900/50' : 'bg-[#0a0a0a] border-gray-800'}`}>
+    <div className={`mb-3 lg:mb-4 border rounded-xl p-4 transition-colors duration-500 shadow-lg shadow-black ${isJudasZone ? 'bg-red-950/20 border-red-900/40 shadow-[0_0_20px_rgba(239,68,68,0.2)]' : 'bg-[#0a0a0a] border-[#b49a45]/30'}`}>
       <div className="flex items-center gap-2 mb-2">
          <AlertTriangle className={`w-4 h-4 ${isJudasZone ? 'text-red-500 animate-pulse' : 'text-[#ffcc00]'}`} />
          <span className={`font-bold text-xs sm:text-sm tracking-wide ${isJudasZone ? 'text-red-500' : 'text-[#ffcc00]'}`}>
@@ -1059,7 +1083,7 @@ export default function App() {
 
   return (
     <>
-      <div className="min-h-screen bg-[#020202] text-white font-sans p-1 sm:p-2 md:p-4 flex flex-col items-center">
+      <div className="min-h-screen bg-[#020202] text-white font-sans antialiased p-1 sm:p-2 md:p-4 flex flex-col items-center">
       <div className={`w-full max-w-[1300px] flex justify-end flex-wrap gap-2 mb-2 transition-opacity duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
         {showInstallBtn && (
           <button onClick={handleInstallClick} className="flex items-center gap-1.5 bg-[#22c55e] text-black px-3 py-1.5 rounded-md font-bold text-xs sm:text-sm hover:bg-green-400 transition-colors shadow-lg shadow-green-500/20">
@@ -1072,54 +1096,59 @@ export default function App() {
           DOWNLOAD GAMBAR
         </button>
       </div>
-      <div id="export-container" className={`w-full max-w-[1300px] border border-gray-800 bg-black p-2 sm:p-3 md:p-4 rounded-md shadow-2xl transition-opacity duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+      <div id="export-container" className={`w-full max-w-[1300px] border-t-4 border-[#b49a45] bg-[#050505] p-3 sm:p-5 md:p-6 rounded-xl shadow-[0_0_50px_rgba(180,154,69,0.05)] transition-opacity duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
         
         {/* Header */}
-        <header className="flex flex-col sm:flex-row justify-between items-center pb-3 border-b border-gray-800 mb-3 gap-2">
-          <div className="flex items-center gap-3">
-            <div className="text-4xl">🪙</div>
-            <div>
-              <h1 className="text-2xl sm:text-4xl font-black text-[#ffcc00] tracking-wider leading-none" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-5 border-b border-[#b49a45]/20 mb-5 gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="text-5xl sm:text-6xl drop-shadow-[0_0_15px_rgba(255,204,0,0.3)]">🪙</div>
+            <div className="flex flex-col gap-2">
+              <h1 className="text-4xl sm:text-6xl font-display font-bold text-[#ffcc00] tracking-wide leading-none drop-shadow-md" >
                 XAUUSD ANALYSIS
               </h1>
-              <div className="flex items-center gap-2 mt-1 text-sm sm:text-base font-bold">
-                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                <span className="text-white tracking-widest">{data.date} {data.time && `| ${data.time} MYT`}</span>
-                <span className="ml-2 px-1.5 py-0.5 bg-[#1e3a8a] text-white text-[10px] rounded font-bold border border-[#b49a45]">
+              <div className="flex items-center flex-wrap gap-2 text-xs font-bold">
+                <div className="flex items-center gap-1.5 bg-[#111] px-2.5 py-1 rounded border border-gray-800 text-gray-300">
+                  <Calendar className="w-4 h-4 text-[#ffcc00]" />
+                  <span className="tracking-wider">{data.date} {data.time && `| ${data.time} MYT`}</span>
+                </div>
+                
+                <span className="px-2 py-1 bg-[#1e3a8a]/20 text-[#4da6ff] rounded font-bold border border-[#1e3a8a]/50 tracking-wide">
                   D1 OPEN: 6:00 AM MYT
                 </span>
                 
-                <span className={`ml-2 px-1.5 py-0.5 text-white text-[10px] rounded font-bold border ${marketOpen ? 'bg-green-600 border-green-400' : 'bg-red-600 border-red-400'}`}>
+                <span className={`px-2 py-1 text-white rounded font-bold border tracking-wide ${marketOpen ? 'bg-green-500/20 text-green-400 border-green-500/50' : 'bg-red-500/20 text-red-400 border-red-500/50'}`}>
                   {marketOpen ? 'PASARAN BUKA' : 'PASARAN TUTUP'}
                 </span>
-    
-                <button onClick={() => setShowJournal(true)} className="ml-2 flex items-center gap-1 bg-[#b49a45] text-black px-2 py-1 rounded font-bold text-xs sm:text-sm hover:bg-[#ffcc00] transition-colors">
-                  <BookOpen className="w-4 h-4" />
-                  JURNAL
-                </button>
-
-                <button onClick={() => setShowNewsModal(true)} className="ml-2 flex items-center gap-1 bg-red-600 text-white px-2 py-1 rounded font-black text-xs sm:text-sm hover:bg-red-500 transition-colors shadow-lg shadow-red-900/40">
-                  <Flame className="w-4 h-4 text-[#ffcc00]" />
-                  NEWS IMPAK TINGGI
-                </button>
-
-    <input 
-      type="date" 
-      value={dateInput}
-      
-      onChange={(e) => {
-        setDateInput(e.target.value);
-        if (e.target.value) {
-          setTargetDate(new Date(e.target.value + 'T23:59:59+08:00'));
-        }
-      }}
-      className="bg-black border border-gray-700 text-white text-xs px-2 py-1 rounded ml-2"
-    />
+                
+                <input 
+                  type="date" 
+                  value={dateInput}
+                  onChange={(e) => {
+                    setDateInput(e.target.value);
+                    if (e.target.value) {
+                      setTargetDate(new Date(e.target.value + 'T23:59:59+08:00'));
+                    }
+                  }}
+                  className="bg-[#111] border border-gray-700 text-gray-300 text-xs px-2 py-1 rounded outline-none focus:border-[#b49a45]"
+                />
               </div>
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-[#ffcc00] tracking-widest italic" style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
-            BY {data.author}
+          
+          <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+            <button onClick={() => setShowJournal(true)} className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 bg-[#111] text-[#ffcc00] border border-[#b49a45]/50 px-4 py-2 rounded-lg font-bold text-xs hover:bg-[#b49a45]/20 transition-all">
+              <BookOpen className="w-4 h-4" />
+              JURNAL
+            </button>
+
+            <button onClick={() => setShowNewsModal(true)} className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 bg-red-600/20 text-red-400 border border-red-600/50 px-4 py-2 rounded-lg font-black text-xs hover:bg-red-600/30 transition-all shadow-[0_0_15px_rgba(220,38,38,0.15)]">
+              <Flame className="w-4 h-4 text-[#ffcc00]" />
+              NEWS IMPAK TINGGI
+            </button>
+            
+            <div className="hidden sm:flex text-xl sm:text-2xl font-display font-medium text-[#ffcc00]/80 tracking-wide italic ml-auto xl:ml-4" >
+              BY {data.author}
+            </div>
           </div>
         </header>
 
@@ -1132,24 +1161,19 @@ export default function App() {
             {/* Charts Column */}
             <div className="flex flex-col gap-3">
               <LightweightChart 
-                title="D1 CHART (DAILY)" 
-                subtitle="D1"
-                data={data.charts.d1.rawCandles}
-                heightClass="h-[160px] sm:h-[200px]"
-              />
-
-              <LightweightChart 
-                title="H4 CHART (4 HOUR)" 
-                subtitle="H4"
-                data={data.charts.h4.rawCandles}
-                heightClass="h-[160px] sm:h-[190px]"
-              />
-
-              <LightweightChart 
-                title="H1 CHART (1 HOUR)" 
-                subtitle="H1"
-                data={data.charts.h1.rawCandles}
-                heightClass="h-[150px] sm:h-[180px]"
+                title="M5 CHART (5 MINUTE)" 
+                subtitle="SBR/RBS, Liq, OB, FVG, Zones"
+                data={data.charts.m5.rawCandles}
+                heightClass="h-[300px] sm:h-[400px]"
+                markers={{
+                  sbr: data.sbr_rbs?.h1?.sbr?.price || data.sbr_rbs?.h4?.sbr?.price,
+                  rbs: data.sbr_rbs?.h1?.rbs?.price || data.sbr_rbs?.h4?.rbs?.price,
+                  buySideLiq: data.liquidity?.buySide?.map((l: any) => l.price),
+                  sellSideLiq: data.liquidity?.sellSide?.map((l: any) => l.price),
+                  ob: data.orderBlock?.h1 || data.orderBlock?.h4,
+                  fvg: data.fvg?.h1 || data.fvg?.h4,
+                  zones: calculateConfluenceZones(data).zones
+                }}
               />
             </div>
 
@@ -1157,8 +1181,8 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
               
               {/* Fundamentals */}
-              <div className="border border-[#b49a45] rounded bg-[#0a0a0a] flex flex-col">
-                <div className="bg-[#1e3a8a] px-3 py-1.5 flex items-center justify-between border-b border-[#b49a45]">
+              <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)] flex flex-col">
+                <div className="bg-[#1e3a8a] px-4 py-2 flex items-center justify-between border-b border-[#b49a45]/30">
                   <div className="flex items-center gap-2">
                     <img src="https://flagcdn.com/w20/us.png" alt="US" className="w-5" />
                     <span className="text-white font-bold text-xs sm:text-sm tracking-wide">LIVE NEWS FEED (USD)</span>
@@ -1195,7 +1219,7 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
-                <div className="p-3 border-t border-[#b49a45] flex flex-col gap-2 bg-[#111] mt-auto">
+                <div className="p-4 border-t border-[#b49a45] flex flex-col gap-2 bg-[#111] mt-auto">
                   <div className="text-xs text-[#ffcc00] font-bold border-b border-gray-700 pb-1 flex items-center gap-2">
                     <BarChart3 className="w-4 h-4" /> 
                     AI PREDICTION
@@ -1208,37 +1232,7 @@ export default function App() {
                   <div className="flex gap-2 items-start mt-1 p-2 bg-blue-900/20 border border-blue-900/50 rounded">
                     <AlertTriangle className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
                     <div className="text-[9px] sm:text-[10px] text-blue-300 italic">
-                      *Robot akan cari data 30 minit sebelum news..
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Impact kepada XAUUSD */}
-              <div className="border border-[#b49a45] rounded bg-[#0a0a0a] flex flex-col">
-                <div className="border-b border-[#b49a45] px-3 py-1.5 bg-[#111]">
-                  <span className="text-white font-bold text-xs sm:text-sm tracking-wide">IMPACT KEPADA XAUUSD HARI INI</span>
-                </div>
-                <div className="p-3 text-xs space-y-3 flex-1">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className={`font-bold mb-1.5 tracking-wide ${data.bias.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
-                        {data.impact.title}
-                      </div>
-                      <p className="text-gray-300 mb-2 leading-relaxed">
-                        {data.impact.description}
-                      </p>
-                      <ul className="text-gray-300 space-y-1">
-                        {data.impact.catalyst.map((item, i) => (
-                          <li key={i} className="flex items-start gap-1.5">
-                            <span className="text-[#ffcc00] mt-0.5">❖</span> 
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className={`border-2 rounded-full p-2 mr-1 shrink-0 ${data.bias.direction === 'BEARISH' ? 'text-[#ef4444] border-[#ef4444] bg-[#ef4444]/10' : 'text-[#22c55e] border-[#22c55e] bg-[#22c55e]/10'}`}>
-                      <DollarSign className="w-6 h-6 sm:w-8 sm:h-8" />
+                      *Robot akan cari data 1 JAM sebelum news..
                     </div>
                   </div>
                 </div>
@@ -1252,13 +1246,13 @@ export default function App() {
             <SessionWarning />
             
             {/* AI SUMMARY */}
-            <div className="border border-[#b49a45] rounded bg-[#0a0a0a]">
-              <div className="border-b border-[#b49a45] px-3 py-1 flex justify-between items-center">
+            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2 flex justify-between items-center">
                 <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide flex items-center gap-2">
                   <span className="text-lg">🤖</span> GEMINI AI RUMUSAN PASARAN
                 </span>
               </div>
-              <div className="p-3">
+              <div className="p-4">
                 {!aiSummary && !isLoadingAi && (
                   <button onClick={fetchAiSummary} className="w-full py-2 bg-blue-900/40 text-blue-400 border border-blue-500/50 rounded font-bold hover:bg-blue-800/40 transition-colors text-sm flex items-center justify-center gap-2">
                     <span className="text-lg">✨</span> Jana Rumusan Pasaran (AI)
@@ -1279,12 +1273,12 @@ export default function App() {
             </div>
 
             {/* BIAS UTAMA */}
-            <div className="border border-[#b49a45] rounded bg-[#0a0a0a]">
-              <div className="border-b border-[#b49a45] px-3 py-1">
+            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
                 <span className="text-white font-bold text-xs sm:text-sm tracking-wide">BIAS UTAMA</span>
               </div>
-              <div className="p-3">
-                <div className={`text-4xl sm:text-5xl font-black mb-3 tracking-wider ${data.bias.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`} style={{ fontFamily: 'Impact, Arial Black, sans-serif' }}>
+              <div className="p-4">
+                <div className={`text-5xl sm:text-6xl font-display font-bold mb-3 tracking-wide ${data.bias.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`} >
                   {data.bias.direction}
                 </div>
                 <ul className="text-xs sm:text-sm text-gray-200 space-y-2 list-disc pl-4 ml-1">
@@ -1297,11 +1291,11 @@ export default function App() {
 
             
             {/* SBR & RBS */}
-            <div className="border border-[#b49a45] rounded bg-[#0a0a0a]">
-              <div className="border-b border-[#b49a45] px-3 py-1">
+            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
                 <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">SBR & RBS (Support/Resistance)</span>
               </div>
-              <div className="p-3">
+              <div className="p-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <div className="font-bold text-[#ef4444] text-xs sm:text-sm mb-2">H4 SBR/RBS</div>
@@ -1340,45 +1334,13 @@ export default function App() {
             </div>
 
             <ConfluenceScore data={data} />
-            
-            {/* ANALISIS HARI INI */}
-            {data.dailyAnalysis && (
-              <div className="border border-[#b49a45] rounded bg-[#0a0a0a] md:col-span-2 lg:col-span-3">
-                <div className="border-b border-[#b49a45] px-3 py-1 bg-[#1a1a1a]">
-                  <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">💡 ANALISIS GRINGGO HARI INI</span>
-                </div>
-                
-                {/* GRINGGO ANALYSIS CHART */}
-                <div className="p-3">
-                   <LightweightChart 
-                     title="ANALYSIS CHART (H1)" 
-                     subtitle="SBR/RBS, Liq, OB, FVG"
-                     data={data.charts.h1.rawCandles}
-                     heightClass="h-[250px] sm:h-[300px]"
-                     markers={{
-                       sbr: data.sbr_rbs?.h1?.sbr?.price || data.sbr_rbs?.h4?.sbr?.price,
-                       rbs: data.sbr_rbs?.h1?.rbs?.price || data.sbr_rbs?.h4?.rbs?.price,
-                       buySideLiq: data.liquidity?.buySide?.map(l => l.price),
-                       sellSideLiq: data.liquidity?.sellSide?.map(l => l.price),
-                       ob: data.orderBlock?.h1 || data.orderBlock?.h4,
-                       fvg: data.fvg?.h1 || data.fvg?.h4
-                     }}
-                   />
-                </div>
-
-                <div className="p-4 pt-0 text-gray-200 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-medium">
-                  {data.dailyAnalysis}
-                </div>
-              </div>
-            )}
-
 
             {/* LIQUIDITY */}
-            <div className="border border-[#b49a45] rounded bg-[#0a0a0a]">
-              <div className="border-b border-[#b49a45] px-3 py-1">
+            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
                 <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">LIQUIDITY</span>
               </div>
-              <div className="p-3 space-y-4">
+              <div className="p-4 space-y-4">
                 <div>
                   <div className="text-[#22c55e] font-bold text-xs sm:text-sm mb-2 tracking-wide">BUY-SIDE LIQUIDITY</div>
                   {data.liquidity.buySide.map((item, i) => (
@@ -1403,11 +1365,11 @@ export default function App() {
 
             
             {/* ORDER BLOCK */}
-            <div className="border border-[#b49a45] rounded bg-[#0a0a0a]">
-              <div className="border-b border-[#b49a45] px-3 py-1">
+            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
                 <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">ORDER BLOCK (OB)</span>
               </div>
-              <div className="p-3">
+              <div className="p-4">
                 <div className="flex flex-col gap-3">
                   {data.orderBlock && data.orderBlock.h4 && (
                     <div>
@@ -1439,11 +1401,11 @@ export default function App() {
             </div>
 
             {/* FVG */}
-            <div className="border border-[#b49a45] rounded bg-[#0a0a0a]">
-              <div className="border-b border-[#b49a45] px-3 py-1">
+            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
                 <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">FVG (FAIR VALUE GAP)</span>
               </div>
-              <div className="p-3">
+              <div className="p-4">
                 <div className="flex flex-col gap-3 mb-3">
                   {data.fvg.h4 && (
                     <div>
@@ -1489,11 +1451,11 @@ export default function App() {
             </div>
 
             {/* BOS */}
-            <div className="border border-[#b49a45] rounded bg-[#0a0a0a]">
-              <div className="border-b border-[#b49a45] px-3 py-1">
+            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
                 <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">BOS (BREAK OF STRUCTURE)</span>
               </div>
-              <div className="p-3 text-xs sm:text-sm text-gray-200 space-y-2">
+              <div className="p-4 text-xs sm:text-sm text-gray-200 space-y-2">
                 <p className="text-[#ffcc00]">{data.bos.status}</p>
                 <p>Structure masih:</p>
                 <p className="text-[#ef4444] font-bold text-base tracking-widest bg-red-950/30 p-2 rounded text-center border border-red-900/50">
@@ -1512,8 +1474,8 @@ export default function App() {
             </div>
 
             {/* TRADING PLAN */}
-            <div className="border border-[#b49a45] rounded bg-[#0a0a0a] flex-1">
-              <div className="border-b border-[#b49a45] px-3 py-1 flex items-center justify-between">
+            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)] flex-1">
+              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2 flex items-center justify-between">
                 <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">TRADING PLAN</span>
                 
                 <div className="flex items-center gap-2">
@@ -1523,7 +1485,7 @@ export default function App() {
                 </div>
 
               </div>
-              <div className="p-3 text-xs sm:text-sm space-y-4">
+              <div className="p-4 text-xs sm:text-sm space-y-4">
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5 text-[#22c55e] font-bold tracking-wide text-sm">

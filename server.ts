@@ -604,6 +604,8 @@ Kembalikan jawapan dalam format JSON sahaja seperti berikut:
       let type = "1day";
       if (interval === "4h") type = "4hour";
       if (interval === "1h") type = "1hour";
+      if (interval === "5m") type = "5min";
+      if (interval === "15m") type = "15min";
       
       let url = `https://api.kucoin.com/api/v1/market/candles?type=${type}&symbol=PAXG-USDT`;
       if (startAt) url += `&startAt=${startAt}`;

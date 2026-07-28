@@ -1,6 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { createChart, CrosshairMode, IChartApi, ISeriesApi, CandlestickSeries } from 'lightweight-charts';
 
+export interface ChartZone {
+  top: number;
+  bottom: number;
+  direction: string;
+  isMicro?: boolean;
+}
+
 interface LightweightChartProps {
   title: string;
   subtitle: string;
@@ -13,6 +20,7 @@ interface LightweightChartProps {
     sellSideLiq?: string[];
     ob?: { top: number; bottom: number; direction: string } | null;
     fvg?: { top: number; bottom: number; direction: string } | null;
+    zones?: ChartZone[];
   };
 }
 
@@ -111,6 +119,31 @@ export const LightweightChart: React.FC<LightweightChartProps> = ({ title, subti
         s.createPriceLine({ price: markers.fvg.top, color: color, lineWidth: 1, lineStyle: 3, title: 'FVG Top' });
         s.createPriceLine({ price: markers.fvg.bottom, color: color, lineWidth: 1, lineStyle: 3, title: 'FVG Btm' });
       }
+
+      // Confluence Zones
+      if (markers.zones) {
+        markers.zones.forEach((zone) => {
+          const isBullish = zone.direction === 'BULLISH';
+          const color = isBullish ? '#22c55e' : '#ef4444';
+          const zoneTitle = zone.isMicro ? (isBullish ? '⚡ Bull Micro' : '⚡ Bear Micro') : (isBullish ? '🎯 Bull Zone' : '🎯 Bear Zone');
+          const lineColor = zone.isMicro ? '#ffcc00' : color;
+          
+          s.createPriceLine({ 
+            price: zone.top, 
+            color: lineColor, 
+            lineWidth: zone.isMicro ? 1 : 2, 
+            lineStyle: zone.isMicro ? 2 : 0, 
+            title: `${zoneTitle} Top` 
+          });
+          s.createPriceLine({ 
+            price: zone.bottom, 
+            color: lineColor, 
+            lineWidth: zone.isMicro ? 1 : 2, 
+            lineStyle: zone.isMicro ? 2 : 0, 
+            title: `${zoneTitle} Btm` 
+          });
+        });
+      }
     }
 
 
@@ -124,7 +157,7 @@ export const LightweightChart: React.FC<LightweightChartProps> = ({ title, subti
   }, [data, markers]);
 
   return (
-    <div className={`border border-gray-700 rounded bg-[#050505] overflow-hidden flex flex-col relative w-full ${heightClass}`}>
+    <div className={`border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col relative w-full ${heightClass}`}>
       <div className="absolute top-2 left-2 z-10 pointer-events-none">
          <div className="bg-[#1e3a8a] text-white px-2 py-0.5 text-[10px] sm:text-xs font-bold rounded-sm w-fit tracking-wider">
            {title}
