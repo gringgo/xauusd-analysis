@@ -144,6 +144,166 @@ const FvgIllustration = () => (
 
 
 
+const ConfluenceScore = ({ data }: { data: any }) => {
+  let score = 20;
+  let zones: { name: string, price: string, type: 'BULLISH' | 'BEARISH' }[] = [];
+  
+  if (data?.fvg?.h4 && data?.sbr_rbs?.h1) {
+    const fTop = data.fvg.h4.top;
+    const fBot = data.fvg.h4.bottom;
+    const fDir = data.fvg.h4.direction;
+    
+    if (fDir === 'BEARISH' && data.sbr_rbs.h1.sbr) {
+      const sPrice = data.sbr_rbs.h1.sbr.price;
+      if (sPrice >= fBot * 0.998 && sPrice <= fTop * 1.002) {
+         zones.push({ name: "H4 FVG + H1 SBR", price: `${fBot.toFixed(2)} - ${fTop.toFixed(2)}`, type: 'BEARISH' });
+         score += 40;
+      }
+    }
+    if (fDir === 'BULLISH' && data.sbr_rbs.h1.rbs) {
+      const rPrice = data.sbr_rbs.h1.rbs.price;
+      if (rPrice >= fBot * 0.998 && rPrice <= fTop * 1.002) {
+         zones.push({ name: "H4 FVG + H1 RBS", price: `${fBot.toFixed(2)} - ${fTop.toFixed(2)}`, type: 'BULLISH' });
+         score += 40;
+      }
+    }
+  }
+
+  if (data?.orderBlock?.h4 && data?.fvg?.h1) {
+    const oTop = data.orderBlock.h4.top;
+    const oBot = data.orderBlock.h4.bottom;
+    const oDir = data.orderBlock.h4.direction;
+    const fTop = data.fvg.h1.top;
+    const fBot = data.fvg.h1.bottom;
+    const fDir = data.fvg.h1.direction;
+    
+    if (oDir === fDir && ((fBot >= oBot * 0.998 && fBot <= oTop * 1.002) || (fTop >= oBot * 0.998 && fTop <= oTop * 1.002))) {
+      zones.push({ name: "H4 OB + H1 FVG", price: `${Math.min(oBot, fBot).toFixed(2)} - ${Math.max(oTop, fTop).toFixed(2)}`, type: oDir });
+      score += 40;
+    }
+  }
+
+  if (data?.orderBlock?.h4 && data?.sbr_rbs?.h4) {
+    const oTop = data.orderBlock.h4.top;
+    const oBot = data.orderBlock.h4.bottom;
+    const oDir = data.orderBlock.h4.direction;
+    if (oDir === 'BEARISH' && data.sbr_rbs.h4.sbr) {
+      const sPrice = data.sbr_rbs.h4.sbr.price;
+      if (sPrice >= oBot * 0.998 && sPrice <= oTop * 1.002) {
+         zones.push({ name: "H4 OB + H4 SBR", price: `${oBot.toFixed(2)} - ${oTop.toFixed(2)}`, type: 'BEARISH' });
+         score += 30;
+      }
+    }
+    if (oDir === 'BULLISH' && data.sbr_rbs.h4.rbs) {
+      const rPrice = data.sbr_rbs.h4.rbs.price;
+      if (rPrice >= oBot * 0.998 && rPrice <= oTop * 1.002) {
+         zones.push({ name: "H4 OB + H4 RBS", price: `${oBot.toFixed(2)} - ${oTop.toFixed(2)}`, type: 'BULLISH' });
+         score += 30;
+      }
+    }
+  }
+
+  if (data?.bos?.structure?.includes('HH') && data?.bias?.direction === 'BULLISH') score += 20;
+  if (data?.bos?.structure?.includes('LL') && data?.bias?.direction === 'BEARISH') score += 20;
+
+  score = Math.min(100, score);
+
+  if (zones.length === 0) return null;
+
+  return (
+    <div className="border border-[#b49a45] rounded bg-[#0a0a0a] mb-3 lg:mb-4 shadow-[0_0_15px_rgba(77,166,255,0.1)]">
+       <div className="border-b border-[#b49a45] px-3 py-1 flex justify-between items-center bg-[#1a1a1a]">
+         <span className="text-[#4da6ff] font-bold text-xs sm:text-sm tracking-wide flex items-center gap-2">
+           🎯 ZON KEBENARAN (HIGH CONFLUENCE)
+         </span>
+         <span className={`text-black px-2 py-0.5 rounded text-xs font-bold ${score >= 80 ? 'bg-[#22c55e]' : 'bg-[#ffcc00]'}`}>
+           SKOR: {score}%
+         </span>
+       </div>
+       <div className="p-3">
+         <p className="text-xs text-gray-300 mb-2 font-medium">Terdapat pertindihan (confluence) yang kuat antara timeframe berbeza:</p>
+         <div className="space-y-2">
+           {zones.map((z, i) => (
+             <div key={i} className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-black border border-gray-800 p-2 rounded">
+               <span className="text-[#ffcc00] font-bold text-xs sm:text-sm">{z.name}</span>
+               <span className={`font-mono font-bold text-xs mt-1 sm:mt-0 px-2 py-0.5 rounded border ${z.type === 'BEARISH' ? 'text-[#ef4444] border-red-900/50 bg-red-950/30' : 'text-[#22c55e] border-green-900/50 bg-green-950/30'}`}>
+                 {z.price}
+               </span>
+             </div>
+           ))}
+         </div>
+       </div>
+    </div>
+  )
+}
+
+const SessionWarning = () => {
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Use timezone for Malaysia
+  const mytTime = toZonedTime(time, 'Asia/Kuala_Lumpur');
+  const currentHour = mytTime.getHours();
+  const currentMinute = mytTime.getMinutes();
+  
+  // London Open ~ 3:00 PM MYT (15:00)
+  // NY Open ~ 8:00 PM MYT (20:00)
+  let nextSession = "";
+  let hoursLeft = 0;
+  let minsLeft = 0;
+  
+  if (currentHour < 15) {
+     nextSession = "London Open";
+     const totalMins = (15 * 60) - (currentHour * 60 + currentMinute);
+     hoursLeft = Math.floor(totalMins / 60);
+     minsLeft = totalMins % 60;
+  } else if (currentHour < 20) {
+     nextSession = "New York Open";
+     const totalMins = (20 * 60) - (currentHour * 60 + currentMinute);
+     hoursLeft = Math.floor(totalMins / 60);
+     minsLeft = totalMins % 60;
+  } else {
+     nextSession = "London Open (Esok)";
+     const totalMins = (24 * 60 - (currentHour * 60 + currentMinute)) + (15 * 60);
+     hoursLeft = Math.floor(totalMins / 60);
+     minsLeft = totalMins % 60;
+  }
+
+  const isJudasZone = hoursLeft === 0 && minsLeft <= 60; // 1 hour before session
+
+  return (
+    <div className={`mb-3 lg:mb-4 border rounded p-3 transition-colors duration-500 ${isJudasZone ? 'bg-red-950/40 border-red-900/50' : 'bg-[#0a0a0a] border-gray-800'}`}>
+      <div className="flex items-center gap-2 mb-2">
+         <AlertTriangle className={`w-4 h-4 ${isJudasZone ? 'text-red-500 animate-pulse' : 'text-[#ffcc00]'}`} />
+         <span className={`font-bold text-xs sm:text-sm tracking-wide ${isJudasZone ? 'text-red-500' : 'text-[#ffcc00]'}`}>
+           {isJudasZone ? 'AMARAN JUDAS SWING / SESI BERMULA!' : 'PEMANTAUAN SESI PASARAN'}
+         </span>
+      </div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+         <div className="text-gray-300 text-xs sm:text-sm">
+           Sesi seterusnya: <strong className="text-white">{nextSession}</strong> dalam <span className="font-mono text-[#4da6ff] font-bold">{hoursLeft}j {minsLeft}m</span>
+         </div>
+         {isJudasZone ? (
+           <div className="bg-red-500 text-white px-2 py-1 text-xs font-bold rounded animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]">
+             ZON MANIPULASI TINGGI
+           </div>
+         ) : (
+           <div className="bg-gray-800 text-gray-400 px-2 py-1 text-[10px] sm:text-xs font-bold rounded border border-gray-700">
+             Zon Selamat
+           </div>
+         )}
+      </div>
+      <p className="text-[10px] sm:text-xs text-gray-500 mt-2 leading-tight">
+        Awas fakeout (Judas Swing) 1 jam sebelum & selepas pembukaan London/New York. Tunggu struktur BOS yang jelas sebelum entry.
+      </p>
+    </div>
+  )
+}
+
 const JournalAnalytics = ({ journal }: { journal: any[] }) => {
   const completed = journal.filter(j => j.status === 'WIN' || j.status === 'LOSS');
   const wins = journal.filter(j => j.status === 'WIN').length;
@@ -918,6 +1078,7 @@ export default function App() {
           {/* RIGHT COLUMN (Analysis Panels) */}
           <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-3 lg:gap-4">
             
+            <SessionWarning />
             
             {/* AI SUMMARY */}
             <div className="border border-[#b49a45] rounded bg-[#0a0a0a]">
@@ -1007,8 +1168,7 @@ export default function App() {
               </div>
             </div>
 
-
-            
+            <ConfluenceScore data={data} />
             
             {/* ANALISIS HARI INI */}
             {data.dailyAnalysis && (
