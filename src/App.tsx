@@ -361,11 +361,11 @@ const SessionWarning = () => {
            Sesi seterusnya: <strong className="text-white">{nextSession}</strong> dalam <span className="font-mono text-[#4da6ff] font-bold">{hoursLeft}j {minsLeft}m</span>
          </div>
          {isJudasZone ? (
-           <div className="bg-red-500 text-white px-2 py-1 text-xs font-bold rounded animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]">
+           <div className="bg-red-500 text-white px-3 py-2 sm:px-2 sm:py-1 text-xs font-bold rounded animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]">
              ZON MANIPULASI TINGGI
            </div>
          ) : (
-           <div className="bg-gray-800 text-gray-400 px-2 py-1 text-[10px] sm:text-xs font-bold rounded border border-gray-700">
+           <div className="bg-gray-800 text-gray-400 px-3 py-2 sm:px-2 sm:py-1 text-[10px] sm:text-xs font-bold rounded border border-gray-700">
              Zon Selamat
            </div>
          )}
@@ -727,14 +727,14 @@ const RiskCalculator = ({ entryPrice, slPrice }: { entryPrice: string | number, 
         <DollarSign className="w-4 h-4" />
         Kalkulator Saiz Lot (XAUUSD)
       </div>
-      <div className="grid grid-cols-2 gap-3 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <div>
           <label className="text-[10px] text-gray-400 block mb-1">Baki Akaun ($)</label>
           <input 
             type="number" 
             value={balance} 
             onChange={(e) => setBalance(Number(e.target.value))}
-            className="w-full bg-black border border-gray-700 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-[#4da6ff]"
+            className="w-full bg-black border border-gray-700 rounded px-3 py-2 sm:px-2 sm:py-1 text-white text-xs focus:outline-none focus:border-[#4da6ff]"
           />
         </div>
         <div>
@@ -743,7 +743,7 @@ const RiskCalculator = ({ entryPrice, slPrice }: { entryPrice: string | number, 
             type="number" 
             value={riskPercent} 
             onChange={(e) => setRiskPercent(Number(e.target.value))}
-            className="w-full bg-black border border-gray-700 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-[#4da6ff]"
+            className="w-full bg-black border border-gray-700 rounded px-3 py-2 sm:px-2 sm:py-1 text-white text-xs focus:outline-none focus:border-[#4da6ff]"
           />
         </div>
       </div>
@@ -1086,17 +1086,17 @@ export default function App() {
       <div className="min-h-screen bg-[#020202] text-white font-sans antialiased p-1 sm:p-2 md:p-4 flex flex-col items-center">
       <div className={`w-full max-w-[1300px] flex justify-end flex-wrap gap-2 mb-2 transition-opacity duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
         {showInstallBtn && (
-          <button onClick={handleInstallClick} className="flex items-center gap-1.5 bg-[#22c55e] text-black px-3 py-1.5 rounded-md font-bold text-xs sm:text-sm hover:bg-green-400 transition-colors shadow-lg shadow-green-500/20">
+          <button onClick={handleInstallClick} className="flex items-center gap-1.5 bg-[#22c55e] text-black px-4 py-2.5 sm:px-3 sm:py-1.5 rounded-md font-bold text-xs sm:text-sm hover:bg-green-400 transition-colors shadow-lg shadow-green-500/20">
             <Smartphone className="w-4 h-4 text-black" />
             PASANG APLIKASI
           </button>
         )}
-        <button onClick={handleDownloadImage} className="flex items-center gap-2 bg-[#ffcc00] text-black px-3 py-1.5 rounded-md font-bold text-xs sm:text-sm hover:bg-yellow-400 transition-colors shadow-lg shadow-yellow-500/20">
+        <button onClick={handleDownloadImage} className="flex items-center gap-2 bg-[#ffcc00] text-black px-4 py-2.5 sm:px-3 sm:py-1.5 rounded-md font-bold text-xs sm:text-sm hover:bg-yellow-400 transition-colors shadow-lg shadow-yellow-500/20">
           <Download className="w-4 h-4" />
           DOWNLOAD GAMBAR
         </button>
       </div>
-      <div id="export-container" className={`w-full max-w-[1300px] border-t-4 border-[#b49a45] bg-[#050505] p-3 sm:p-5 md:p-6 rounded-xl shadow-[0_0_50px_rgba(180,154,69,0.05)] transition-opacity duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+      <div id="export-container" className={`w-full max-w-[1300px] border-t-4 border-[#b49a45] bg-[#050505] p-4 sm:p-5 md:p-6 rounded-xl shadow-[0_0_50px_rgba(180,154,69,0.05)] transition-opacity duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
         
         {/* Header */}
         <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-5 border-b border-[#b49a45]/20 mb-5 gap-4">
@@ -1112,11 +1112,11 @@ export default function App() {
                   <span className="tracking-wider">{data.date} {data.time && `| ${data.time} MYT`}</span>
                 </div>
                 
-                <span className="px-2 py-1 bg-[#1e3a8a]/20 text-[#4da6ff] rounded font-bold border border-[#1e3a8a]/50 tracking-wide">
+                <span className="px-3 py-2 sm:px-2 sm:py-1 bg-[#1e3a8a]/20 text-[#4da6ff] rounded font-bold border border-[#1e3a8a]/50 tracking-wide">
                   D1 OPEN: 6:00 AM MYT
                 </span>
                 
-                <span className={`px-2 py-1 text-white rounded font-bold border tracking-wide ${marketOpen ? 'bg-green-500/20 text-green-400 border-green-500/50' : 'bg-red-500/20 text-red-400 border-red-500/50'}`}>
+                <span className={`px-3 py-2 sm:px-2 sm:py-1 text-white rounded font-bold border tracking-wide ${marketOpen ? 'bg-green-500/20 text-green-400 border-green-500/50' : 'bg-red-500/20 text-red-400 border-red-500/50'}`}>
                   {marketOpen ? 'PASARAN BUKA' : 'PASARAN TUTUP'}
                 </span>
                 
@@ -1129,7 +1129,7 @@ export default function App() {
                       setTargetDate(new Date(e.target.value + 'T23:59:59+08:00'));
                     }
                   }}
-                  className="bg-[#111] border border-gray-700 text-gray-300 text-xs px-2 py-1 rounded outline-none focus:border-[#b49a45]"
+                  className="bg-[#111] border border-gray-700 text-gray-300 text-xs px-3 py-2 sm:px-2 sm:py-1 rounded outline-none focus:border-[#b49a45]"
                 />
               </div>
             </div>
@@ -1199,21 +1199,21 @@ export default function App() {
                   <table className="w-full text-[10px] sm:text-xs text-left text-gray-200">
                     <thead className="text-gray-400 border-b border-gray-700 bg-black/50">
                       <tr>
-                        <th className="px-2 py-1.5 font-normal text-center w-20">TIME</th>
-                        <th className="px-2 py-1.5 font-normal">NEWS</th>
+                        <th className="px-3 py-2 sm:px-2 sm:py-1.5 font-normal text-center w-20">TIME</th>
+                        <th className="px-3 py-2 sm:px-2 sm:py-1.5 font-normal">NEWS</th>
                         <th className="px-1 py-1.5 font-normal text-center w-12 hidden sm:table-cell">FCST</th>
                         <th className="px-1 py-1.5 font-normal text-center w-12 hidden sm:table-cell">PREV</th>
-                        <th className="px-2 py-1.5 font-normal text-center w-16">IMPACT</th>
+                        <th className="px-3 py-2 sm:px-2 sm:py-1.5 font-normal text-center w-16">IMPACT</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800">
                       {data.news.map((item, i) => (
                         <tr key={i}>
-                          <td className="px-2 py-1.5 text-center">{item.time}</td>
-                          <td className="px-2 py-1.5">{item.event}</td>
+                          <td className="px-3 py-2 sm:px-2 sm:py-1.5 text-center">{item.time}</td>
+                          <td className="px-3 py-2 sm:px-2 sm:py-1.5">{item.event}</td>
                           <td className="px-1 py-1.5 text-center text-gray-400 hidden sm:table-cell">{item.forecast}</td>
                           <td className="px-1 py-1.5 text-center text-gray-400 hidden sm:table-cell">{item.previous}</td>
-                          <td className={`px-2 py-1.5 font-bold text-center ${item.impact === 'HIGH' ? 'text-[#ef4444]' : (item.impact === 'MED' ? 'text-[#eab308]' : (item.impact === 'INFO' ? 'text-[#3b82f6]' : 'text-gray-400'))}`}>{item.impact}</td>
+                          <td className={`px-3 py-2 sm:px-2 sm:py-1.5 font-bold text-center ${item.impact === 'HIGH' ? 'text-[#ef4444]' : (item.impact === 'MED' ? 'text-[#eab308]' : (item.impact === 'INFO' ? 'text-[#3b82f6]' : 'text-gray-400'))}`}>{item.impact}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1296,7 +1296,7 @@ export default function App() {
                 <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">SBR & RBS (Support/Resistance)</span>
               </div>
               <div className="p-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <div className="font-bold text-[#ef4444] text-xs sm:text-sm mb-2">H4 SBR/RBS</div>
                     {data.sbr_rbs?.h4?.sbr && (
@@ -1376,7 +1376,7 @@ export default function App() {
                       <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.orderBlock.h4.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
                         {data.orderBlock.h4.direction} OB (H4)
                       </div>
-                      <div className="bg-[#4c1d95] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-purple-900/20">
+                      <div className="bg-[#4c1d95] text-white px-3 py-2 sm:px-2 sm:py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-purple-900/20">
                         {data.orderBlock.h4.range} <span className="text-green-400 font-bold ml-1">({data.orderBlock.h4.winRate}%)</span>
                       </div>
                     </div>
@@ -1386,7 +1386,7 @@ export default function App() {
                       <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.orderBlock.h1.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
                         {data.orderBlock.h1.direction} OB (H1)
                       </div>
-                      <div className="bg-[#4c1d95] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-purple-900/20">
+                      <div className="bg-[#4c1d95] text-white px-3 py-2 sm:px-2 sm:py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-purple-900/20">
                         {data.orderBlock.h1.range} <span className="text-green-400 font-bold ml-1">({data.orderBlock.h1.winRate}%)</span>
                       </div>
                     </div>
@@ -1412,7 +1412,7 @@ export default function App() {
                       <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.fvg.h4.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
                         {data.fvg.h4.direction} FVG (H4)
                       </div>
-                      <div className="bg-[#1e3a8a] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-blue-900/20">
+                      <div className="bg-[#1e3a8a] text-white px-3 py-2 sm:px-2 sm:py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-blue-900/20">
                         {data.fvg.h4.range} <span className="text-green-400 font-bold ml-1">({data.fvg.h4.winRate}%)</span>
                       </div>
                     </div>
@@ -1422,7 +1422,7 @@ export default function App() {
                       <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.fvg.h1.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
                         {data.fvg.h1.direction} FVG (H1)
                       </div>
-                      <div className="bg-[#1e3a8a] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-blue-900/20">
+                      <div className="bg-[#1e3a8a] text-white px-3 py-2 sm:px-2 sm:py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-blue-900/20">
                         {data.fvg.h1.range} <span className="text-green-400 font-bold ml-1">({data.fvg.h1.winRate}%)</span>
                       </div>
                     </div>
@@ -1432,7 +1432,7 @@ export default function App() {
                       <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.fvg.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
                         {data.fvg.direction} FVG ({data.fvg.timeframe})
                       </div>
-                      <div className="bg-[#1e3a8a] text-white px-2 py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-blue-900/20">
+                      <div className="bg-[#1e3a8a] text-white px-3 py-2 sm:px-2 sm:py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-blue-900/20">
                         {data.fvg.range}
                       </div>
                     </div>
@@ -1642,7 +1642,7 @@ export default function App() {
                           <select 
                             value={entry.status}
                             onChange={(e) => updateJournalStatus(entry.id, e.target.value)}
-                            className={`text-sm font-bold px-3 py-1.5 rounded outline-none cursor-pointer ${
+                            className={`text-sm font-bold px-4 py-2.5 sm:px-3 sm:py-1.5 rounded outline-none cursor-pointer ${
                               entry.status === 'WIN' ? 'bg-[#22c55e] text-black' : 
                               entry.status === 'LOSS' ? 'bg-[#ef4444] text-white' : 
                               'bg-gray-700 text-white'
