@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { isSameWeek } from 'date-fns';
 import { 
   X, 
   Flame, 
@@ -50,6 +51,7 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
   onAutoSyncNews
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [timeFilter, setTimeFilter] = useState<'THIS_WEEK' | 'ALL'>('THIS_WEEK');
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState<boolean>(false);
@@ -105,18 +107,29 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Filter list
-  const filteredList = selectedCategory === 'ALL' 
-    ? newsList 
-    : newsList.filter(n => n.category === selectedCategory);
+  // Filter list by time first
+  const timeFilteredList = newsList.filter(n => {
+    if (timeFilter === 'ALL') return true;
+    if (!n.createdAt) return false;
+    try {
+      return isSameWeek(new Date(n.createdAt), new Date(), { weekStartsOn: 1 });
+    } catch {
+      return true;
+    }
+  });
 
-  // Calculate statistics
-  const completed = newsList.filter(n => n.status === 'BETUL' || n.status === 'SALAH');
-  const correctCount = newsList.filter(n => n.status === 'BETUL').length;
-  const wrongCount = newsList.filter(n => n.status === 'SALAH').length;
-  const pendingCount = newsList.filter(n => n.status === 'PENDING').length;
+  // Filter by category
+  const filteredList = selectedCategory === 'ALL' 
+    ? timeFilteredList 
+    : timeFilteredList.filter(n => n.category === selectedCategory);
+
+  // Calculate statistics (based on time filtered list)
+  const completed = timeFilteredList.filter(n => n.status === 'BETUL' || n.status === 'SALAH');
+  const correctCount = timeFilteredList.filter(n => n.status === 'BETUL').length;
+  const wrongCount = timeFilteredList.filter(n => n.status === 'SALAH').length;
+  const pendingCount = timeFilteredList.filter(n => n.status === 'PENDING').length;
   const winRate = completed.length > 0 ? ((correctCount / completed.length) * 100).toFixed(1) : '0.0';
-  const totalPips = newsList.reduce((acc, curr) => acc + (curr.pipsWon || 0), 0);
+  const totalPips = timeFilteredList.reduce((acc, curr) => acc + (curr.pipsWon || 0), 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -497,16 +510,35 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
             </form>
           )}
 
+          {/* Time Filter Bar */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 text-xs no-scrollbar border-b border-gray-800 mb-2">
+            <span className="text-gray-400 text-xs flex items-center gap-1 mr-1 shrink-0 font-bold">
+              <Clock className="w-3.5 h-3.5 text-[#ffcc00]" /> MASA:
+            </span>
+            <button 
+              onClick={() => setTimeFilter('THIS_WEEK')}
+              className={`px-3 py-1 rounded-full font-bold whitespace-nowrap transition-colors ${timeFilter === 'THIS_WEEK' ? 'bg-[#ffcc00] text-black' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+            >
+              Minggu Ini
+            </button>
+            <button 
+              onClick={() => setTimeFilter('ALL')}
+              className={`px-3 py-1 rounded-full font-bold whitespace-nowrap transition-colors ${timeFilter === 'ALL' ? 'bg-[#ffcc00] text-black' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+            >
+              Semua ({newsList.length})
+            </button>
+          </div>
+
           {/* Filter Bar */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar border-b border-gray-800">
             <span className="text-gray-400 text-xs flex items-center gap-1 mr-1 shrink-0 font-bold">
-              <Filter className="w-3.5 h-3.5 text-[#ffcc00]" /> TAPIS:
+              <Filter className="w-3.5 h-3.5 text-[#ffcc00]" /> KATEGORI:
             </span>
             <button 
               onClick={() => setSelectedCategory('ALL')}
               className={`px-3 py-1 rounded-full font-bold whitespace-nowrap transition-colors ${selectedCategory === 'ALL' ? 'bg-[#ffcc00] text-black' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
             >
-              Semua ({newsList.length})
+              Semua ({timeFilteredList.length})
             </button>
             <button 
               onClick={() => setSelectedCategory('NFP')}
