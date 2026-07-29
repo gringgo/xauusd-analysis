@@ -13,6 +13,78 @@ function parseCandles(data: any[]) {
   }));
 }
 
+export interface TradeSuggestion {
+  action: 'BUY' | 'SELL' | 'NEUTRAL' | 'VOLATILE';
+  suggestion: string;
+  estimatedPips: string;
+  reason: string;
+}
+
+export function getNewsTradeSuggestion(event: string, forecast?: string, previous?: string): TradeSuggestion {
+  const titleUpper = (event || '').toUpperCase();
+
+  if (titleUpper.includes('FOMC') || titleUpper.includes('FEDERAL FUNDS RATE') || titleUpper.includes('RATE DECISION') || titleUpper.includes('STATEMENT') || titleUpper.includes('PRESS CONFERENCE')) {
+    return {
+      action: 'BUY',
+      suggestion: 'BUY XAUUSD',
+      estimatedPips: '150 - 350 PIPS',
+      reason: 'FOMC / Polisi Kadar Faedah: Potensi kejutan Dovish. Kawal modal & nantikan spike sebelum pencarian setup BUY.'
+    };
+  }
+
+  if (titleUpper.includes('NFP') || titleUpper.includes('NON-FARM EMPLOYMENT') || titleUpper.includes('PAYROLL')) {
+    return {
+      action: 'BUY',
+      suggestion: 'BUY XAUUSD',
+      estimatedPips: '120 - 250 PIPS',
+      reason: 'Data NFP: Pasaran buruh USD dijangka sederhana, menyokong kenaikan harga Emas menuju zon Liquidity.'
+    };
+  }
+
+  if (titleUpper.includes('CPI') || titleUpper.includes('CONSUMER PRICE')) {
+    return {
+      action: 'BUY',
+      suggestion: 'BUY XAUUSD',
+      estimatedPips: '100 - 220 PIPS',
+      reason: 'Data Inflasi CPI: Penurunan kadar inflasi merangsang pembelian Emas (Bullish XAUUSD).'
+    };
+  }
+
+  if (titleUpper.includes('GDP')) {
+    return {
+      action: 'BUY',
+      suggestion: 'BUY XAUUSD',
+      estimatedPips: '90 - 180 PIPS',
+      reason: 'Advance GDP: Jangkaan pertumbuhan lebih rendah melemahkan USD dan mendorong harga Emas ke zon FVG.'
+    };
+  }
+
+  if (titleUpper.includes('UNEMPLOYMENT') || titleUpper.includes('CLAIMS') || titleUpper.includes('ADP')) {
+    return {
+      action: 'BUY',
+      suggestion: 'BUY XAUUSD',
+      estimatedPips: '60 - 140 PIPS',
+      reason: 'Unemployment Claims: Peningkatan tuntutan pengangguran memberi sinyal Bullish buat Emas.'
+    };
+  }
+
+  if (titleUpper.includes('RETAIL SALES') || titleUpper.includes('PPI') || titleUpper.includes('DURABLE')) {
+    return {
+      action: 'SELL',
+      suggestion: 'SELL XAUUSD',
+      estimatedPips: '50 - 120 PIPS',
+      reason: 'Data Ekonomi Sekunder: Penguatan pendek USD menekan Emas ke bawah untuk zon pengumpulan.'
+    };
+  }
+
+  return {
+    action: 'VOLATILE',
+    suggestion: 'BUY / SELL',
+    estimatedPips: '80 - 160 PIPS',
+    reason: 'High Volatility: Tunggu 5 minit awal selepas news rilis untuk mengesan reaksi struktur breakout.'
+  };
+}
+
 
 function aggregateCandles(h1Data: any[], hoursPerCandle: number, offsetHours: number = 22) {
   const result: any[] = [];
@@ -294,8 +366,22 @@ function findSBR_RBS(candles: any[], currentPrice: number) {
   }
 
   return {
-    sbr: sbr ? { price: sbr.toFixed(2), winRate: getWinRate(sbr) } : null,
-    rbs: rbs ? { price: rbs.toFixed(2), winRate: getWinRate(rbs) } : null
+    sbr: sbr ? { 
+      price: sbr.toFixed(2), 
+      winRate: getWinRate(sbr),
+      type: 'DBD / SBR',
+      pattern: 'Drop-Base-Drop (SBR)',
+      signal: 'SELL',
+      description: 'Support lama tembus (Breakout Low) → Bertukar menjadi Resistance. ZON REFRESH SELL.'
+    } : null,
+    rbs: rbs ? { 
+      price: rbs.toFixed(2), 
+      winRate: getWinRate(rbs),
+      type: 'RBR / RBS',
+      pattern: 'Rally-Base-Rally (RBS)',
+      signal: 'BUY',
+      description: 'Resistance lama tembus (Breakout High) → Bertukar menjadi Support. ZON REFRESH BUY.'
+    } : null
   };
 }
 
@@ -445,7 +531,7 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
           .filter(n => n.country === 'USD')
           .map(n => {
             const dateObj = new Date(n.date);
-            const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' });
             
             let impact = "LOW";
             if (n.impact === "High") impact = "HIGH";
@@ -471,24 +557,32 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
     const d = targetDate || new Date();
     
     if (liveNewsData.length > 0) {
-      // Find today's news
+      // Find today's news and early morning overnight news up to 06:00 AM next day (e.g. 02:00 AM FOMC)
       const startOfDay = new Date(d);
       startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(d);
-      endOfDay.setHours(23, 59, 59, 999);
+      const endOfWindow = new Date(d);
+      endOfWindow.setDate(endOfWindow.getDate() + 1);
+      endOfWindow.setHours(6, 0, 0, 0);
       
-      const todaysNews = liveNewsData.filter(n => n.date >= startOfDay && n.date <= endOfDay);
+      const todaysNews = liveNewsData.filter(n => n.date >= startOfDay && n.date <= endOfWindow);
       
       if (todaysNews.length > 0) {
-        formattedNews = todaysNews.map(n => ({ 
-          time: n.time, 
-          event: n.event, 
-          impact: n.impact,
-          forecast: n.forecast,
-          previous: n.previous 
-        }));
+        formattedNews = todaysNews.map(n => {
+          const sugg = getNewsTradeSuggestion(n.event, n.forecast, n.previous);
+          return { 
+            time: n.time, 
+            event: n.event, 
+            impact: n.impact,
+            forecast: n.forecast,
+            previous: n.previous,
+            action: sugg.action,
+            suggestion: sugg.suggestion,
+            estimatedPips: sugg.estimatedPips,
+            reason: sugg.reason
+          };
+        });
       } else {
-        formattedNews = [{ time: "-", event: "Tiada news USD hari ini", impact: "INFO", forecast: "-", previous: "-" }];
+        formattedNews = [{ time: "-", event: "Tiada news USD hari ini", impact: "INFO", forecast: "-", previous: "-", action: "NEUTRAL", suggestion: "TIADA TRADE", estimatedPips: "0 PIPS", reason: "Tiada impak news USD." }];
       }
     } else {
       const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday ... 6 = Saturday
@@ -512,8 +606,10 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
           { time: "02:30 AM", event: "FOMC Press Conference", impact: "HIGH", forecast: "-", previous: "-" }
         ],
         4: [ // Thursday
-          { time: "08:30 PM", event: "Core PPI m/m", impact: "MED", forecast: "-", previous: "-" },
-          { time: "08:30 PM", event: "Unemployment Claims", impact: "HIGH", forecast: "-", previous: "-" },
+          { time: "02:00 AM", event: "FOMC Statement & Federal Funds Rate", impact: "HIGH", forecast: "5.25%", previous: "5.25%" },
+          { time: "02:30 AM", event: "FOMC Press Conference", impact: "HIGH", forecast: "-", previous: "-" },
+          { time: "08:30 PM", event: "Advance GDP q/q", impact: "HIGH", forecast: "2.1%", previous: "1.5%" },
+          { time: "08:30 PM", event: "Unemployment Claims", impact: "HIGH", forecast: "245K", previous: "238K" },
           { time: "10:00 PM", event: "Fed Chair Powell Speaks", impact: "HIGH", forecast: "-", previous: "-" }
         ],
         5: [ // Friday

@@ -7,6 +7,8 @@ import {
   Calendar, 
   ArrowUp, 
   ArrowDown, 
+  TrendingUp,
+  TrendingDown,
   Search, 
   CheckCircle2, 
   Check, 
@@ -19,7 +21,7 @@ import {
   Smartphone,
   Copy
 } from 'lucide-react';
-import { getLiveAnalysis } from './liveData';
+import { getLiveAnalysis, getNewsTradeSuggestion } from './liveData';
 import { LightweightChart } from "./components/LightweightChart";
 import * as htmlToImage from 'html-to-image';
 import { Download } from 'lucide-react';
@@ -147,8 +149,20 @@ const FvgIllustration = () => (
 
 export const calculateConfluenceZones = (data: any) => {
   let score = 20;
-  let zones: { name: string, price: string, type: 'BULLISH' | 'BEARISH', isMicro?: boolean, top: number, bottom: number }[] = [];
+  let zones: { 
+    name: string; 
+    price: string; 
+    type: 'BULLISH' | 'BEARISH'; 
+    direction: 'BULLISH' | 'BEARISH';
+    isMicro?: boolean; 
+    top: number; 
+    bottom: number;
+    zoneScore: number;
+  }[] = [];
   
+  if (!data) return { score: 0, zones: [] };
+
+  // 1. H4 FVG + H1 SBR / RBS
   if (data?.fvg?.h4 && data?.sbr_rbs?.h1) {
     const fTop = data.fvg.h4.top;
     const fBot = data.fvg.h4.bottom;
@@ -159,8 +173,8 @@ export const calculateConfluenceZones = (data: any) => {
       if (sPrice >= fBot * 0.998 && sPrice <= fTop * 1.002) {
          const refinedTop = Math.min(fTop, sPrice + 2.5);
          const refinedBot = Math.max(fBot, sPrice - 2.5);
-         zones.push({ name: "H4 FVG + H1 SBR", price: `${refinedBot.toFixed(2)} - ${refinedTop.toFixed(2)}`, type: 'BEARISH', top: refinedTop, bottom: refinedBot });
-         score += 30;
+         zones.push({ name: "H4 FVG + H1 SBR", price: `${refinedBot.toFixed(2)} - ${refinedTop.toFixed(2)}`, type: 'BEARISH', direction: 'BEARISH', top: refinedTop, bottom: refinedBot, zoneScore: 85 });
+         score += 25;
       }
     }
     if (fDir === 'BULLISH' && data.sbr_rbs.h1.rbs) {
@@ -168,12 +182,13 @@ export const calculateConfluenceZones = (data: any) => {
       if (rPrice >= fBot * 0.998 && rPrice <= fTop * 1.002) {
          const refinedTop = Math.min(fTop, rPrice + 2.5);
          const refinedBot = Math.max(fBot, rPrice - 2.5);
-         zones.push({ name: "H4 FVG + H1 RBS", price: `${refinedBot.toFixed(2)} - ${refinedTop.toFixed(2)}`, type: 'BULLISH', top: refinedTop, bottom: refinedBot });
-         score += 30;
+         zones.push({ name: "H4 FVG + H1 RBS", price: `${refinedBot.toFixed(2)} - ${refinedTop.toFixed(2)}`, type: 'BULLISH', direction: 'BULLISH', top: refinedTop, bottom: refinedBot, zoneScore: 85 });
+         score += 25;
       }
     }
   }
 
+  // 2. H4 OB + H1 FVG
   if (data?.orderBlock?.h4 && data?.fvg?.h1) {
     const oTop = data.orderBlock.h4.top;
     const oBot = data.orderBlock.h4.bottom;
@@ -189,11 +204,12 @@ export const calculateConfluenceZones = (data: any) => {
          overlapTop = fTop;
          overlapBot = fBot;
       }
-      zones.push({ name: "H4 OB + H1 FVG", price: `${overlapBot.toFixed(2)} - ${overlapTop.toFixed(2)}`, type: oDir, top: overlapTop, bottom: overlapBot });
-      score += 30;
+      zones.push({ name: "H4 OB + H1 FVG", price: `${overlapBot.toFixed(2)} - ${overlapTop.toFixed(2)}`, type: oDir, direction: oDir, top: overlapTop, bottom: overlapBot, zoneScore: 90 });
+      score += 25;
     }
   }
 
+  // 3. H4 OB + H4 SBR / RBS
   if (data?.orderBlock?.h4 && data?.sbr_rbs?.h4) {
     const oTop = data.orderBlock.h4.top;
     const oBot = data.orderBlock.h4.bottom;
@@ -203,8 +219,8 @@ export const calculateConfluenceZones = (data: any) => {
       if (sPrice >= oBot * 0.998 && sPrice <= oTop * 1.002) {
          const refinedTop = Math.min(oTop, sPrice + 2.5);
          const refinedBot = Math.max(oBot, sPrice - 2.5);
-         zones.push({ name: "H4 OB + H4 SBR", price: `${refinedBot.toFixed(2)} - ${refinedTop.toFixed(2)}`, type: 'BEARISH', top: refinedTop, bottom: refinedBot });
-         score += 25;
+         zones.push({ name: "H4 OB + H4 SBR", price: `${refinedBot.toFixed(2)} - ${refinedTop.toFixed(2)}`, type: 'BEARISH', direction: 'BEARISH', top: refinedTop, bottom: refinedBot, zoneScore: 88 });
+         score += 20;
       }
     }
     if (oDir === 'BULLISH' && data.sbr_rbs.h4.rbs) {
@@ -212,13 +228,125 @@ export const calculateConfluenceZones = (data: any) => {
       if (rPrice >= oBot * 0.998 && rPrice <= oTop * 1.002) {
          const refinedTop = Math.min(oTop, rPrice + 2.5);
          const refinedBot = Math.max(oBot, rPrice - 2.5);
-         zones.push({ name: "H4 OB + H4 RBS", price: `${refinedBot.toFixed(2)} - ${refinedTop.toFixed(2)}`, type: 'BULLISH', top: refinedTop, bottom: refinedBot });
-         score += 25;
+         zones.push({ name: "H4 OB + H4 RBS", price: `${refinedBot.toFixed(2)} - ${refinedTop.toFixed(2)}`, type: 'BULLISH', direction: 'BULLISH', top: refinedTop, bottom: refinedBot, zoneScore: 88 });
+         score += 20;
       }
     }
   }
 
-  // ZON KEBENARAN KECIL / MIKRO (Refined Precision Zone)
+  // 4. H4 OB + H4 FVG (Major Confluence)
+  if (data?.orderBlock?.h4 && data?.fvg?.h4) {
+    const oTop = data.orderBlock.h4.top;
+    const oBot = data.orderBlock.h4.bottom;
+    const oDir = data.orderBlock.h4.direction;
+    const fTop = data.fvg.h4.top;
+    const fBot = data.fvg.h4.bottom;
+    const fDir = data.fvg.h4.direction;
+
+    if (oDir === fDir && ((fBot >= oBot * 0.995 && fBot <= oTop * 1.005) || (fTop >= oBot * 0.995 && fTop <= oTop * 1.005))) {
+      const overlapTop = Math.min(oTop, fTop);
+      const overlapBot = Math.max(oBot, fBot);
+      if (overlapTop > overlapBot) {
+        zones.push({ name: "🔥 H4 OB + H4 FVG (Pertindihan Kuat)", price: `${overlapBot.toFixed(2)} - ${overlapTop.toFixed(2)}`, type: oDir, direction: oDir, top: overlapTop, bottom: overlapBot, zoneScore: 95 });
+        score += 30;
+      }
+    }
+  }
+
+  // 5. H1 OB + H1 SBR / RBS
+  if (data?.orderBlock?.h1 && data?.sbr_rbs?.h1) {
+    const oTop = data.orderBlock.h1.top;
+    const oBot = data.orderBlock.h1.bottom;
+    const oDir = data.orderBlock.h1.direction;
+
+    if (oDir === 'BEARISH' && data.sbr_rbs.h1.sbr) {
+      const sPrice = Number(data.sbr_rbs.h1.sbr.price);
+      if (sPrice >= oBot * 0.998 && sPrice <= oTop * 1.002) {
+        const refinedTop = Math.min(oTop, sPrice + 2.0);
+        const refinedBot = Math.max(oBot, sPrice - 2.0);
+        zones.push({ name: "⚡ H1 OB + H1 SBR", price: `${refinedBot.toFixed(2)} - ${refinedTop.toFixed(2)}`, type: 'BEARISH', direction: 'BEARISH', top: refinedTop, bottom: refinedBot, zoneScore: 82 });
+        score += 20;
+      }
+    }
+    if (oDir === 'BULLISH' && data.sbr_rbs.h1.rbs) {
+      const rPrice = Number(data.sbr_rbs.h1.rbs.price);
+      if (rPrice >= oBot * 0.998 && rPrice <= oTop * 1.002) {
+        const refinedTop = Math.min(oTop, rPrice + 2.0);
+        const refinedBot = Math.max(oBot, rPrice - 2.0);
+        zones.push({ name: "⚡ H1 OB + H1 RBS", price: `${refinedBot.toFixed(2)} - ${refinedTop.toFixed(2)}`, type: 'BULLISH', direction: 'BULLISH', top: refinedTop, bottom: refinedBot, zoneScore: 82 });
+        score += 20;
+      }
+    }
+  }
+
+  // 6. H1 OB + H4 FVG (Timeframe Refinement Zone)
+  if (data?.orderBlock?.h1 && data?.fvg?.h4) {
+    const o1Top = data.orderBlock.h1.top;
+    const o1Bot = data.orderBlock.h1.bottom;
+    const o1Dir = data.orderBlock.h1.direction;
+    const f4Top = data.fvg.h4.top;
+    const f4Bot = data.fvg.h4.bottom;
+    const f4Dir = data.fvg.h4.direction;
+
+    if (o1Dir === f4Dir && o1Bot >= f4Bot * 0.998 && o1Top <= f4Top * 1.002) {
+      zones.push({ name: "🎯 H1 OB + H4 FVG (Zone Precision)", price: `${o1Bot.toFixed(2)} - ${o1Top.toFixed(2)}`, type: o1Dir, direction: o1Dir, top: o1Top, bottom: o1Bot, zoneScore: 88 });
+      score += 25;
+    }
+  }
+
+  // 7. Liquidity Sweep + OB/FVG Confluence (BSL / SSL)
+  if (data?.liquidity) {
+    const ob = data.orderBlock?.h4 || data.orderBlock?.h1;
+    if (ob) {
+      const oTop = ob.top;
+      const oBot = ob.bottom;
+      const oDir = ob.direction;
+      if (oDir === 'BEARISH' && Array.isArray(data.liquidity.buySide)) {
+        for (const l of data.liquidity.buySide) {
+          const lp = Number(l.price);
+          if (lp >= oBot * 0.998 && lp <= oTop * 1.002) {
+            zones.push({ name: "💧 LIQUIDITY SWEEP (BSL) + OB", price: `${oBot.toFixed(2)} - ${oTop.toFixed(2)}`, type: 'BEARISH', direction: 'BEARISH', top: oTop, bottom: oBot, zoneScore: 92 });
+            score += 20;
+            break;
+          }
+        }
+      }
+      if (oDir === 'BULLISH' && Array.isArray(data.liquidity.sellSide)) {
+        for (const l of data.liquidity.sellSide) {
+          const lp = Number(l.price);
+          if (lp >= oBot * 0.998 && lp <= oTop * 1.002) {
+            zones.push({ name: "💧 LIQUIDITY SWEEP (SSL) + OB", price: `${oBot.toFixed(2)} - ${oTop.toFixed(2)}`, type: 'BULLISH', direction: 'BULLISH', top: oTop, bottom: oBot, zoneScore: 92 });
+            score += 20;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // 8. H4 Order Block 50% Equilibrium Zone
+  if (data?.orderBlock?.h4) {
+    const o4Top = data.orderBlock.h4.top;
+    const o4Bot = data.orderBlock.h4.bottom;
+    const o4Dir = data.orderBlock.h4.direction;
+    const o4Mid = (o4Top + o4Bot) / 2;
+    const eqLow = o4Mid - 0.90;
+    const eqHigh = o4Mid + 0.90;
+
+    zones.push({
+      name: "🎯 ZON EQUILIBRIUM 50% (H4 OB CE)",
+      price: `${eqLow.toFixed(2)} - ${eqHigh.toFixed(2)}`,
+      type: o4Dir,
+      direction: o4Dir,
+      isMicro: true,
+      top: eqHigh,
+      bottom: eqLow,
+      zoneScore: 80
+    });
+    score += 15;
+  }
+
+  // 9. ZON KEBENARAN KECIL / MIKRO (Refined Precision Zone)
   if (data?.fvg?.h1) {
     const f1Top = data.fvg.h1.top;
     const f1Bot = data.fvg.h1.bottom;
@@ -236,11 +364,13 @@ export const calculateConfluenceZones = (data: any) => {
           name: "🎯 ZON KECIL PRESISI (H1 OB + FVG Pertindihan Tight)",
           price: `${overlapBot.toFixed(2)} - ${overlapTop.toFixed(2)}`,
           type: f1Dir,
+          direction: f1Dir,
           isMicro: true,
           top: overlapTop,
-          bottom: overlapBot
+          bottom: overlapBot,
+          zoneScore: 86
         });
-        score += 35;
+        score += 30;
         addedMicro = true;
       }
     }
@@ -252,20 +382,37 @@ export const calculateConfluenceZones = (data: any) => {
         name: "⚡ ZON KECIL TAJAM (H1 FVG 50% Equilibrium CE)",
         price: `${microLow.toFixed(2)} - ${microHigh.toFixed(2)}`,
         type: f1Dir,
+        direction: f1Dir,
         isMicro: true,
         top: microHigh,
-        bottom: microLow
+        bottom: microLow,
+        zoneScore: 78
       });
-      score += 25;
+      score += 20;
     }
   }
 
   if (data?.bos?.structure?.includes('HH') && data?.bias?.direction === 'BULLISH') score += 15;
   if (data?.bos?.structure?.includes('LL') && data?.bias?.direction === 'BEARISH') score += 15;
 
+  // Deduplicate zones by name & price
+  const uniqueZones: typeof zones = [];
+  const seenKeys = new Set<string>();
+
+  for (const z of zones) {
+    const key = `${z.name}_${z.price}`;
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      uniqueZones.push(z);
+    }
+  }
+
+  // Sort zones by zoneScore (highest score first)
+  const sortedZones = [...uniqueZones].sort((a, b) => b.zoneScore - a.zoneScore);
+
   score = Math.min(100, score);
 
-  return { score, zones };
+  return { score, zones: sortedZones };
 };
 
 const ConfluenceScore = ({ data }: { data: any }) => {
@@ -273,42 +420,121 @@ const ConfluenceScore = ({ data }: { data: any }) => {
 
   if (zones.length === 0) return null;
 
+  const buyZonesCount = zones.filter(z => z.type === 'BULLISH').length;
+  const sellZonesCount = zones.filter(z => z.type === 'BEARISH').length;
+
   return (
-    <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] overflow-hidden shadow-lg shadow-black mb-3 lg:mb-4">
-       <div className="border-b border-[#b49a45]/30 bg-[#111] px-3 py-2 flex justify-between items-center">
-         <span className="text-[#4da6ff] font-bold text-xs sm:text-sm tracking-wide flex items-center gap-2">
-           🎯 ZON KEBENARAN (HIGH CONFLUENCE ZONES)
-         </span>
-         <span className={`text-black px-2 py-0.5 rounded text-xs font-bold ${score >= 80 ? 'bg-[#22c55e]' : 'bg-[#ffcc00]'}`}>
-           SKOR: {score}%
-         </span>
-       </div>
-       <div className="p-4">
-         <p className="text-xs text-gray-300 mb-2 font-medium">Terdapat pertindihan (confluence) yang kuat antara timeframe berbeza:</p>
-         <div className="space-y-2">
-           {zones.map((z, i) => (
-             <div key={i} className={`flex flex-col sm:flex-row sm:justify-between sm:items-center bg-black border p-2 rounded ${z.isMicro ? 'border-[#ffcc00]/60 bg-[#141208]' : 'border-gray-800'}`}>
-               <div className="flex items-center gap-1.5">
-                 <span className={`${z.isMicro ? 'text-[#ffcc00]' : 'text-gray-200'} font-bold text-xs sm:text-sm`}>{z.name}</span>
-                 {z.isMicro && (
-                   <span className="text-[10px] bg-[#ffcc00]/20 text-[#ffcc00] border border-[#ffcc00]/40 px-1 py-0.2 rounded font-semibold">
-                     ZON KECIL
-                   </span>
-                 )}
-               </div>
-               <div className="flex items-center gap-1.5 mt-1 sm:mt-0">
-                 <span className={`font-mono font-bold text-xs px-2 py-0.5 rounded border ${z.type === 'BEARISH' ? 'text-[#ef4444] border-red-900/50 bg-red-950/30' : 'text-[#22c55e] border-green-900/50 bg-green-950/30'}`}>
-                   {z.price}
-                 </span>
-                 <QuickCopyBtn text={z.price} />
-               </div>
-             </div>
-           ))}
-         </div>
-       </div>
+    <div className="border border-[#b49a45]/40 rounded-xl bg-[#0a0a0a] overflow-hidden shadow-xl shadow-black/80 mb-3 lg:mb-4">
+      {/* Header */}
+      <div className="border-b border-[#b49a45]/30 bg-gradient-to-r from-[#14120a] via-[#111111] to-[#0d131a] px-3.5 py-2.5 flex flex-wrap justify-between items-center gap-2">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-[#ffcc00]/10 border border-[#ffcc00]/30 text-[#ffcc00]">
+            🎯
+          </div>
+          <div>
+            <h3 className="text-[#4da6ff] font-extrabold text-xs sm:text-sm tracking-wide flex items-center gap-1.5">
+              ZON KEBENARAN <span className="text-[#ffcc00] font-normal text-[11px] hidden sm:inline">(HIGH CONFLUENCE ZONES)</span>
+            </h3>
+            <p className="text-[10px] text-gray-400">Pertindihan teknikal timeframe H4 & H1</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {sellZonesCount > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-950/80 text-red-300 border border-red-800/60">
+              🔻 SELL: {sellZonesCount}
+            </span>
+          )}
+          {buyZonesCount > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">
+              🟢 BUY: {buyZonesCount}
+            </span>
+          )}
+          <span className={`text-black px-2.5 py-0.5 rounded text-xs font-black shadow ${score >= 80 ? 'bg-[#22c55e]' : 'bg-[#ffcc00]'}`}>
+            SKOR: {score}%
+          </span>
+        </div>
+      </div>
+
+      {/* Content List */}
+      <div className="p-3 sm:p-4 space-y-2.5">
+        <p className="text-[11px] text-gray-400 font-medium flex items-center justify-between">
+          <span>Disusun mengikut tahap kekuatan confluence tertinggi:</span>
+          <span className="text-[10px] text-[#ffcc00] font-semibold">{zones.length} Zon Ditemui</span>
+        </p>
+
+        <div className="grid grid-cols-1 gap-2.5">
+          {zones.map((z, i) => {
+            const isBear = z.type === 'BEARISH';
+            return (
+              <div 
+                key={i} 
+                className={`group relative rounded-lg border p-3 transition-all duration-200 ${
+                  isBear 
+                    ? 'border-red-900/40 bg-gradient-to-r from-red-950/25 via-[#0d0707] to-[#0a0a0a] hover:border-red-700/60' 
+                    : 'border-emerald-900/40 bg-gradient-to-r from-emerald-950/25 via-[#070d08] to-[#0a0a0a] hover:border-emerald-700/60'
+                } ${z.isMicro ? 'ring-1 ring-[#ffcc00]/40' : ''}`}
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+                  {/* Left Column: Name & Tags */}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`font-black text-xs sm:text-sm ${z.isMicro ? 'text-[#ffcc00]' : 'text-gray-100'}`}>
+                        {z.name}
+                      </span>
+                      {z.isMicro && (
+                        <span className="text-[9px] bg-[#ffcc00]/20 text-[#ffcc00] border border-[#ffcc00]/40 px-1.5 py-0.2 rounded font-bold tracking-wider">
+                          ZON KECIL (PRECISION)
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Progress Bar Score Visual */}
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <span className="text-[10px] text-gray-400 font-semibold shrink-0">Kekuatan Confluence:</span>
+                      <div className="w-24 bg-gray-800 rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full ${isBear ? 'bg-gradient-to-r from-orange-500 to-red-500' : 'bg-gradient-to-r from-teal-400 to-emerald-500'}`}
+                          style={{ width: `${z.zoneScore}%` }}
+                        />
+                      </div>
+                      <span className={`text-[10px] font-black ${z.zoneScore >= 90 ? 'text-emerald-400' : z.zoneScore >= 85 ? 'text-amber-400' : 'text-blue-400'}`}>
+                        {z.zoneScore}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Signal, Price Range & Quick Copy */}
+                  <div className="flex items-center gap-2 flex-wrap self-start md:self-center shrink-0">
+                    {/* Signal Badge */}
+                    <div className={`px-2.5 py-1 rounded-md text-[11px] font-black border tracking-wider shadow-sm flex items-center gap-1 ${
+                      isBear 
+                        ? 'bg-red-600/90 text-white border-red-400/80 shadow-red-950/50' 
+                        : 'bg-emerald-600/90 text-white border-emerald-400/80 shadow-emerald-950/50'
+                    }`}>
+                      {isBear ? '🔻 SIGNAL: SELL' : '🟢 SIGNAL: BUY'}
+                    </div>
+
+                    {/* Price Range Badge */}
+                    <div className={`font-mono font-bold text-xs px-2.5 py-1 rounded-md border flex items-center gap-1.5 ${
+                      isBear 
+                        ? 'text-red-300 border-red-800/60 bg-red-950/50' 
+                        : 'text-emerald-300 border-emerald-800/60 bg-emerald-950/50'
+                    }`}>
+                      <span className="text-[10px] text-gray-400 font-sans font-normal">ZON:</span>
+                      <span>{z.price}</span>
+                      <QuickCopyBtn text={z.price} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
-  )
-}
+  );
+};
 
 const SessionWarning = () => {
   const [time, setTime] = useState(new Date());
@@ -761,6 +987,27 @@ const RiskCalculator = ({ entryPrice, slPrice }: { entryPrice: string | number, 
   );
 };
 
+export const calculateNewsMinutesLeft = (newsTime: string, currentHour: number, currentMinute: number) => {
+  if (!newsTime || newsTime === "-") return null;
+  const match = newsTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!match) return null;
+  
+  let h = parseInt(match[1]);
+  const m = parseInt(match[2]);
+  const p = match[3].toUpperCase();
+  if (p === "PM" && h !== 12) h += 12;
+  if (p === "AM" && h === 12) h = 0;
+  
+  const newsTotalMinutes = h * 60 + m;
+  const currentTotalMinutes = currentHour * 60 + currentMinute;
+  
+  let minutesLeft = newsTotalMinutes - currentTotalMinutes;
+  if (minutesLeft < -720) {
+    minutesLeft += 24 * 60;
+  }
+  return minutesLeft;
+};
+
 const HighImpactNewsBanner = ({ news, targetDate }: { news: any[], targetDate: Date }) => {
   const [time, setTime] = useState(new Date());
 
@@ -772,75 +1019,135 @@ const HighImpactNewsBanner = ({ news, targetDate }: { news: any[], targetDate: D
   const mytTime = toZonedTime(time, 'Asia/Kuala_Lumpur');
   const currentHour = mytTime.getHours();
   const currentMinute = mytTime.getMinutes();
-  
-  const highImpactNews = news?.filter((n: any) => n.impact === "HIGH") || [];
-  if (highImpactNews.length === 0) return null;
-
-  let upcomingNews = null;
-  let minMinutesLeft = Infinity;
 
   const isToday = targetDate.toDateString() === new Date().toDateString();
-  if (!isToday) return null;
+  if (!isToday || !news || news.length === 0) return null;
 
-  for (const n of highImpactNews) {
-    if (!n.time || n.time === "-") continue;
-    const match = n.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
-    if (!match) continue;
-    
-    let h = parseInt(match[1]);
-    const m = parseInt(match[2]);
-    const p = match[3].toUpperCase();
-    if (p === "PM" && h !== 12) h += 12;
-    if (p === "AM" && h === 12) h = 0;
-    
-    const newsTotalMinutes = h * 60 + m;
-    const currentTotalMinutes = currentHour * 60 + currentMinute;
-    
-    let minutesLeft = newsTotalMinutes - currentTotalMinutes;
-    if (minutesLeft < 0) {
-      if (h < 6 && currentHour > 18) {
-         minutesLeft += 24 * 60; 
+  const highNews = news.filter((n: any) => n.impact === "HIGH");
+  const medNews = news.filter((n: any) => n.impact === "MED" || n.impact === "MEDIUM");
+
+  const getUpcomingItem = (newsList: any[]) => {
+    let upcoming = null;
+    let minMinutes = Infinity;
+
+    for (const n of newsList) {
+      const minutesLeft = calculateNewsMinutesLeft(n.time, currentHour, currentMinute);
+      if (minutesLeft === null) continue;
+
+      if (minutesLeft >= -15 && minutesLeft < minMinutes) {
+        minMinutes = minutesLeft;
+        upcoming = n;
       }
     }
-    
-    if (minutesLeft >= 0 && minutesLeft < minMinutesLeft) {
-      minMinutesLeft = minutesLeft;
-      upcomingNews = n;
-    }
-  }
+    return upcoming ? { news: upcoming, minutesLeft: minMinutes } : null;
+  };
 
-  if (!upcomingNews || minMinutesLeft === Infinity) return null;
+  const upcomingHigh = getUpcomingItem(highNews);
+  const upcomingMed = getUpcomingItem(medNews);
 
-  const hoursLeft = Math.floor(minMinutesLeft / 60);
-  const minsLeft = minMinutesLeft % 60;
+  if (!upcomingHigh && !upcomingMed) return null;
 
-  return (
-    <div className="w-full mb-6 overflow-hidden rounded-xl border border-red-500/50 bg-gradient-to-r from-red-950/80 via-red-900/50 to-red-950/80 shadow-[0_0_30px_rgba(239,68,68,0.2)] relative">
-      <div className="absolute top-0 left-0 w-full h-1 bg-red-500 animate-pulse"></div>
-      <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="bg-red-500/20 p-2.5 sm:p-3 rounded-full border border-red-500/50 animate-pulse">
-             <Flame className="w-6 h-6 sm:w-8 sm:h-8 text-red-500" />
+  const renderBannerCard = (itemData: { news: any; minutesLeft: number }, isHigh: boolean) => {
+    const item = itemData.news;
+    const sugg = item.suggestion ? {
+      action: item.action,
+      suggestion: item.suggestion,
+      estimatedPips: item.estimatedPips,
+      reason: item.reason
+    } : getNewsTradeSuggestion(item.event, item.forecast, item.previous);
+
+    return (
+      <div className={`w-full overflow-hidden rounded-xl border ${
+        isHigh ? 'border-red-500/60 bg-gradient-to-r from-red-950/90 via-red-900/60 to-black shadow-[0_0_25px_rgba(239,68,68,0.25)]' : 'border-amber-500/60 bg-gradient-to-r from-amber-950/90 via-amber-900/60 to-black shadow-[0_0_25px_rgba(245,158,11,0.25)]'
+      } relative ${!upcomingMed || !upcomingHigh ? 'md:col-span-2' : ''}`}>
+        <div className={`absolute top-0 left-0 w-full h-1 animate-pulse ${isHigh ? 'bg-red-500' : 'bg-amber-500'}`}></div>
+        <div className="p-3.5 sm:p-4 flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 sm:p-2.5 rounded-full border animate-pulse shrink-0 ${
+                isHigh ? 'bg-red-500/20 border-red-500/50' : 'bg-amber-500/20 border-amber-500/50'
+              }`}>
+                {isHigh ? <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-red-500" /> : <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400" />}
+              </div>
+              <div>
+                <div className={`font-black text-[10px] sm:text-[11px] tracking-widest flex items-center gap-1.5 mb-0.5 ${
+                  isHigh ? 'text-red-400' : 'text-amber-400'
+                }`}>
+                  <span>{isHigh ? '🔴 HIGH IMPACT NEWS' : '🟡 MEDIUM IMPACT NEWS'}</span>
+                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
+                    isHigh ? 'bg-red-500 text-white' : 'bg-amber-500 text-black'
+                  }`}>KIRAAN DETIK</span>
+                </div>
+                <div className="text-sm sm:text-lg font-black text-white line-clamp-1">{item.event}</div>
+              </div>
+            </div>
+
+            <div className={`flex flex-col items-center sm:items-end bg-black/80 p-2 sm:p-2.5 rounded-lg border min-w-[150px] shrink-0 ${
+              isHigh ? 'border-red-900/60' : 'border-amber-900/60'
+            }`}>
+              <div className="text-gray-400 text-[9px] sm:text-[10px] font-bold mb-0.5">MASA TINGGAL</div>
+              {itemData.minutesLeft <= 0 && itemData.minutesLeft >= -15 ? (
+                <div className={`text-xs sm:text-sm font-black animate-pulse px-2 py-1 rounded border ${
+                  isHigh ? 'text-red-400 bg-red-950/80 border-red-700' : 'text-amber-400 bg-amber-950/80 border-amber-700'
+                }`}>
+                  🔥 SEDANG BERLAKU / LIVE
+                </div>
+              ) : (
+                <div className="flex items-baseline gap-1">
+                  <div className="text-xl sm:text-2xl font-black text-[#ffcc00]">
+                    {Math.floor(itemData.minutesLeft / 60)}
+                  </div>
+                  <div className="text-[10px] text-gray-300 font-bold">JAM</div>
+                  <div className="text-xl sm:text-2xl font-black text-[#ffcc00] ml-1">
+                    {itemData.minutesLeft % 60}
+                  </div>
+                  <div className="text-[10px] text-gray-300 font-bold">MIN</div>
+                </div>
+              )}
+              <div className={`text-[9px] font-bold mt-1 tracking-wider ${isHigh ? 'text-red-400' : 'text-amber-400'}`}>
+                EXPECTED: {item.time} MYT
+              </div>
+            </div>
           </div>
-          <div>
-            <div className="text-red-400 font-bold text-[10px] sm:text-xs tracking-widest mb-0.5">AMARAN NEWS BERIMPAK TINGGI</div>
-            <div className="text-lg sm:text-2xl font-black text-white">{upcomingNews.event}</div>
+
+          {/* TRADING SUGGESTION & PIPS ESTIMATION */}
+          <div className="pt-2.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-300 font-bold text-[10px] uppercase tracking-wider">Cadangan AI:</span>
+              <span className={`px-2.5 py-1 rounded font-black text-xs shadow-md flex items-center gap-1.5 ${
+                sugg.action === 'BUY'
+                  ? 'bg-emerald-500 text-black animate-pulse'
+                  : sugg.action === 'SELL'
+                  ? 'bg-rose-500 text-white animate-pulse'
+                  : 'bg-amber-400 text-black'
+              }`}>
+                {sugg.action === 'BUY' && <TrendingUp className="w-3.5 h-3.5" />}
+                {sugg.action === 'SELL' && <TrendingDown className="w-3.5 h-3.5" />}
+                {sugg.suggestion} (XAUUSD)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-black/70 px-2.5 py-1 rounded border border-white/15">
+              <span className="text-gray-400 font-bold text-[10px] uppercase">Anggaran Pips:</span>
+              <span className="text-[#ffcc00] font-black text-xs font-mono">⚡ ~{sugg.estimatedPips}</span>
+            </div>
           </div>
-        </div>
-        
-        <div className="flex flex-col items-center sm:items-end bg-black/60 p-2 sm:p-3 rounded-lg border border-red-900/50 min-w-[160px] sm:min-w-[200px]">
-          <div className="text-gray-400 text-[10px] sm:text-xs font-bold mb-0.5">MASA TINGGAL</div>
-          <div className="flex items-baseline gap-1.5">
-            <div className="text-2xl sm:text-4xl font-black text-[#ffcc00]">{hoursLeft}</div>
-            <div className="text-[10px] sm:text-xs text-gray-300 font-bold">JAM</div>
-            <div className="text-2xl sm:text-4xl font-black text-[#ffcc00] ml-1">{minsLeft}</div>
-            <div className="text-[10px] sm:text-xs text-gray-300 font-bold">MIN</div>
-          </div>
-          <div className="text-red-400 text-[9px] sm:text-[10px] font-bold mt-1 tracking-wider uppercase">
-            EXPECTED: {upcomingNews.time} MYT
-          </div>
+
+          {sugg.reason && (
+            <div className="text-[10px] sm:text-[11px] text-gray-300 bg-black/50 p-2 rounded border border-white/10 leading-relaxed">
+              <span className="text-[#ffcc00] font-bold">💡 Analisis AI: </span>
+              {sugg.reason}
+            </div>
+          )}
         </div>
       </div>
+    );
+  };
+
+  return (
+    <div className="w-full mb-6 grid grid-cols-1 md:grid-cols-2 gap-3.5">
+      {upcomingHigh && renderBannerCard(upcomingHigh, true)}
+      {upcomingMed && renderBannerCard(upcomingMed, false)}
     </div>
   );
 };
@@ -1289,48 +1596,124 @@ export default function App() {
                         <th className="px-3 py-2 sm:px-2 sm:py-1.5 font-normal">NEWS</th>
                         <th className="px-1 py-1.5 font-normal text-center w-12 hidden sm:table-cell">FCST</th>
                         <th className="px-1 py-1.5 font-normal text-center w-12 hidden sm:table-cell">PREV</th>
-                        <th className="px-3 py-2 sm:px-2 sm:py-1.5 font-normal text-center w-16">IMPACT</th>
+                        <th className="px-2 py-1.5 font-normal text-center">CADANGAN AI</th>
+                        <th className="px-2 py-1.5 font-normal text-center hidden sm:table-cell">ANGGARAN PIPS</th>
+                        <th className="px-3 py-2 sm:px-2 sm:py-1.5 font-normal text-center w-14">IMPACT</th>
+                        <th className="px-3 py-2 sm:px-2 sm:py-1.5 font-normal text-center w-28">COUNTDOWN</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800">
                       {(() => {
-                        const medHighNews = data.news?.filter((item: any) => item.impact === 'HIGH' || item.impact === 'MED') || [];
+                        const medHighNews = data.news?.filter((item: any) => item.impact === 'HIGH' || item.impact === 'MED' || item.impact === 'MEDIUM') || [];
                         if (medHighNews.length === 0) {
                           return (
                             <tr>
-                              <td colSpan={5} className="px-3 py-3 text-center text-gray-400 italic">
+                              <td colSpan={8} className="px-3 py-3 text-center text-gray-400 italic">
                                 Tiada news MED / HIGH impak USD hari ini
                               </td>
                             </tr>
                           );
                         }
-                        return medHighNews.map((item: any, i: number) => (
-                          <tr key={i}>
-                            <td className="px-3 py-2 sm:px-2 sm:py-1.5 text-center">{item.time}</td>
-                            <td className="px-3 py-2 sm:px-2 sm:py-1.5">{item.event}</td>
-                            <td className="px-1 py-1.5 text-center text-gray-400 hidden sm:table-cell">{item.forecast}</td>
-                            <td className="px-1 py-1.5 text-center text-gray-400 hidden sm:table-cell">{item.previous}</td>
-                            <td className={`px-3 py-2 sm:px-2 sm:py-1.5 font-bold text-center ${item.impact === 'HIGH' ? 'text-[#ef4444]' : 'text-[#eab308]'}`}>{item.impact}</td>
-                          </tr>
-                        ));
+
+                        const myt = toZonedTime(new Date(), 'Asia/Kuala_Lumpur');
+                        const curH = myt.getHours();
+                        const curM = myt.getMinutes();
+
+                        return medHighNews.map((item: any, i: number) => {
+                          const minsLeft = calculateNewsMinutesLeft(item.time, curH, curM);
+                          const sugg = item.suggestion ? {
+                            action: item.action,
+                            suggestion: item.suggestion,
+                            estimatedPips: item.estimatedPips,
+                            reason: item.reason
+                          } : getNewsTradeSuggestion(item.event, item.forecast, item.previous);
+
+                          return (
+                            <tr key={i} className="hover:bg-white/5 transition-colors">
+                              <td className="px-3 py-2 sm:px-2 sm:py-1.5 text-center font-mono font-bold">{item.time}</td>
+                              <td className="px-3 py-2 sm:px-2 sm:py-1.5 font-medium">{item.event}</td>
+                              <td className="px-1 py-1.5 text-center text-gray-400 hidden sm:table-cell">{item.forecast}</td>
+                              <td className="px-1 py-1.5 text-center text-gray-400 hidden sm:table-cell">{item.previous}</td>
+                              <td className="px-2 py-1.5 text-center font-bold">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wide ${
+                                  sugg.action === 'BUY' 
+                                    ? 'text-emerald-300 bg-emerald-950/80 border border-emerald-700/60' 
+                                    : sugg.action === 'SELL' 
+                                    ? 'text-rose-300 bg-rose-950/80 border border-rose-700/60' 
+                                    : 'text-amber-300 bg-amber-950/80 border border-amber-700/60'
+                                }`}>
+                                  {sugg.suggestion || 'BUY XAUUSD'}
+                                </span>
+                              </td>
+                              <td className="px-2 py-1.5 text-center font-mono text-[#ffcc00] font-bold hidden sm:table-cell">
+                                ⚡ ~{sugg.estimatedPips || '150-300 PIPS'}
+                              </td>
+                              <td className={`px-3 py-2 sm:px-2 sm:py-1.5 font-bold text-center ${item.impact === 'HIGH' ? 'text-[#ef4444]' : 'text-[#eab308]'}`}>
+                                {item.impact}
+                              </td>
+                              <td className="px-3 py-2 sm:px-2 sm:py-1.5 text-center">
+                                {minsLeft === null ? (
+                                  <span className="text-gray-500">-</span>
+                                ) : minsLeft < -15 ? (
+                                  <span className="text-gray-500 font-semibold text-[10px] inline-flex items-center gap-1 bg-gray-900/60 px-1.5 py-0.5 rounded border border-gray-800">
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-gray-500" /> Selesai
+                                  </span>
+                                ) : minsLeft >= -15 && minsLeft <= 15 ? (
+                                  <span className="text-red-400 font-black text-[10px] bg-red-950/90 border border-red-800 px-2 py-0.5 rounded animate-pulse inline-flex items-center gap-1 shadow">
+                                    🔥 LIVE
+                                  </span>
+                                ) : (
+                                  <span className="font-mono font-extrabold text-[10px] text-[#ffcc00] bg-amber-950/50 border border-amber-800/60 px-2 py-0.5 rounded inline-flex items-center gap-1 shadow-sm">
+                                    ⏳ {Math.floor(minsLeft / 60) > 0 ? `${Math.floor(minsLeft / 60)}j ` : ''}{minsLeft % 60}m
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        });
                       })()}
                     </tbody>
                   </table>
                 </div>
                 <div className="p-4 border-t border-[#b49a45] flex flex-col gap-2 bg-[#111] mt-auto">
-                  <div className="text-xs text-[#ffcc00] font-bold border-b border-gray-700 pb-1 flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4" /> 
-                    AI PREDICTION
+                  <div className="text-xs text-[#ffcc00] font-bold border-b border-gray-700 pb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4" /> 
+                      AI TRADING ANALYSIS & BIAS
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-normal">XAUUSD (GOLD)</span>
                   </div>
                   <div className="text-[10px] sm:text-[11px] text-gray-300 space-y-1.5 leading-relaxed">
-                    <p><span className="font-bold text-white">Suggest:</span> MENUNGGU DATA</p>
-                    <p><span className="font-bold text-white">Huraian:</span> Sentimen pasaran akan dinilai berdasarkan perbezaan antara data jangkaan (forecast) dan data sebenar (actual).</p>
-                    <p><span className="font-bold text-white">Kebarangkalian:</span> <span className="text-gray-500">N/A</span></p>
+                    {(() => {
+                      const medHighNews = data.news?.filter((item: any) => item.impact === 'HIGH' || item.impact === 'MED' || item.impact === 'MEDIUM') || [];
+                      if (medHighNews.length === 0) {
+                        return <p className="text-gray-400 italic">Tiada news impak tinggi USD buat masa ini.</p>;
+                      }
+                      return medHighNews.slice(0, 2).map((n: any, idx: number) => {
+                        const s = n.suggestion ? n : getNewsTradeSuggestion(n.event, n.forecast, n.previous);
+                        return (
+                          <div key={idx} className="bg-black/60 p-2.5 rounded border border-gray-800 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-white text-xs">{n.event} ({n.time})</span>
+                              <span className={`font-black text-[10px] px-2 py-0.5 rounded ${s.action === 'BUY' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : s.action === 'SELL' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'}`}>
+                                {s.suggestion || 'BUY XAUUSD'}
+                              </span>
+                            </div>
+                            <p className="text-gray-300 text-[10px]">
+                              <span className="text-[#ffcc00] font-bold">Jangkaan Pips: </span> ⚡ ~{s.estimatedPips || '150-300 PIPS'}
+                            </p>
+                            <p className="text-gray-300 text-[9.5px] italic">
+                              {s.reason || 'Kawal Stop Loss & nantikan zon FVG/SBR H1 sebelum entry.'}
+                            </p>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                   <div className="flex gap-2 items-start mt-1 p-2 bg-blue-900/20 border border-blue-900/50 rounded">
                     <AlertTriangle className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
                     <div className="text-[9px] sm:text-[10px] text-blue-300 italic">
-                      *Robot akan cari data 1 JAM sebelum news..
+                      *AI mengemas kini cadangan & volatiliti pips secara automatik mengikut kalendar berita ekonomi semasa.
                     </div>
                   </div>
                 </div>
@@ -1388,45 +1771,210 @@ export default function App() {
             </div>
 
             
-            {/* SBR & RBS */}
-            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
-              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
-                <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">SBR & RBS (Support/Resistance)</span>
+            {/* SBR & RBS (Support/Resistance & SND Structure) */}
+            <div className="border border-[#b49a45]/40 rounded-xl bg-[#0a0a0a] shadow-xl shadow-black/80 overflow-hidden">
+              {/* Card Header */}
+              <div className="border-b border-[#b49a45]/30 bg-gradient-to-r from-[#14120a] via-[#111111] to-[#0d131a] px-4 py-3 flex flex-wrap justify-between items-center gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-[#ffcc00]/10 border border-[#ffcc00]/30 text-[#ffcc00] font-bold text-xs">
+                    ⚡
+                  </div>
+                  <div>
+                    <h3 className="text-[#ffcc00] font-extrabold text-xs sm:text-sm tracking-wide flex items-center gap-2">
+                      SBR & RBS <span className="text-gray-300 font-medium text-[11px] hidden sm:inline">(Support/Resistance & SND Structure)</span>
+                    </h3>
+                    <p className="text-[10px] text-gray-400">Peta Struktur RBR (Rally-Base-Rally) & DBD (Drop-Base-Drop)</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] bg-red-950/80 text-red-300 border border-red-800/60 px-2 py-0.5 rounded font-extrabold">
+                    DBD / SBR = SELL
+                  </span>
+                  <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 px-2 py-0.5 rounded font-extrabold">
+                    RBR / RBS = BUY
+                  </span>
+                </div>
               </div>
-              <div className="p-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+              {/* Technique Guide Banner */}
+              <div className="bg-[#111111]/90 border-b border-gray-800/80 px-4 py-2.5 grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
+                <div className="flex items-center gap-2 bg-red-950/20 border border-red-900/30 p-2 rounded-lg">
+                  <span className="text-base">🔻</span>
                   <div>
-                    <div className="font-bold text-[#ef4444] text-xs sm:text-sm mb-2">H4 SBR/RBS</div>
-                    {data.sbr_rbs?.h4?.sbr && (
-                      <div className="text-gray-300 text-xs sm:text-sm mb-1">
-                        SBR: <span className="font-bold text-white">{data.sbr_rbs.h4.sbr.price}</span> <span className="text-green-400 font-bold ml-1">({data.sbr_rbs.h4.sbr.winRate}%)</span>
-                      </div>
-                    )}
-                    {data.sbr_rbs?.h4?.rbs && (
-                      <div className="text-gray-300 text-xs sm:text-sm">
-                        RBS: <span className="font-bold text-white">{data.sbr_rbs.h4.rbs.price}</span> <span className="text-green-400 font-bold ml-1">({data.sbr_rbs.h4.rbs.winRate}%)</span>
-                      </div>
-                    )}
-                    {!data.sbr_rbs?.h4?.sbr && !data.sbr_rbs?.h4?.rbs && (
-                      <div className="text-gray-500 text-xs italic">Tiada di H4</div>
-                    )}
+                    <span className="font-bold text-red-400">SBR / DBD (Drop-Base-Drop):</span>
+                    <p className="text-gray-300 text-[10px]">Support tembus (Breakout Low) → Bertukar jadi Resistance. Tunggu Pullback untuk <strong>ENTRY SELL</strong>.</p>
                   </div>
+                </div>
+                <div className="flex items-center gap-2 bg-emerald-950/20 border border-emerald-900/30 p-2 rounded-lg">
+                  <span className="text-base">🟢</span>
                   <div>
-                    <div className="font-bold text-[#22c55e] text-xs sm:text-sm mb-2">H1 SBR/RBS</div>
-                    {data.sbr_rbs?.h1?.sbr && (
-                      <div className="text-gray-300 text-xs sm:text-sm mb-1">
-                        SBR: <span className="font-bold text-white">{data.sbr_rbs.h1.sbr.price}</span> <span className="text-green-400 font-bold ml-1">({data.sbr_rbs.h1.sbr.winRate}%)</span>
-                      </div>
-                    )}
-                    {data.sbr_rbs?.h1?.rbs && (
-                      <div className="text-gray-300 text-xs sm:text-sm">
-                        RBS: <span className="font-bold text-white">{data.sbr_rbs.h1.rbs.price}</span> <span className="text-green-400 font-bold ml-1">({data.sbr_rbs.h1.rbs.winRate}%)</span>
-                      </div>
-                    )}
-                    {!data.sbr_rbs?.h1?.sbr && !data.sbr_rbs?.h1?.rbs && (
-                      <div className="text-gray-500 text-xs italic">Tiada di H1</div>
-                    )}
+                    <span className="font-bold text-emerald-400">RBS / RBR (Rally-Base-Rally):</span>
+                    <p className="text-gray-300 text-[10px]">Resistance tembus (Breakout High) → Bertukar jadi Support. Tunggu Pullback untuk <strong>ENTRY BUY</strong>.</p>
                   </div>
+                </div>
+              </div>
+
+              {/* Main Content Grid: H4 vs H1 */}
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* H4 TIMEFRAME */}
+                <div className="bg-[#0e0e0e] border border-gray-800/80 rounded-xl p-3.5 space-y-3">
+                  <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                    <span className="text-[#ffcc00] font-black text-xs tracking-wider flex items-center gap-1.5">
+                      📊 TIMEFRAME H4
+                    </span>
+                    <span className="text-[10px] text-gray-400 bg-black px-2 py-0.5 rounded border border-gray-800 font-mono">
+                      Major SNR
+                    </span>
+                  </div>
+
+                  {/* H4 SBR */}
+                  {data.sbr_rbs?.h4?.sbr ? (
+                    <div className="bg-gradient-to-r from-red-950/40 via-black to-[#0a0a0a] border border-red-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
+                      <div className="flex justify-between items-center flex-wrap gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-black bg-red-600 text-white px-2 py-0.5 rounded shadow">
+                            🔻 SELL SIGNAL
+                          </span>
+                          <span className="text-xs font-bold text-red-300">
+                            DBD / SBR (H4)
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
+                          WinRate: {data.sbr_rbs.h4.sbr.winRate}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1">
+                        <span className="text-[11px] text-gray-400">Paras Entry SBR:</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-extrabold text-sm text-white bg-black px-2 py-0.5 rounded border border-red-900/60">
+                            {data.sbr_rbs.h4.sbr.price}
+                          </span>
+                          <QuickCopyBtn text={data.sbr_rbs.h4.sbr.price} />
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-400 italic">
+                        {data.sbr_rbs.h4.sbr.description || 'Support H4 tembus → bertukar jadi Resistance. Cari Rejection Sell.'}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {/* H4 RBS */}
+                  {data.sbr_rbs?.h4?.rbs ? (
+                    <div className="bg-gradient-to-r from-emerald-950/40 via-black to-[#0a0a0a] border border-emerald-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
+                      <div className="flex justify-between items-center flex-wrap gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-black bg-emerald-600 text-white px-2 py-0.5 rounded shadow">
+                            🟢 BUY SIGNAL
+                          </span>
+                          <span className="text-xs font-bold text-emerald-300">
+                            RBR / RBS (H4)
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
+                          WinRate: {data.sbr_rbs.h4.rbs.winRate}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1">
+                        <span className="text-[11px] text-gray-400">Paras Entry RBS:</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-extrabold text-sm text-white bg-black px-2 py-0.5 rounded border border-emerald-900/60">
+                            {data.sbr_rbs.h4.rbs.price}
+                          </span>
+                          <QuickCopyBtn text={data.sbr_rbs.h4.rbs.price} />
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-400 italic">
+                        {data.sbr_rbs.h4.rbs.description || 'Resistance H4 tembus → bertukar jadi Support. Cari Rejection Buy.'}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {!data.sbr_rbs?.h4?.sbr && !data.sbr_rbs?.h4?.rbs && (
+                    <div className="text-gray-500 text-xs italic text-center py-4 bg-black/40 rounded-lg border border-dashed border-gray-800">
+                      Tiada persilangan SBR/RBS yang jelas di H4 buat masa ini.
+                    </div>
+                  )}
+                </div>
+
+                {/* H1 TIMEFRAME */}
+                <div className="bg-[#0e0e0e] border border-gray-800/80 rounded-xl p-3.5 space-y-3">
+                  <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                    <span className="text-[#4da6ff] font-black text-xs tracking-wider flex items-center gap-1.5">
+                      📈 TIMEFRAME H1
+                    </span>
+                    <span className="text-[10px] text-gray-400 bg-black px-2 py-0.5 rounded border border-gray-800 font-mono">
+                      Precision SNR
+                    </span>
+                  </div>
+
+                  {/* H1 SBR */}
+                  {data.sbr_rbs?.h1?.sbr ? (
+                    <div className="bg-gradient-to-r from-red-950/40 via-black to-[#0a0a0a] border border-red-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
+                      <div className="flex justify-between items-center flex-wrap gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-black bg-red-600 text-white px-2 py-0.5 rounded shadow">
+                            🔻 SELL SIGNAL
+                          </span>
+                          <span className="text-xs font-bold text-red-300">
+                            DBD / SBR (H1)
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
+                          WinRate: {data.sbr_rbs.h1.sbr.winRate}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1">
+                        <span className="text-[11px] text-gray-400">Paras Entry SBR:</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-extrabold text-sm text-white bg-black px-2 py-0.5 rounded border border-red-900/60">
+                            {data.sbr_rbs.h1.sbr.price}
+                          </span>
+                          <QuickCopyBtn text={data.sbr_rbs.h1.sbr.price} />
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-400 italic">
+                        {data.sbr_rbs.h1.sbr.description || 'Support H1 tembus → bertukar jadi Resistance. Cari Rejection Sell.'}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {/* H1 RBS */}
+                  {data.sbr_rbs?.h1?.rbs ? (
+                    <div className="bg-gradient-to-r from-emerald-950/40 via-black to-[#0a0a0a] border border-emerald-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
+                      <div className="flex justify-between items-center flex-wrap gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-black bg-emerald-600 text-white px-2 py-0.5 rounded shadow">
+                            🟢 BUY SIGNAL
+                          </span>
+                          <span className="text-xs font-bold text-emerald-300">
+                            RBR / RBS (H1)
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
+                          WinRate: {data.sbr_rbs.h1.rbs.winRate}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1">
+                        <span className="text-[11px] text-gray-400">Paras Entry RBS:</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-extrabold text-sm text-white bg-black px-2 py-0.5 rounded border border-emerald-900/60">
+                            {data.sbr_rbs.h1.rbs.price}
+                          </span>
+                          <QuickCopyBtn text={data.sbr_rbs.h1.rbs.price} />
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-400 italic">
+                        {data.sbr_rbs.h1.rbs.description || 'Resistance H1 tembus → bertukar jadi Support. Cari Rejection Buy.'}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {!data.sbr_rbs?.h1?.sbr && !data.sbr_rbs?.h1?.rbs && (
+                    <div className="text-gray-500 text-xs italic text-center py-4 bg-black/40 rounded-lg border border-dashed border-gray-800">
+                      Tiada persilangan SBR/RBS yang jelas di H1 buat masa ini.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

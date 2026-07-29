@@ -25,6 +25,7 @@ export interface NewsItem {
   previous: string;
   actual: string;
   prediction: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  preNewsAnalysis?: string;
   analysis: string;
   status: 'BETUL' | 'SALAH' | 'PENDING';
   pipsWon: number;
@@ -67,7 +68,8 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
     previous: '142K',
     actual: '-',
     prediction: 'BULLISH',
-    analysis: 'Jangkaan pasaran buruh mengendur. Jika data lebih lemah dari ramalan, USD menyusut dan XAUUSD akan mendaki.',
+    preNewsAnalysis: '📅 1 Hari Sebelum News: Pasaran membina Sell-Side Liquidity. Tumpuan pada zon FVG H4 & sokongan SBR.',
+    analysis: '⚡ Semasa Terjadinya News: Data release mengesahkan kekuatan/kelemahan USD dan tindak balas pips.',
     status: 'PENDING',
     pipsWon: '0'
   });
@@ -91,6 +93,7 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
         setFormData(prev => ({
           ...prev,
           prediction: data.prediction || prev.prediction,
+          preNewsAnalysis: data.preNewsAnalysis || prev.preNewsAnalysis,
           analysis: data.analysis || prev.analysis,
           pipsWon: data.estimatedPips ? data.estimatedPips.toString() : prev.pipsWon
         }));
@@ -180,6 +183,7 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
       previous: '142K',
       actual: '-',
       prediction: 'BULLISH',
+      preNewsAnalysis: '',
       analysis: '',
       status: 'PENDING',
       pipsWon: '0'
@@ -197,6 +201,7 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
       previous: item.previous || '-',
       actual: item.actual || '-',
       prediction: item.prediction,
+      preNewsAnalysis: item.preNewsAnalysis || '',
       analysis: item.analysis,
       status: item.status,
       pipsWon: item.pipsWon ? item.pipsWon.toString() : '0'
@@ -484,11 +489,11 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
               <div>
                 <label className="text-gray-300 font-bold block mb-1 text-xs">Analisis & Alasan Strategi</label>
                 <textarea 
-                  rows={2}
+                  rows={3}
                   value={formData.analysis}
                   onChange={e => setFormData({ ...formData, analysis: e.target.value })}
                   className="w-full bg-black border border-gray-700 rounded p-2 text-xs text-white outline-none focus:border-[#ffcc00]"
-                  placeholder="Terangkan ramalan news dan jangkaan reaksi harga Emas XAUUSD..."
+                  placeholder="Terangkan ramalan news, persediaan pasaran, dan jangkaan reaksi harga Emas XAUUSD..."
                 />
               </div>
 
@@ -633,7 +638,7 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
                   {/* Ramalan & Analysis */}
                   <div className="bg-[#141414] border border-gray-800 rounded-lg p-3 space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-[#ffcc00] font-bold tracking-wider flex items-center gap-1">
+                      <span className="text-[#ffcc00] font-bold tracking-wider flex items-center gap-1.5">
                         🎯 RAMALAN BIAS:
                         <span className={`px-2 py-0.5 rounded font-black text-xs ${
                           item.prediction === 'BULLISH' ? 'bg-green-900/60 text-green-400' :

@@ -20,6 +20,7 @@ export const highImpactNews = pgTable("high_impact_news", {
   previous: varchar("previous", { length: 100 }),
   actual: varchar("actual", { length: 100 }),
   prediction: varchar("prediction", { length: 50 }).notNull(), // BULLISH, BEARISH, NEUTRAL
+  preNewsAnalysis: text("pre_news_analysis"), // Analisis 1 hari sebelum news
   analysis: text("analysis"),
   impact: varchar("impact", { length: 50 }).default('HIGH'), // HIGH, MED
   status: varchar("status", { length: 50 }).notNull().default('PENDING'), // BETUL, SALAH, PENDING
