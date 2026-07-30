@@ -3,6 +3,7 @@ import { FrontPageNewsHistory } from './components/FrontPageNewsHistory';
 import { SbrRbsVisualDiagram } from './components/SbrRbsVisualDiagram';
 import { ChartSnapshotAnalyzer } from './components/ChartSnapshotAnalyzer';
 import { SidebarNav } from './components/SidebarNav';
+import { LivePriceSetup } from './components/LivePriceSetup';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, BarChart, Bar, Cell } from 'recharts';
 import { useState, useEffect } from 'react';
 import { format, toZonedTime } from 'date-fns-tz';
@@ -991,8 +992,15 @@ const RiskCalculator = ({ entryPrice, slPrice }: { entryPrice: string | number, 
   );
 };
 
-export const calculateNewsMinutesLeft = (newsTime: string, currentHour: number, currentMinute: number) => {
+export const calculateNewsMinutesLeft = (newsTime: string, currentHour: number, currentMinute: number, dateISO?: string) => {
   if (!newsTime || newsTime === "-") return null;
+  
+  if (dateISO) {
+    const newsDate = new Date(dateISO);
+    const now = new Date();
+    return Math.floor((newsDate.getTime() - now.getTime()) / 60000);
+  }
+
   const match = newsTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
   if (!match) return null;
   
@@ -1035,7 +1043,7 @@ const HighImpactNewsBanner = ({ news, targetDate }: { news: any[], targetDate: D
     let minMinutes = Infinity;
 
     for (const n of newsList) {
-      const minutesLeft = calculateNewsMinutesLeft(n.time, currentHour, currentMinute);
+      const minutesLeft = calculateNewsMinutesLeft(n.time, currentHour, currentMinute, n.dateISO);
       if (minutesLeft === null) continue;
 
       if (minutesLeft >= -15 && minutesLeft < minMinutes) {
@@ -1474,6 +1482,28 @@ export default function App() {
     return () => clearTimeout(t);
   }, [data, error]);
 
+  // Fast polling for live price every 2 seconds
+  useEffect(() => {
+    const isToday = targetDate.toDateString() === new Date().toDateString();
+    if (!isToday || !data) return;
+
+    const priceInterval = setInterval(() => {
+      fetch('/api/price')
+        .then(res => res.json())
+        .then(res => {
+          if (res.price) {
+            setData((prev: any) => {
+              if (!prev) return prev;
+              return { ...prev, currentPrice: res.price };
+            });
+          }
+        })
+        .catch(console.error);
+    }, 2000);
+
+    return () => clearInterval(priceInterval);
+  }, [targetDate, !!data]);
+
   if (error && !data) return <div className="min-h-screen bg-black text-white flex items-center justify-center p-8 break-all">{error}</div>;
 
   if (!data) return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading Live Data...</div>;
@@ -1604,6 +1634,20 @@ export default function App() {
               <ChartSnapshotAnalyzer />
             )}
 
+            {(viewMode === 'ALL' || activeSection === 'sec-live-analysis') && (
+              <div id="sec-live-analysis" className="scroll-mt-6 w-full mt-4">
+                <LivePriceSetup 
+                  currentPrice={data.currentPrice} 
+                  biasDirection={data.bias}
+                  sbr_rbs={data.sbr_rbs}
+                  fvg={data.fvg}
+                  orderBlock={data.orderBlock}
+                  liquidity={data.liquidity}
+                  bos={data.bos}
+                />
+              </div>
+            )}
+
             {/* Fundamentals & Impact Row - Full Width */}
             {(viewMode === 'ALL' || activeSection === 'sec-news-feed') && (
               <div id="sec-news-feed" className="scroll-mt-6 w-full">
@@ -1639,12 +1683,12 @@ export default function App() {
                       </thead>
                       <tbody className="divide-y divide-gray-800/80">
                         {(() => {
-                          const medHighNews = data.news?.filter((item: any) => item.impact === 'HIGH' || item.impact === 'MED' || item.impact === 'MEDIUM') || [];
+                          const medHighNews = data.news?.filter((item: any) => item.impact === 'HIGH') || [];
                           if (medHighNews.length === 0) {
                             return (
                               <tr>
                                 <td colSpan={8} className="px-4 py-4 text-center text-gray-400 italic">
-                                  Tiada news MED / HIGH impak USD hari ini
+                                  Tiada news HIGH impak USD hari ini
                                 </td>
                               </tr>
                             );
@@ -1655,7 +1699,7 @@ export default function App() {
                           const curM = myt.getMinutes();
 
                           return medHighNews.map((item: any, i: number) => {
-                            const minsLeft = calculateNewsMinutesLeft(item.time, curH, curM);
+                            const minsLeft = calculateNewsMinutesLeft(item.time, curH, curM, item.dateISO);
                             const sugg = item.suggestion ? {
                               action: item.action,
                               suggestion: item.suggestion,

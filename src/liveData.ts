@@ -554,23 +554,27 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
 
   let formattedNews = [];
   try {
-    const d = targetDate || new Date();
-    
     if (liveNewsData.length > 0) {
-      // Find today's news and early morning overnight news up to 06:00 AM next day (e.g. 02:00 AM FOMC)
-      const startOfDay = new Date(d);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfWindow = new Date(d);
-      endOfWindow.setDate(endOfWindow.getDate() + 1);
-      endOfWindow.setHours(6, 0, 0, 0);
+      // Return all High impact news for the week (the raw data is already for this week)
+      // The user wants to see all high impact news, not just today's.
+      // And we filter by HIGH impact only
       
-      const todaysNews = liveNewsData.filter(n => n.date >= startOfDay && n.date <= endOfWindow);
+      const highImpactNewsThisWeek = liveNewsData.filter(n => n.impact === 'HIGH');
       
-      if (todaysNews.length > 0) {
-        formattedNews = todaysNews.map(n => {
+      if (highImpactNewsThisWeek.length > 0) {
+        // Sort by date ascending
+        highImpactNewsThisWeek.sort((a, b) => a.date.getTime() - b.date.getTime());
+        
+        formattedNews = highImpactNewsThisWeek.map(n => {
           const sugg = getNewsTradeSuggestion(n.event, n.forecast, n.previous);
+          
+          // Format date for display (e.g., "Mon, 10:00 PM")
+          const displayDate = n.date.toLocaleDateString('ms-MY', { weekday: 'short', timeZone: 'Asia/Kuala_Lumpur' });
+          const displayTime = `${displayDate} - ${n.time}`;
+          
           return { 
-            time: n.time, 
+            time: displayTime, 
+            dateISO: n.date.toISOString(),
             event: n.event, 
             impact: n.impact,
             forecast: n.forecast,
@@ -582,50 +586,10 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
           };
         });
       } else {
-        formattedNews = [{ time: "-", event: "Tiada news USD hari ini", impact: "INFO", forecast: "-", previous: "-", action: "NEUTRAL", suggestion: "TIADA TRADE", estimatedPips: "0 PIPS", reason: "Tiada impak news USD." }];
+        formattedNews = [{ time: "-", event: "Tiada news HIGH impact USD minggu ini", impact: "INFO", forecast: "-", previous: "-", action: "NEUTRAL", suggestion: "TIADA TRADE", estimatedPips: "0 PIPS", reason: "Tiada impak news USD." }];
       }
     } else {
-      const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday ... 6 = Saturday
-      
-      // Generate some realistic daily news based on the day of the week
-      const weeklyNews: any = {
-        1: [ // Monday
-          { time: "08:30 PM", event: "Core Retail Sales m/m", impact: "MED", forecast: "-", previous: "-" },
-          { time: "10:00 PM", event: "ISM Manufacturing PMI", impact: "HIGH", forecast: "-", previous: "-" }
-        ],
-        2: [ // Tuesday
-          { time: "08:30 PM", event: "Core CPI m/m", impact: "HIGH", forecast: "-", previous: "-" },
-          { time: "08:30 PM", event: "CPI m/m", impact: "HIGH", forecast: "-", previous: "-" },
-          { time: "10:00 PM", event: "JOLTS Job Openings", impact: "MED", forecast: "-", previous: "-" }
-        ],
-        3: [ // Wednesday
-          { time: "08:15 PM", event: "ADP Non-Farm Employment Change", impact: "MED", forecast: "-", previous: "-" },
-          { time: "10:00 PM", event: "ISM Services PMI", impact: "HIGH", forecast: "-", previous: "-" },
-          { time: "02:00 AM", event: "FOMC Economic Projections", impact: "HIGH", forecast: "-", previous: "-" },
-          { time: "02:00 AM", event: "FOMC Statement", impact: "HIGH", forecast: "-", previous: "-" },
-          { time: "02:30 AM", event: "FOMC Press Conference", impact: "HIGH", forecast: "-", previous: "-" }
-        ],
-        4: [ // Thursday
-          { time: "02:00 AM", event: "FOMC Statement & Federal Funds Rate", impact: "HIGH", forecast: "5.25%", previous: "5.25%" },
-          { time: "02:30 AM", event: "FOMC Press Conference", impact: "HIGH", forecast: "-", previous: "-" },
-          { time: "08:30 PM", event: "Advance GDP q/q", impact: "HIGH", forecast: "2.1%", previous: "1.5%" },
-          { time: "08:30 PM", event: "Unemployment Claims", impact: "HIGH", forecast: "245K", previous: "238K" },
-          { time: "10:00 PM", event: "Fed Chair Powell Speaks", impact: "HIGH", forecast: "-", previous: "-" }
-        ],
-        5: [ // Friday
-          { time: "08:30 PM", event: "Average Hourly Earnings m/m", impact: "MED", forecast: "-", previous: "-" },
-          { time: "08:30 PM", event: "Non-Farm Employment Change", impact: "HIGH", forecast: "-", previous: "-" },
-          { time: "08:30 PM", event: "Unemployment Rate", impact: "HIGH", forecast: "-", previous: "-" },
-          { time: "10:00 PM", event: "Prelim UoM Consumer Sentiment", impact: "MED", forecast: "-", previous: "-" }
-        ],
-        6: [ // Saturday
-          { time: "-", event: "Pasaran Tutup (Hujung Minggu)", impact: "INFO", forecast: "-", previous: "-" }
-        ],
-        0: [ // Sunday
-          { time: "-", event: "Pasaran Tutup (Hujung Minggu)", impact: "INFO", forecast: "-", previous: "-" }
-        ]
-      };
-      formattedNews = weeklyNews[dayOfWeek] || weeklyNews[1];
+      formattedNews = [{ time: "-", event: "Gagal dapatkan news / Tiada news", impact: "INFO", forecast: "-", previous: "-", action: "NEUTRAL", suggestion: "TIADA TRADE", estimatedPips: "0 PIPS", reason: "Tiada data news." }];
     }
   } catch(e) {
     console.error("Failed to generate news:", e);
@@ -874,6 +838,8 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
     bos: {
       status: bosData.type === 'BULLISH' ? "Ada BOS Bullish" : "Ada BOS Bearish",
       structure: bosData.type === 'BULLISH' ? "HL → HH → HL → HH" : "LH → LL → LH → LL",
+      brokenPrice: bosData.brokenPrice || null,
+      type: bosData.type,
       changeBiasConditions: [
         `H1 close ${bosData.type === 'BULLISH' ? 'bawah' : 'atas'} ${(bosData.type === 'BULLISH' ? sup : res).toFixed(2)}`,
         `Break ${bosData.type === 'BULLISH' ? 'low' : 'high'} sebelumnya`

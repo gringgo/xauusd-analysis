@@ -24,6 +24,7 @@
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "express": "^4.21.2",
+    "fast-xml-parser": "^5.10.1",
     "firebase": "^12.16.0",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",

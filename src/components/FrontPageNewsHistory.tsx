@@ -11,11 +11,14 @@ import {
   ChevronDown, 
   ChevronUp, 
   BarChart3, 
-  Award,
-  RefreshCw
+  RefreshCw,
+  CalendarDays,
+  Target,
+  ArrowRight
 } from 'lucide-react';
 import { NewsItem } from './HighImpactNewsModal';
 import { isSameWeek } from 'date-fns';
+import { format, toZonedTime } from 'date-fns-tz';
 
 interface FrontPageNewsHistoryProps {
   newsList: NewsItem[];
@@ -28,44 +31,109 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
   onOpenModal,
   onAutoSyncNews
 }) => {
+  const [activeTab, setActiveTab] = useState<'UPCOMING' | 'COMPLETED'>('UPCOMING');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [impactFilter, setImpactFilter] = useState<'ALL_MED_HIGH' | 'HIGH' | 'MED'>('ALL_MED_HIGH');
-  const [timeFilter, setTimeFilter] = useState<'THIS_WEEK' | 'ALL'>('THIS_WEEK');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
-  const [isFullView, setIsFullView] = useState<boolean>(true);
+  const [checkingId, setCheckingId] = useState<number | null>(null);
 
-  // Filter list by impact (strictly MEDIUM & HIGH ONLY) and time
-  const timeFilteredList = newsList.filter(n => {
-    const imp = (n.impact || 'HIGH').toUpperCase();
-    const isMedOrHigh = imp.includes('HIGH') || imp.includes('MED');
-    // Reject LOW impact items
-    if (!isMedOrHigh) return false;
-
-    if (impactFilter === 'HIGH' && !imp.includes('HIGH')) return false;
-    if (impactFilter === 'MED' && !imp.includes('MED')) return false;
-
-    if (timeFilter === 'ALL') return true;
-    if (!n.createdAt) return true;
+  const parseMalayDate = (dateStr: string): number => {
+    if (!dateStr) return 0;
     try {
-      return isSameWeek(new Date(n.createdAt), new Date(), { weekStartsOn: 1 });
-    } catch {
-      return true;
+      const cleaned = dateStr.replace(/\(MYT\)/g, '').trim();
+      const parts = cleaned.split('|');
+      if (parts.length < 2) {
+        const ms = new Date(dateStr).getTime();
+        return isNaN(ms) ? 0 : ms;
+      }
+      
+      let [datePart, timePart] = parts;
+      datePart = datePart.trim();
+      timePart = timePart.trim();
+
+      const months: Record<string, string> = {
+        'Januari': 'Jan', 'Februari': 'Feb', 'Mac': 'Mar', 'Mei': 'May',
+        'Julai': 'Jul', 'Ogos': 'Aug', 'Ogo': 'Aug', 'Oktober': 'Oct', 'Okt': 'Oct',
+        'Disember': 'Dec', 'Dis': 'Dec'
+      };
+
+      let englishDatePart = datePart;
+      for (const [my, en] of Object.entries(months)) {
+        if (datePart.includes(my)) {
+          englishDatePart = datePart.replace(my, en);
+          break;
+        }
+      }
+
+      const finalDateStr = `${englishDatePart} ${timePart} GMT+0800`;
+      const ms = new Date(finalDateStr).getTime();
+      return isNaN(ms) ? 0 : ms;
+    } catch (e) {
+      return 0;
     }
+  };
+
+  // Filter by category, today only, and exclude LOW impact
+  const categoryFiltered = newsList.filter(n => {
+    const imp = (n.impact || 'HIGH').toUpperCase();
+    if (!imp.includes('HIGH') && !imp.includes('MED')) return false;
+    if (selectedCategory !== 'ALL' && n.category !== selectedCategory) return false;
+    
+    // Only show news for TODAY in MYT timezone
+    const today = new Date();
+    const todayMYT = toZonedTime(today, 'Asia/Kuala_Lumpur');
+    const todayString = format(todayMYT, 'yyyy-MM-dd');
+    
+    // Tomorrow morning window (before 6 AM)
+    const tomorrowMYT = new Date(todayMYT);
+    tomorrowMYT.setDate(tomorrowMYT.getDate() + 1);
+    const tomorrowString = format(tomorrowMYT, 'yyyy-MM-dd');
+
+    if (n.date) {
+      const newsTime = parseMalayDate(n.date);
+      if (newsTime > 0) {
+        const newsDateMYT = toZonedTime(new Date(newsTime), 'Asia/Kuala_Lumpur');
+        const newsDateString = format(newsDateMYT, 'yyyy-MM-dd');
+        
+        if (newsDateString !== todayString) {
+          // If it's tomorrow but before 6 AM, it counts as "today's overnight news"
+          if (newsDateString === tomorrowString && newsDateMYT.getHours() < 6) {
+             // keep it
+          } else {
+             return false;
+          }
+        }
+      } else if (n.createdAt) {
+        try {
+          const createDateMYT = toZonedTime(new Date(n.createdAt), 'Asia/Kuala_Lumpur');
+          if (format(createDateMYT, 'yyyy-MM-dd') !== todayString) {
+            return false;
+          }
+        } catch (e) {}
+      }
+    }
+    return true;
   });
 
-  // Filter by category
-  const filteredList = selectedCategory === 'ALL' 
-    ? timeFilteredList 
-    : timeFilteredList.filter(n => n.category === selectedCategory);
+  const now = Date.now();
+  const upcomingNews = categoryFiltered
+    .filter(n => n.status === 'PENDING')
+    .sort((a, b) => {
+      const diffA = Math.abs(parseMalayDate(a.date) - now);
+      const diffB = Math.abs(parseMalayDate(b.date) - now);
+      return diffA - diffB;
+    });
+    
+  const completedNews = categoryFiltered
+    .filter(n => n.status === 'BETUL' || n.status === 'SALAH')
+    .sort((a, b) => parseMalayDate(b.date) - parseMalayDate(a.date)); // descending for completed
 
-  // Statistics
-  const completed = timeFilteredList.filter(n => n.status === 'BETUL' || n.status === 'SALAH');
-  const correctCount = timeFilteredList.filter(n => n.status === 'BETUL').length;
-  const wrongCount = timeFilteredList.filter(n => n.status === 'SALAH').length;
-  const pendingCount = timeFilteredList.filter(n => n.status === 'PENDING').length;
-  const winRate = completed.length > 0 ? ((correctCount / completed.length) * 100).toFixed(1) : '0.0';
-  const totalPips = timeFilteredList.reduce((acc, curr) => acc + (curr.pipsWon || 0), 0);
+  // Statistics (based on this week's completed news)
+  const allCompleted = categoryFiltered.filter(n => n.status === 'BETUL' || n.status === 'SALAH');
+  const correctCount = allCompleted.filter(n => n.status === 'BETUL').length;
+  const wrongCount = allCompleted.filter(n => n.status === 'SALAH').length;
+  const winRate = allCompleted.length > 0 ? ((correctCount / allCompleted.length) * 100).toFixed(0) : '0';
+  const totalPips = allCompleted.reduce((acc, curr) => acc + (curr.pipsWon || 0), 0);
 
   const handleSync = async () => {
     if (!onAutoSyncNews) return;
@@ -82,40 +150,40 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
   const getCategoryBadge = (category: string) => {
     switch (category) {
       case 'NFP':
-        return <span className="bg-red-900/70 text-red-300 border border-red-500/40 px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1"><Flame className="w-3 h-3 text-red-400" /> 🔥 NFP</span>;
+        return <span className="text-red-400 font-black flex items-center gap-1 text-[11px]"><Flame className="w-3.5 h-3.5" /> NFP</span>;
       case 'FOMC':
-        return <span className="bg-purple-900/70 text-purple-300 border border-purple-500/40 px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1">🏛️ FOMC</span>;
+        return <span className="text-purple-400 font-black flex items-center gap-1 text-[11px]">🏛️ FOMC</span>;
       case 'CPI':
-        return <span className="bg-amber-900/70 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1">📈 CPI</span>;
+        return <span className="text-amber-400 font-black flex items-center gap-1 text-[11px]">📈 CPI</span>;
       case 'PPI':
-        return <span className="bg-blue-900/70 text-blue-300 border border-blue-500/40 px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1">📊 PPI</span>;
+        return <span className="text-blue-400 font-black flex items-center gap-1 text-[11px]">📊 PPI</span>;
       case 'RETAIL_SALES':
-        return <span className="bg-emerald-900/70 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1">🛍️ RETAIL</span>;
+        return <span className="text-emerald-400 font-black flex items-center gap-1 text-[11px]">🛍️ RETAIL</span>;
       default:
-        return <span className="bg-gray-800 text-gray-300 border border-gray-700 px-2 py-0.5 rounded text-[10px] font-bold">NEWS</span>;
+        return <span className="text-gray-400 font-black flex items-center gap-1 text-[11px]">NEWS</span>;
     }
   };
 
+  const currentDisplayList = activeTab === 'UPCOMING' ? upcomingNews : completedNews;
+
   return (
-    <div className="w-full border-2 border-[#b49a45]/60 rounded-xl bg-[#0a0a0a] shadow-[0_0_25px_rgba(180,154,69,0.15)] overflow-hidden my-4">
+    <div className="w-full border-2 border-[#b49a45]/60 rounded-xl bg-[#0a0a0a] shadow-[0_0_25px_rgba(180,154,69,0.15)] overflow-hidden my-4 flex flex-col">
       
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-[#111] via-[#1a180f] to-[#111] border-b border-[#b49a45]/40 p-3 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+      <div className="bg-gradient-to-r from-[#111] via-[#1a180f] to-[#111] border-b border-[#b49a45]/40 p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 sm:p-2.5 bg-red-950/80 rounded-lg border border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)] shrink-0">
+          <div className="p-2.5 bg-gradient-to-br from-red-900 to-red-950 rounded-xl border border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)] shrink-0">
             <Flame className="w-6 h-6 text-[#ffcc00] animate-pulse" />
           </div>
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-[#ffcc00] font-black text-base sm:text-xl tracking-wide flex items-center gap-1.5">
-                ANALISIS & HISTORY NEWS BERIMPAK TINGGI
-              </h2>
-              <span className="bg-red-600 text-white font-black text-[9px] sm:text-[10px] px-2 py-0.5 rounded uppercase tracking-widest shadow-sm">
-                XAUUSD REAL-TIME
+            <h2 className="text-[#ffcc00] font-black text-lg sm:text-xl tracking-wide flex items-center gap-2">
+              JADUAL & ANALISIS NEWS XAUUSD
+              <span className="bg-red-600 text-white font-black text-[10px] px-2 py-0.5 rounded uppercase tracking-widest shadow-sm">
+                LIVE
               </span>
-            </div>
-            <p className="text-gray-300 text-xs mt-0.5 font-medium">
-              Rekod ramalan AI, analisis Liquidity/FVG, keputusan data & ketepatan pergerakan pips (NFP, FOMC, CPI, PPI).
+            </h2>
+            <p className="text-gray-300 text-xs sm:text-sm mt-0.5 font-medium">
+              Pantau berita berimpak tinggi, ramalan pergerakan AI, dan hasil keputusan (NFP, FOMC, CPI).
             </p>
           </div>
         </div>
@@ -125,306 +193,253 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
             <button
               onClick={handleSync}
               disabled={isSyncing}
-              className="flex-1 md:flex-none bg-gradient-to-r from-purple-900 to-indigo-900 hover:from-purple-800 hover:to-indigo-800 border border-purple-500/50 text-purple-200 font-bold text-xs px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow"
+              className="flex-1 md:flex-none bg-gradient-to-r from-purple-900 to-indigo-900 hover:from-purple-800 hover:to-indigo-800 border border-purple-500/50 text-purple-200 font-bold text-xs px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all shadow"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-[#ffcc00] ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Menjana...' : 'Auto-Sync AI'}
+              <RefreshCw className={`w-4 h-4 text-[#ffcc00] ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Menjana AI...' : 'Auto-Sync AI'}
             </button>
           )}
 
           <button
             onClick={onOpenModal}
-            className="flex-1 md:flex-none bg-[#1e3a8a] hover:bg-blue-800 text-white font-bold text-xs px-3 py-2 rounded-lg border border-blue-400/40 flex items-center justify-center gap-1.5 transition-all shadow"
+            className="flex-1 md:flex-none bg-gray-800 hover:bg-gray-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg border border-gray-600 flex items-center justify-center gap-2 transition-all shadow"
           >
-            <Plus className="w-3.5 h-3.5 text-[#ffcc00]" />
-            Urus & Tambah
+            <Plus className="w-4 h-4 text-[#ffcc00]" />
+            Tambah
           </button>
         </div>
       </div>
 
-      {/* Statistics Overview Grid */}
-      <div className="p-3 sm:p-4 bg-[#0d0d0d] border-b border-[#b49a45]/30 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div className="bg-[#141414] border border-[#b49a45]/40 rounded-lg p-2.5 text-center">
-          <span className="text-gray-400 text-[10px] sm:text-xs font-bold block uppercase tracking-wider">Kadar Ketepatan (Win Rate)</span>
-          <span className="text-xl sm:text-2xl font-black text-[#22c55e]">{winRate}%</span>
-          <span className="text-[10px] text-gray-400 block mt-0.5">{correctCount} Betul / {wrongCount} Salah</span>
+      {/* Tabs & Quick Stats Bar */}
+      <div className="bg-[#0f0f0f] border-b border-gray-800 flex flex-col md:flex-row items-center justify-between px-2 sm:px-4 py-2 gap-3">
+        {/* Main Tabs */}
+        <div className="flex bg-black/60 p-1 rounded-xl border border-gray-800 w-full md:w-auto">
+          <button
+            onClick={() => setActiveTab('UPCOMING')}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2 rounded-lg font-black text-xs sm:text-sm transition-all ${
+              activeTab === 'UPCOMING'
+                ? 'bg-[#ffcc00] text-black shadow-lg shadow-[#ffcc00]/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-900'
+            }`}
+          >
+            <CalendarDays className="w-4 h-4" />
+            MENUNGGU ({newsList.filter(n => n.status === 'PENDING').length})
+          </button>
+          <button
+            onClick={() => setActiveTab('COMPLETED')}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2 rounded-lg font-black text-xs sm:text-sm transition-all ${
+              activeTab === 'COMPLETED'
+                ? 'bg-blue-900 text-blue-100 border-blue-700 shadow-lg shadow-blue-900/20'
+                : 'text-gray-400 hover:text-white hover:bg-gray-900'
+            }`}
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            SELESAI ({completedNews.length})
+          </button>
         </div>
 
-        <div className="bg-[#141414] border border-[#b49a45]/40 rounded-lg p-2.5 text-center">
-          <span className="text-gray-400 text-[10px] sm:text-xs font-bold block uppercase tracking-wider">Hasil Pips Dimenangi</span>
-          <span className={`text-xl sm:text-2xl font-black ${totalPips >= 0 ? 'text-[#ffcc00]' : 'text-red-400'}`}>
-            {totalPips >= 0 ? `+${totalPips}` : totalPips} Pips
-          </span>
-          <span className="text-[10px] text-gray-400 block mt-0.5">Terkumpul dari News</span>
-        </div>
-
-        <div className="bg-[#141414] border border-[#b49a45]/40 rounded-lg p-2.5 text-center">
-          <span className="text-gray-400 text-[10px] sm:text-xs font-bold block uppercase tracking-wider">Status Ramalan</span>
-          <div className="flex justify-center items-center gap-1.5 mt-1">
-            <span className="text-xs px-2 py-0.5 bg-green-950 text-green-300 border border-green-800 rounded font-bold">{correctCount} ✅</span>
-            <span className="text-xs px-2 py-0.5 bg-red-950 text-red-300 border border-red-800 rounded font-bold">{wrongCount} ❌</span>
-            <span className="text-xs px-2 py-0.5 bg-amber-950 text-amber-300 border border-amber-800 rounded font-bold">{pendingCount} ⏳</span>
+        {/* Global Stats Snapshot */}
+        <div className="flex items-center gap-3 sm:gap-6 bg-black/40 px-4 py-2 rounded-xl border border-gray-800 w-full md:w-auto overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-2 shrink-0">
+            <Target className="w-4 h-4 text-emerald-400" />
+            <div>
+              <span className="text-gray-500 text-[10px] font-bold block uppercase leading-none">Win Rate AI</span>
+              <span className="text-emerald-400 font-black text-sm leading-none">{winRate}%</span>
+            </div>
           </div>
-        </div>
-
-        <div className="bg-[#141414] border border-[#b49a45]/40 rounded-lg p-2.5 flex flex-col justify-center items-center text-center">
-          <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Kategori News Aktif</span>
-          <span className="text-lg sm:text-xl font-black text-white mt-0.5">{filteredList.length} Berita</span>
+          <div className="w-px h-6 bg-gray-800 shrink-0"></div>
+          <div className="flex items-center gap-2 shrink-0">
+            <TrendingUp className="w-4 h-4 text-[#ffcc00]" />
+            <div>
+              <span className="text-gray-500 text-[10px] font-bold block uppercase leading-none">Pips Dimenangi</span>
+              <span className={`font-black text-sm leading-none ${totalPips >= 0 ? 'text-[#ffcc00]' : 'text-red-400'}`}>
+                {totalPips >= 0 ? `+${totalPips}` : totalPips}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Filter Controls Bar */}
-      <div className="p-3 bg-[#111] border-b border-gray-800 flex flex-wrap items-center justify-between gap-2 text-xs">
-        {/* Category & Impact Buttons */}
-        <div className="flex flex-wrap items-center gap-1.5 w-full lg:w-auto">
-          {/* Impact Filter Selector */}
-          <div className="flex items-center gap-1 bg-black/80 p-0.5 rounded-lg border border-gray-800 mr-1">
-            <button
-              onClick={() => setImpactFilter('ALL_MED_HIGH')}
-              className={`px-2 py-0.5 rounded font-black text-[10px] transition-all ${
-                impactFilter === 'ALL_MED_HIGH'
-                  ? 'bg-amber-500 text-black shadow'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              🔥⚡ HIGH & MED
-            </button>
-            <button
-              onClick={() => setImpactFilter('HIGH')}
-              className={`px-2 py-0.5 rounded font-black text-[10px] transition-all ${
-                impactFilter === 'HIGH'
-                  ? 'bg-red-600 text-white shadow'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              🔥 HIGH ONLY
-            </button>
-            <button
-              onClick={() => setImpactFilter('MED')}
-              className={`px-2 py-0.5 rounded font-black text-[10px] transition-all ${
-                impactFilter === 'MED'
-                  ? 'bg-amber-600 text-white shadow'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              ⚡ MED ONLY
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
-            {['ALL', 'NFP', 'FOMC', 'CPI', 'PPI', 'RETAIL_SALES'].map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-2.5 py-1 rounded-md font-bold text-[11px] whitespace-nowrap transition-all ${
-                  selectedCategory === cat 
-                    ? 'bg-[#b49a45] text-black shadow-md' 
-                    : 'bg-black/60 text-gray-400 hover:text-white border border-gray-800'
-                }`}
-              >
-                {cat === 'ALL' ? 'SEMUA NEWS' : cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Time Filter & Full Page Toggle */}
-        <div className="flex items-center gap-1.5">
+      {/* Category Filters */}
+      <div className="bg-[#121212] border-b border-gray-800 px-4 py-2.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        <span className="text-gray-500 font-bold text-[10px] uppercase tracking-wider mr-2 shrink-0">Tapis:</span>
+        {['ALL', 'NFP', 'FOMC', 'CPI', 'PPI', 'RETAIL_SALES'].map(cat => (
           <button
-            onClick={() => setTimeFilter('THIS_WEEK')}
-            className={`px-2.5 py-1 rounded-md font-bold text-[11px] transition-all ${
-              timeFilter === 'THIS_WEEK'
-                ? 'bg-[#1e3a8a] text-white border border-blue-400/50'
-                : 'bg-black/60 text-gray-400 hover:text-white border border-gray-800'
+            key={cat}
+            onClick={() => setSelectedCategory(cat)}
+            className={`px-3 py-1.5 rounded-lg font-bold text-[11px] whitespace-nowrap transition-all ${
+              selectedCategory === cat 
+                ? 'bg-gray-700 text-white shadow-md border border-gray-600' 
+                : 'bg-black/60 text-gray-400 hover:text-white border border-gray-800 hover:bg-gray-800'
             }`}
           >
-            📅 Minggu Ini
+            {cat === 'ALL' ? 'Semua' : cat}
           </button>
-          <button
-            onClick={() => setTimeFilter('ALL')}
-            className={`px-2.5 py-1 rounded-md font-bold text-[11px] transition-all ${
-              timeFilter === 'ALL'
-                ? 'bg-[#1e3a8a] text-white border border-blue-400/50'
-                : 'bg-black/60 text-gray-400 hover:text-white border border-gray-800'
-            }`}
-          >
-            📜 Semua Rekod
-          </button>
-          <button
-            onClick={() => setIsFullView(!isFullView)}
-            className={`px-2.5 py-1 rounded-md font-bold text-[11px] transition-all border ${
-              isFullView
-                ? 'bg-[#ffcc00]/20 text-[#ffcc00] border-[#ffcc00]/50'
-                : 'bg-black/60 text-gray-400 border-gray-800 hover:text-white'
-            }`}
-            title="Tukar antara paparan penuh tanpa scroll atau paparan kompak"
-          >
-            {isFullView ? '🖥️ Paparan Penuh (Tanpa Scroll)' : '📦 Paparan Scroll'}
-          </button>
-        </div>
+        ))}
       </div>
 
-      {/* News Items List */}
-      <div className={`p-3 sm:p-4 space-y-3 ${isFullView ? '' : 'max-h-[600px] overflow-y-auto'}`}>
-        {filteredList.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 bg-black/40 rounded-xl border border-gray-800">
-            <Clock className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-            <p className="font-bold text-sm text-gray-400">Tiada rekod news berimpak tinggi dalam kategori ini.</p>
-            <p className="text-xs mt-1 text-gray-500">Tekan "Auto-Sync AI" atau "Urus & Tambah" untuk memasukkan data.</p>
+      {/* Content Area */}
+      <div className="p-3 sm:p-4 bg-[#0a0a0a] min-h-[300px] max-h-[600px] overflow-y-auto space-y-3">
+        {currentDisplayList.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-gray-800 rounded-2xl bg-black/30">
+            <Clock className="w-10 h-10 text-gray-700 mb-3" />
+            <h3 className="text-gray-400 font-bold text-sm sm:text-base mb-1">
+              Tiada Berita {activeTab === 'UPCOMING' ? 'Menunggu' : 'Selesai'}
+            </h3>
+            <p className="text-gray-500 text-xs max-w-xs">
+              {activeTab === 'UPCOMING' 
+                ? 'Tiada jadual news berimpak tinggi dalam senarai. Klik "Auto-Sync AI" untuk cari news terkini.' 
+                : 'Belum ada news yang telah disemak keputusannya.'}
+            </p>
           </div>
         ) : (
-          filteredList.map((item) => {
+          currentDisplayList.map((item) => {
             const isExpanded = expandedId === item.id;
+            const isUpcoming = activeTab === 'UPCOMING';
 
             return (
               <div 
                 key={item.id} 
-                className="bg-[#111111] border border-gray-800 hover:border-[#b49a45]/50 rounded-xl p-3.5 sm:p-4 transition-all shadow-md space-y-3"
+                className={`rounded-xl border transition-all ${
+                  isExpanded ? 'border-[#b49a45]/60 bg-[#14120a] shadow-lg shadow-[#ffcc00]/5' : 'border-gray-800 bg-[#111] hover:border-gray-700'
+                }`}
               >
-                {/* Main Card Row */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  
-                  {/* Left Info */}
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-black/80 rounded-lg border border-gray-800 shrink-0 mt-0.5">
-                      {getCategoryBadge(item.category)}
+                {/* Main Card Header */}
+                <div 
+                  className="p-3 sm:p-4 cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4"
+                  onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                >
+                  <div className="flex items-start gap-3.5 w-full sm:w-auto">
+                    {/* Date Block */}
+                    <div className="flex flex-col items-center justify-center bg-black border border-gray-800 rounded-lg p-2 min-w-[70px] shrink-0">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase">{item.date.split('|')[0]}</span>
+                      <span className="text-white font-black text-sm">{item.date.split('|')[1]?.trim() || '-'}</span>
                     </div>
 
                     <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-white font-black text-sm sm:text-base">{item.event}</span>
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        {getCategoryBadge(item.category)}
                         {item.impact === 'MED' ? (
-                          <span className="bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[9px] font-black px-1.5 py-0.2 rounded">MEDIUM IMPACT</span>
+                          <span className="bg-amber-500/10 text-amber-500 border border-amber-500/30 text-[9px] font-black px-1.5 py-0.2 rounded uppercase">Medium</span>
                         ) : (
-                          <span className="bg-red-500/20 text-red-400 border border-red-500/40 text-[9px] font-black px-1.5 py-0.2 rounded">HIGH IMPACT</span>
+                          <span className="bg-red-500/10 text-red-500 border border-red-500/30 text-[9px] font-black px-1.5 py-0.2 rounded uppercase">High</span>
                         )}
                       </div>
-                      <div className="text-gray-400 text-xs mt-0.5 font-mono">
-                        📅 {item.date}
-                      </div>
+                      <h3 className="text-white font-bold text-sm sm:text-base leading-tight group-hover:text-[#ffcc00] transition-colors">
+                        {item.event}
+                      </h3>
                     </div>
                   </div>
 
-                  {/* Right Badges: Trade Suggestion, Prediction & Pips */}
-                  <div className="flex items-center gap-2 flex-wrap sm:justify-end w-full sm:w-auto">
-                    
-                    {/* Trade Suggestion */}
-                    <div className="flex items-center gap-1.5 bg-black/80 px-2.5 py-1.5 rounded-lg border border-white/10">
-                      <span className="text-gray-400 text-[10px] font-bold">BIAS:</span>
-                      <span className={`px-2 py-0.5 rounded text-xs font-black flex items-center gap-1 ${
-                        item.prediction === 'BULLISH' 
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' 
-                          : item.prediction === 'BEARISH' 
-                          ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' 
-                          : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                  <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-3 shrink-0">
+                    {/* AI Bias Badge */}
+                    <div className="flex items-center gap-1.5 bg-black/60 px-2.5 py-1.5 rounded-lg border border-gray-800">
+                      <span className="text-gray-500 text-[10px] font-bold">BIAS:</span>
+                      <span className={`text-xs font-black flex items-center gap-1 ${
+                        item.prediction === 'BULLISH' ? 'text-emerald-400' : 
+                        item.prediction === 'BEARISH' ? 'text-rose-400' : 'text-amber-400'
                       }`}>
                         {item.prediction === 'BULLISH' && <TrendingUp className="w-3.5 h-3.5" />}
                         {item.prediction === 'BEARISH' && <TrendingDown className="w-3.5 h-3.5" />}
-                        {item.prediction === 'BULLISH' ? 'BUY XAUUSD' : item.prediction === 'BEARISH' ? 'SELL XAUUSD' : 'NEUTRAL'}
+                        {item.prediction === 'BULLISH' ? 'BUY' : item.prediction === 'BEARISH' ? 'SELL' : 'NEUTRAL'}
                       </span>
                     </div>
 
-                    {/* Result Status */}
-                    <div className="flex items-center gap-1">
-                      {item.status === 'BETUL' && (
-                        <span className="bg-green-950 text-green-300 border border-green-700/60 font-black px-2.5 py-1 rounded-lg text-xs flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-green-400" /> BETUL
+                    {/* Result or Action */}
+                    {isUpcoming ? (
+                      <button
+                        disabled={checkingId === item.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // trigger result check
+                          const checkRes = async () => {
+                            setCheckingId(item.id);
+                            try {
+                              const res = await fetch(`/api/news-history/${item.id}/check-result`, { method: 'POST' });
+                              if (!res.ok) throw new Error(await res.text());
+                              if (onAutoSyncNews) await onAutoSyncNews();
+                              else window.location.reload();
+                            } catch (err: any) {
+                              alert('Ralat semakan: ' + (err.message || 'Tiada data baharu.'));
+                            } finally {
+                              setCheckingId(null);
+                            }
+                          };
+                          checkRes();
+                        }}
+                        className="bg-blue-900/40 hover:bg-blue-800 text-blue-300 border border-blue-700/50 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-3 h-3 text-blue-400 ${checkingId === item.id ? 'animate-spin' : ''}`} /> 
+                        {checkingId === item.id ? 'Menyemak...' : 'Semak'}
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded-lg text-xs font-black flex items-center gap-1 border ${
+                          item.status === 'BETUL' 
+                            ? 'bg-emerald-950/50 text-emerald-400 border-emerald-800/50' 
+                            : 'bg-rose-950/50 text-rose-400 border-rose-800/50'
+                        }`}>
+                          {item.status === 'BETUL' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                          {item.status}
                         </span>
-                      )}
-                      {item.status === 'SALAH' && (
-                        <span className="bg-red-950 text-red-300 border border-red-700/60 font-black px-2.5 py-1 rounded-lg text-xs flex items-center gap-1">
-                          <XCircle className="w-3.5 h-3.5 text-red-400" /> SALAH
+                        <span className={`font-mono font-black text-xs px-2 py-1 rounded-lg border ${
+                          (item.pipsWon || 0) >= 0 ? 'bg-[#ffcc00]/10 text-[#ffcc00] border-[#ffcc00]/30' : 'bg-red-500/10 text-red-400 border-red-500/30'
+                        }`}>
+                          {(item.pipsWon || 0) >= 0 ? `+${item.pipsWon}` : item.pipsWon}
                         </span>
-                      )}
-                      {item.status === 'PENDING' && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="bg-amber-950 text-amber-300 border border-amber-700/60 font-black px-2.5 py-1 rounded-lg text-xs flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-amber-400" /> PENDING
-                          </span>
-                          <button
-                            onClick={async () => {
-                              try {
-                                const res = await fetch(`/api/news-history/${item.id}/check-result`, { method: 'POST' });
-                                if (!res.ok) throw new Error(await res.text());
-                                const updated = await res.json();
-                                if (updated && updated.actual) {
-                                  alert(`✅ Result Berjaya Disemak AI!\nActual: ${updated.actual}\nStatus: ${updated.status}\nPips: ${updated.pipsWon}`);
-                                  if (onAutoSyncNews) await onAutoSyncNews();
-                                  else window.location.reload();
-                                }
-                              } catch (e: any) {
-                                alert('Ralat semakan AI: ' + (e.message || 'Gagal menyemak data terkini.'));
-                              }
-                            }}
-                            className="bg-blue-900/60 hover:bg-blue-800 text-blue-200 border border-blue-500/50 font-bold px-2 py-1 rounded-lg text-[11px] flex items-center gap-1 transition-all shadow"
-                            title="Minta AI cari data sebenar terkini di internet & kemaskini result automatik"
-                          >
-                            <RefreshCw className="w-3 h-3 text-[#ffcc00]" /> Semak Result
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Pips Won */}
-                    <div className="bg-black/80 px-2.5 py-1.5 rounded-lg border border-[#b49a45]/40 text-[#ffcc00] font-black text-xs font-mono">
-                      {item.pipsWon >= 0 ? `+${item.pipsWon}` : item.pipsWon} Pips
-                    </div>
-
-                    {/* Expand Toggle */}
-                    <button 
-                      onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                      className="p-1.5 text-gray-400 hover:text-white bg-black/50 rounded-lg border border-gray-800 transition-colors"
-                      title="Lihat Analisis Terperinci"
-                    >
+                      </div>
+                    )}
+                    
+                    <div className="text-gray-500 ml-1">
                       {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Forecast / Previous / Actual Data Grid */}
-                <div className="grid grid-cols-3 gap-2 bg-black/60 p-2.5 rounded-lg border border-gray-800 text-center text-xs">
-                  <div>
-                    <span className="text-gray-400 text-[10px] font-bold uppercase block">Forecast</span>
-                    <span className="text-white font-mono font-bold">{item.forecast || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 text-[10px] font-bold uppercase block">Previous</span>
-                    <span className="text-gray-300 font-mono font-bold">{item.previous || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 text-[10px] font-bold uppercase block">Actual Data</span>
-                    <span className={`font-mono font-black ${item.actual && item.actual !== '-' ? 'text-[#ffcc00]' : 'text-gray-500'}`}>
-                      {item.actual || 'Menunggu Release'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Expanded Details: Pre-News & Post-News Analysis */}
+                {/* Expanded Content */}
                 {isExpanded && (
-                  <div className="pt-2 border-t border-gray-800 space-y-2.5 text-xs animate-in fade-in duration-150">
-                    {item.preNewsAnalysis && (
-                      <div className="bg-blue-950/30 border border-blue-800/50 p-2.5 rounded-lg text-blue-200">
-                        <div className="font-bold text-[#ffcc00] mb-1 flex items-center gap-1.5">
-                          <BarChart3 className="w-3.5 h-3.5" />
-                          <span>ANALISIS SEBELUM NEWS (PRE-NEWS & LIQUIDITY ZONES):</span>
-                        </div>
-                        <p className="leading-relaxed text-gray-300 text-[11px] whitespace-pre-line">
-                          {item.preNewsAnalysis}
-                        </p>
+                  <div className="border-t border-gray-800/80 bg-black/40 p-3 sm:p-4 animate-in slide-in-from-top-2 duration-200">
+                    
+                    {/* Data Grid */}
+                    <div className="grid grid-cols-3 gap-3 mb-4 text-center">
+                      <div className="bg-black border border-gray-800 rounded-lg p-2.5">
+                        <span className="text-gray-500 text-[10px] font-bold uppercase block mb-1">Forecast</span>
+                        <span className="text-gray-300 font-mono font-bold text-sm">{item.forecast || '-'}</span>
                       </div>
-                    )}
+                      <div className="bg-black border border-gray-800 rounded-lg p-2.5">
+                        <span className="text-gray-500 text-[10px] font-bold uppercase block mb-1">Previous</span>
+                        <span className="text-gray-400 font-mono font-bold text-sm">{item.previous || '-'}</span>
+                      </div>
+                      <div className="bg-[#1a1708] border border-[#b49a45]/40 rounded-lg p-2.5 shadow-inner">
+                        <span className="text-[#ffcc00] text-[10px] font-bold uppercase block mb-1">Actual</span>
+                        <span className="text-white font-mono font-black text-sm">{item.actual || 'TBA'}</span>
+                      </div>
+                    </div>
 
-                    {item.analysis && (
-                      <div className="bg-purple-950/30 border border-purple-800/50 p-2.5 rounded-lg text-purple-200">
-                        <div className="font-bold text-purple-300 mb-1 flex items-center gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5 text-[#ffcc00]" />
-                          <span>SEMASA & SELEPAS NEWS RELEASE:</span>
+                    {/* AI Analysis Blocks */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {item.preNewsAnalysis && (
+                        <div className="bg-[#0f141a] border border-blue-900/40 rounded-xl p-3.5 space-y-2">
+                          <h4 className="text-blue-400 font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+                            <BarChart3 className="w-3.5 h-3.5" /> SETUP & STRUKTUR (PRE-NEWS)
+                          </h4>
+                          <p className="text-gray-300 text-xs leading-relaxed whitespace-pre-line">
+                            {item.preNewsAnalysis}
+                          </p>
                         </div>
-                        <p className="leading-relaxed text-gray-300 text-[11px] whitespace-pre-line">
-                          {item.analysis}
-                        </p>
-                      </div>
-                    )}
+                      )}
+
+                      {item.analysis && (
+                        <div className="bg-[#141014] border border-purple-900/40 rounded-xl p-3.5 space-y-2">
+                          <h4 className="text-purple-400 font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5" /> REAKSI & KESAN (POST-NEWS)
+                          </h4>
+                          <p className="text-gray-300 text-xs leading-relaxed whitespace-pre-line">
+                            {item.analysis}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -433,9 +448,11 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
         )}
       </div>
 
-      {/* Footer hint */}
-      <div className="p-3 bg-[#0d0d0d] border-t border-[#b49a45]/30 text-center text-[10px] text-gray-400 font-medium">
-        💡 <span className="text-[#ffcc00]">Tips Gringgo:</span> Sentiasa kawal risk management sewaktu High Impact News rilis. Tunggu pengesahan Liquidity Sweep di zon H1/H4 sebelum memicu posisi.
+      {/* Footer Hint */}
+      <div className="p-3 bg-black border-t border-gray-800 text-center flex justify-center items-center">
+        <p className="text-[10px] text-gray-500 font-medium">
+          💡 Tips: Semak <span className="text-[#ffcc00]">Menunggu</span> sebelum waktu news, pantau <span className="text-blue-400">Selesai</span> untuk kajian post-mortem Pips.
+        </p>
       </div>
     </div>
   );

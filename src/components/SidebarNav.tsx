@@ -50,6 +50,14 @@ export const NAV_SECTIONS: NavSection[] = [
     badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
   },
   {
+    id: 'sec-live-analysis',
+    label: 'Setup & Analisis Harga (Live)',
+    category: 'LIVE SETUP',
+    icon: <Target className="w-4.5 h-4.5 text-pink-400" />,
+    badge: 'NEW',
+    badgeColor: 'bg-pink-500/20 text-pink-400 border-pink-500/30'
+  },
+  {
     id: 'sec-news-feed',
     label: 'Live News Feed (USD)',
     category: 'BERITA EKONOMI',
