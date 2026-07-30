@@ -1,4 +1,8 @@
 import { HighImpactNewsModal, NewsItem } from './components/HighImpactNewsModal';
+import { FrontPageNewsHistory } from './components/FrontPageNewsHistory';
+import { SbrRbsVisualDiagram } from './components/SbrRbsVisualDiagram';
+import { ChartSnapshotAnalyzer } from './components/ChartSnapshotAnalyzer';
+import { SidebarNav } from './components/SidebarNav';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, BarChart, Bar, Cell } from 'recharts';
 import { useState, useEffect } from 'react';
 import { format, toZonedTime } from 'date-fns-tz';
@@ -1255,6 +1259,9 @@ export default function App() {
   };
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
+  const [activeSection, setActiveSection] = useState<string>('sec-overview');
+  const [viewMode, setViewMode] = useState<'ALL' | 'FOCUS'>('ALL');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -1474,627 +1481,867 @@ export default function App() {
 
   return (
     <>
-      <div className="min-h-screen bg-[#020202] text-white font-sans antialiased p-1 sm:p-2 md:p-4 flex flex-col items-center">
-      <div className={`w-full max-w-[1300px] flex justify-end flex-wrap gap-2 mb-2 transition-opacity duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-        {showInstallBtn && (
-          <button onClick={handleInstallClick} className="flex items-center gap-1.5 bg-[#22c55e] text-black px-4 py-2.5 sm:px-3 sm:py-1.5 rounded-md font-bold text-xs sm:text-sm hover:bg-green-400 transition-colors shadow-lg shadow-green-500/20">
-            <Smartphone className="w-4 h-4 text-black" />
-            PASANG APLIKASI
-          </button>
-        )}
-        <button onClick={handleDownloadImage} className="flex items-center gap-2 bg-[#ffcc00] text-black px-4 py-2.5 sm:px-3 sm:py-1.5 rounded-md font-bold text-xs sm:text-sm hover:bg-yellow-400 transition-colors shadow-lg shadow-yellow-500/20">
-          <Download className="w-4 h-4" />
-          DOWNLOAD GAMBAR
-        </button>
-      </div>
-      <div id="export-container" className={`w-full max-w-[1300px] border-t-4 border-[#b49a45] bg-[#050505] p-4 sm:p-5 md:p-6 rounded-xl shadow-[0_0_50px_rgba(180,154,69,0.05)] transition-opacity duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+      <div className="min-h-screen bg-[#020202] text-white font-sans antialiased p-2 sm:p-4 md:p-6 flex flex-col lg:flex-row items-start justify-center gap-4 w-full max-w-[1920px] mx-auto">
         
-        {/* Header */}
-        <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-5 border-b border-[#b49a45]/20 mb-5 gap-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="text-5xl sm:text-6xl drop-shadow-[0_0_15px_rgba(255,204,0,0.3)]">🪙</div>
-            <div className="flex flex-col gap-2">
-              <h1 className="text-4xl sm:text-6xl font-display font-bold text-[#ffcc00] tracking-wide leading-none drop-shadow-md" >
-                XAUUSD ANALYSIS
-              </h1>
-              <div className="flex items-center flex-wrap gap-2 text-xs font-bold">
-                <div className="flex items-center gap-1.5 bg-[#111] px-2.5 py-1 rounded border border-gray-800 text-gray-300">
-                  <Calendar className="w-4 h-4 text-[#ffcc00]" />
-                  <span className="tracking-wider">{data.date} {data.time && `| ${data.time} MYT`}</span>
-                </div>
-                
-                <span className="px-3 py-2 sm:px-2 sm:py-1 bg-[#1e3a8a]/20 text-[#4da6ff] rounded font-bold border border-[#1e3a8a]/50 tracking-wide">
-                  D1 OPEN: 6:00 AM MYT
-                </span>
-                
-                <span className={`px-3 py-2 sm:px-2 sm:py-1 text-white rounded font-bold border tracking-wide ${marketOpen ? 'bg-green-500/20 text-green-400 border-green-500/50' : 'bg-red-500/20 text-red-400 border-red-500/50'}`}>
-                  {marketOpen ? 'PASARAN BUKA' : 'PASARAN TUTUP'}
-                </span>
-                
-                <input 
-                  type="date" 
-                  value={dateInput}
-                  onChange={(e) => {
-                    setDateInput(e.target.value);
-                    if (e.target.value) {
-                      setTargetDate(new Date(e.target.value + 'T23:59:59+08:00'));
-                    }
-                  }}
-                  className="bg-[#111] border border-gray-700 text-gray-300 text-xs px-3 py-2 sm:px-2 sm:py-1 rounded outline-none focus:border-[#b49a45]"
-                />
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-            <button onClick={() => setShowJournal(true)} className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 bg-[#111] text-[#ffcc00] border border-[#b49a45]/50 px-4 py-2 rounded-lg font-bold text-xs hover:bg-[#b49a45]/20 transition-all">
-              <BookOpen className="w-4 h-4" />
-              JURNAL
-            </button>
+        {/* SIDEBAR NAVIGATION */}
+        <SidebarNav
+          activeSection={activeSection}
+          setActiveSection={setActiveSection}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          onOpenNewsModal={() => setShowNewsModal(true)}
+          onOpenJournalModal={() => setShowJournal(true)}
+          isCollapsed={isSidebarCollapsed}
+          setIsCollapsed={setIsSidebarCollapsed}
+        />
 
-            <button onClick={() => setShowNewsModal(true)} className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 bg-red-600/20 text-red-400 border border-red-600/50 px-4 py-2 rounded-lg font-black text-xs hover:bg-red-600/30 transition-all shadow-[0_0_15px_rgba(220,38,38,0.15)]">
-              <Flame className="w-4 h-4 text-[#ffcc00]" />
-              NEWS IMPAK TINGGI
+        {/* MAIN APP CONTAINER */}
+        <div className="flex-1 w-full min-w-0">
+          <div className={`w-full flex justify-end flex-wrap gap-2 mb-3 transition-opacity duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+            {showInstallBtn && (
+              <button onClick={handleInstallClick} className="flex items-center gap-1.5 bg-[#22c55e] text-black px-4 py-2.5 sm:px-3 sm:py-1.5 rounded-md font-bold text-xs sm:text-sm hover:bg-green-400 transition-colors shadow-lg shadow-green-500/20">
+                <Smartphone className="w-4 h-4 text-black" />
+                PASANG APLIKASI
+              </button>
+            )}
+            <button onClick={handleDownloadImage} className="flex items-center gap-2 bg-[#ffcc00] text-black px-4 py-2.5 sm:px-3 sm:py-1.5 rounded-md font-bold text-xs sm:text-sm hover:bg-yellow-400 transition-colors shadow-lg shadow-yellow-500/20">
+              <Download className="w-4 h-4" />
+              DOWNLOAD GAMBAR
             </button>
+          </div>
+
+          <div id="export-container" className={`w-full border-t-4 border-[#b49a45] bg-[#050505] p-3 sm:p-5 md:p-6 rounded-xl shadow-[0_0_50px_rgba(180,154,69,0.08)] transition-opacity duration-300 space-y-6 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
             
-            <div className="hidden sm:flex text-xl sm:text-2xl font-display font-medium text-[#ffcc00]/80 tracking-wide italic ml-auto xl:ml-4" >
-              BY {data.author}
-            </div>
-          </div>
-        </header>
+            {/* OVERVIEW SECTION */}
+            {(viewMode === 'ALL' || activeSection === 'sec-overview') && (
+              <div id="sec-overview" className="scroll-mt-6 space-y-4">
+                <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-5 border-b border-[#b49a45]/20 mb-5 gap-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <div className="text-5xl sm:text-6xl drop-shadow-[0_0_15px_rgba(255,204,0,0.3)]">🪙</div>
+                    <div className="flex flex-col gap-2">
+                      <h1 className="text-4xl sm:text-6xl font-display font-bold text-[#ffcc00] tracking-wide leading-none drop-shadow-md" >
+                        XAUUSD ANALYSIS
+                      </h1>
+                      <div className="flex items-center flex-wrap gap-2 text-xs font-bold">
+                        <div className="flex items-center gap-1.5 bg-[#111] px-2.5 py-1 rounded border border-gray-800 text-gray-300">
+                          <Calendar className="w-4 h-4 text-[#ffcc00]" />
+                          <span className="tracking-wider">{data.date} {data.time && `| ${data.time} MYT`}</span>
+                        </div>
+                        
+                        <span className="px-3 py-2 sm:px-2 sm:py-1 bg-[#1e3a8a]/20 text-[#4da6ff] rounded font-bold border border-[#1e3a8a]/50 tracking-wide">
+                          D1 OPEN: 6:00 AM MYT
+                        </span>
+                        
+                        <span className={`px-3 py-2 sm:px-2 sm:py-1 text-white rounded font-bold border tracking-wide ${marketOpen ? 'bg-green-500/20 text-green-400 border-green-500/50' : 'bg-red-500/20 text-red-400 border-red-500/50'}`}>
+                          {marketOpen ? 'PASARAN BUKA' : 'PASARAN TUTUP'}
+                        </span>
+                        
+                        <input 
+                          type="date" 
+                          value={dateInput}
+                          onChange={(e) => {
+                            setDateInput(e.target.value);
+                            if (e.target.value) {
+                              setTargetDate(new Date(e.target.value + 'T23:59:59+08:00'));
+                            }
+                          }}
+                          className="bg-[#111] border border-gray-700 text-gray-300 text-xs px-3 py-2 sm:px-2 sm:py-1 rounded outline-none focus:border-[#b49a45]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                    <button onClick={() => setShowJournal(true)} className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 bg-[#111] text-[#ffcc00] border border-[#b49a45]/50 px-4 py-2 rounded-lg font-bold text-xs hover:bg-[#b49a45]/20 transition-all">
+                      <BookOpen className="w-4 h-4" />
+                      JURNAL
+                    </button>
 
-        <HighImpactNewsBanner news={data.news} targetDate={targetDate} />
+                    <button onClick={() => setShowNewsModal(true)} className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 bg-red-600/20 text-red-400 border border-red-600/50 px-4 py-2 rounded-lg font-black text-xs hover:bg-red-600/30 transition-all shadow-[0_0_15px_rgba(220,38,38,0.15)]">
+                      <Flame className="w-4 h-4 text-[#ffcc00]" />
+                      NEWS IMPAK TINGGI
+                    </button>
+                    
+                    <div className="hidden sm:flex text-xl sm:text-2xl font-display font-medium text-[#ffcc00]/80 tracking-wide italic ml-auto xl:ml-4" >
+                      BY {data.author}
+                    </div>
+                  </div>
+                </header>
+
+                <HighImpactNewsBanner news={data.news} targetDate={targetDate} />
+              </div>
+            )}
 
         {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4">
           
           {/* LEFT COLUMN (Charts & Fundamentals) */}
-          <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-3 lg:gap-4">
+          <div className={`${viewMode === 'FOCUS' && !['sec-chart', 'sec-chart-snapshot', 'sec-news-feed'].includes(activeSection) ? 'hidden' : viewMode === 'FOCUS' ? 'col-span-12 flex flex-col gap-3 lg:gap-4' : 'lg:col-span-7 xl:col-span-8 flex flex-col gap-3 lg:gap-4'}`}>
             
             {/* Charts Column */}
-            <div className="flex flex-col gap-3">
-              <LightweightChart 
-                title="M5 CHART (5 MINUTE)" 
-                subtitle="SBR/RBS, Liq, OB, FVG, Zones"
-                data={data.charts.m5.rawCandles}
-                heightClass="h-[300px] sm:h-[400px]"
-                markers={{
-                  sbr: data.sbr_rbs?.h1?.sbr?.price || data.sbr_rbs?.h4?.sbr?.price,
-                  rbs: data.sbr_rbs?.h1?.rbs?.price || data.sbr_rbs?.h4?.rbs?.price,
-                  buySideLiq: data.liquidity?.buySide?.map((l: any) => l.price),
-                  sellSideLiq: data.liquidity?.sellSide?.map((l: any) => l.price),
-                  ob: data.orderBlock?.h1 || data.orderBlock?.h4,
-                  fvg: data.fvg?.h1 || data.fvg?.h4,
-                  zones: calculateConfluenceZones(data).zones
-                }}
-              />
-            </div>
+            {(viewMode === 'ALL' || activeSection === 'sec-chart') && (
+              <div id="sec-chart" className="scroll-mt-6 flex flex-col gap-3">
+                <LightweightChart 
+                  title="M5 CHART (5 MINUTE)" 
+                  subtitle="SBR/RBS, Liq, OB, FVG, Zones"
+                  data={data.charts.m5.rawCandles}
+                  heightClass={viewMode === 'FOCUS' && activeSection === 'sec-chart' ? "h-[500px] sm:h-[600px]" : "h-[300px] sm:h-[400px]"}
+                  markers={{
+                    sbr: data.sbr_rbs?.h1?.sbr?.price || data.sbr_rbs?.h4?.sbr?.price,
+                    rbs: data.sbr_rbs?.h1?.rbs?.price || data.sbr_rbs?.h4?.rbs?.price,
+                    buySideLiq: data.liquidity?.buySide?.map((l: any) => l.price),
+                    sellSideLiq: data.liquidity?.sellSide?.map((l: any) => l.price),
+                    ob: data.orderBlock?.h1 || data.orderBlock?.h4,
+                    fvg: data.fvg?.h1 || data.fvg?.h4,
+                    zones: calculateConfluenceZones(data).zones
+                  }}
+                />
+              </div>
+            )}
 
-            {/* Fundamentals & Impact Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
-              
-              {/* Fundamentals */}
-              <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)] flex flex-col">
-                <div className="bg-[#1e3a8a] px-4 py-2 flex items-center justify-between border-b border-[#b49a45]/30">
-                  <div className="flex items-center gap-2">
-                    <img src="https://flagcdn.com/w20/us.png" alt="US" className="w-5" />
-                    <span className="text-white font-bold text-xs sm:text-sm tracking-wide">LIVE NEWS FEED (USD)</span>
+            {/* AI Chart Snapshot Analyzer Section */}
+            {(viewMode === 'ALL' || activeSection === 'sec-chart-snapshot') && (
+              <ChartSnapshotAnalyzer />
+            )}
+
+            {/* Fundamentals & Impact Row - Full Width */}
+            {(viewMode === 'ALL' || activeSection === 'sec-news-feed') && (
+              <div id="sec-news-feed" className="scroll-mt-6 w-full">
+                
+                {/* Fundamentals */}
+                <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)] flex flex-col w-full overflow-hidden">
+                  <div className="bg-[#1e3a8a] px-4 py-3 flex items-center justify-between border-b border-[#b49a45]/30">
+                    <div className="flex items-center gap-2">
+                      <img src="https://flagcdn.com/w20/us.png" alt="US" className="w-5 h-auto rounded-sm" />
+                      <span className="text-white font-black text-xs sm:text-sm tracking-wide">LIVE NEWS FEED (USD) - KALENDAR & IMPAK EKONOMI</span>
+                    </div>
+                    <button 
+                      onClick={() => setShowNewsModal(true)}
+                      className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white text-[10px] sm:text-xs font-black px-3 py-1 rounded-md shadow transition-all hover:scale-105"
+                    >
+                      <Flame className="w-3.5 h-3.5 text-[#ffcc00]" />
+                      ANALISIS & HISTORY NEWS
+                    </button>
                   </div>
-                  <button 
-                    onClick={() => setShowNewsModal(true)}
-                    className="flex items-center gap-1 bg-red-600 hover:bg-red-500 text-white text-[10px] sm:text-xs font-black px-2 py-0.5 rounded shadow transition-colors"
-                  >
-                    <Flame className="w-3 h-3 text-[#ffcc00]" />
-                    ANALISIS & HISTORY NEWS
-                  </button>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[10px] sm:text-xs text-left text-gray-200">
-                    <thead className="text-gray-400 border-b border-gray-700 bg-black/50">
-                      <tr>
-                        <th className="px-3 py-2 sm:px-2 sm:py-1.5 font-normal text-center w-20">TIME</th>
-                        <th className="px-3 py-2 sm:px-2 sm:py-1.5 font-normal">NEWS</th>
-                        <th className="px-1 py-1.5 font-normal text-center w-12 hidden sm:table-cell">FCST</th>
-                        <th className="px-1 py-1.5 font-normal text-center w-12 hidden sm:table-cell">PREV</th>
-                        <th className="px-2 py-1.5 font-normal text-center">CADANGAN AI</th>
-                        <th className="px-2 py-1.5 font-normal text-center hidden sm:table-cell">ANGGARAN PIPS</th>
-                        <th className="px-3 py-2 sm:px-2 sm:py-1.5 font-normal text-center w-14">IMPACT</th>
-                        <th className="px-3 py-2 sm:px-2 sm:py-1.5 font-normal text-center w-28">COUNTDOWN</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800">
+                  <div className="w-full">
+                    <table className="w-full text-xs text-left text-gray-200">
+                      <thead className="text-gray-400 border-b border-gray-700 bg-black/60 font-bold uppercase tracking-wider text-[11px]">
+                        <tr>
+                          <th className="px-4 py-2.5 text-center w-24">TIME</th>
+                          <th className="px-4 py-2.5">PERISTIWA / NEWS</th>
+                          <th className="px-3 py-2.5 text-center w-20">FCST</th>
+                          <th className="px-3 py-2.5 text-center w-20">PREV</th>
+                          <th className="px-4 py-2.5 text-center">CADANGAN AI</th>
+                          <th className="px-4 py-2.5 text-center w-36">ANGGARAN PIPS</th>
+                          <th className="px-3 py-2.5 text-center w-20">IMPACT</th>
+                          <th className="px-4 py-2.5 text-center w-32">COUNTDOWN</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800/80">
+                        {(() => {
+                          const medHighNews = data.news?.filter((item: any) => item.impact === 'HIGH' || item.impact === 'MED' || item.impact === 'MEDIUM') || [];
+                          if (medHighNews.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={8} className="px-4 py-4 text-center text-gray-400 italic">
+                                  Tiada news MED / HIGH impak USD hari ini
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          const myt = toZonedTime(new Date(), 'Asia/Kuala_Lumpur');
+                          const curH = myt.getHours();
+                          const curM = myt.getMinutes();
+
+                          return medHighNews.map((item: any, i: number) => {
+                            const minsLeft = calculateNewsMinutesLeft(item.time, curH, curM);
+                            const sugg = item.suggestion ? {
+                              action: item.action,
+                              suggestion: item.suggestion,
+                              estimatedPips: item.estimatedPips,
+                              reason: item.reason
+                            } : getNewsTradeSuggestion(item.event, item.forecast, item.previous);
+
+                            return (
+                              <tr key={i} className="hover:bg-white/5 transition-colors">
+                                <td className="px-4 py-2.5 text-center font-mono font-black text-white">{item.time}</td>
+                                <td className="px-4 py-2.5 font-bold text-gray-100">{item.event}</td>
+                                <td className="px-3 py-2.5 text-center text-gray-400 font-mono">{item.forecast}</td>
+                                <td className="px-3 py-2.5 text-center text-gray-400 font-mono">{item.previous}</td>
+                                <td className="px-4 py-2.5 text-center font-bold">
+                                  <span className={`px-2.5 py-1 rounded text-xs font-black tracking-wide shadow ${
+                                    sugg.action === 'BUY' 
+                                      ? 'text-emerald-300 bg-emerald-950/80 border border-emerald-700/60' 
+                                      : sugg.action === 'SELL' 
+                                      ? 'text-rose-300 bg-rose-950/80 border border-rose-700/60' 
+                                      : 'text-amber-300 bg-amber-950/80 border border-amber-700/60'
+                                  }`}>
+                                    {sugg.suggestion || 'BUY XAUUSD'}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2.5 text-center font-mono text-[#ffcc00] font-black">
+                                  ⚡ ~{sugg.estimatedPips || '150-300 PIPS'}
+                                </td>
+                                <td className={`px-3 py-2.5 font-black text-center ${item.impact === 'HIGH' ? 'text-[#ef4444]' : 'text-[#eab308]'}`}>
+                                  {item.impact}
+                                </td>
+                                <td className="px-4 py-2.5 text-center">
+                                  {minsLeft === null ? (
+                                    <span className="text-gray-500">-</span>
+                                  ) : minsLeft < -15 ? (
+                                    <span className="text-gray-500 font-semibold text-xs inline-flex items-center gap-1 bg-gray-900/60 px-2 py-0.5 rounded border border-gray-800">
+                                      <CheckCircle2 className="w-3 h-3 text-gray-500" /> Selesai
+                                    </span>
+                                  ) : minsLeft >= -15 && minsLeft <= 15 ? (
+                                    <span className="text-red-400 font-black text-xs bg-red-950/90 border border-red-800 px-2.5 py-0.5 rounded animate-pulse inline-flex items-center gap-1 shadow">
+                                      🔥 LIVE
+                                    </span>
+                                  ) : (
+                                    <span className="font-mono font-extrabold text-xs text-[#ffcc00] bg-amber-950/50 border border-amber-800/60 px-2.5 py-0.5 rounded inline-flex items-center gap-1 shadow-sm">
+                                      ⏳ {Math.floor(minsLeft / 60) > 0 ? `${Math.floor(minsLeft / 60)}j ` : ''}{minsLeft % 60}m
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="p-4 border-t border-[#b49a45]/30 flex flex-col gap-2 bg-[#111] mt-auto">
+                    <div className="text-xs text-[#ffcc00] font-bold border-b border-gray-700 pb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-amber-400" /> 
+                        AI TRADING ANALYSIS & BIAS IMPAK BERITA
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-normal">XAUUSD (GOLD) INSTRUMEN</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1">
                       {(() => {
                         const medHighNews = data.news?.filter((item: any) => item.impact === 'HIGH' || item.impact === 'MED' || item.impact === 'MEDIUM') || [];
                         if (medHighNews.length === 0) {
-                          return (
-                            <tr>
-                              <td colSpan={8} className="px-3 py-3 text-center text-gray-400 italic">
-                                Tiada news MED / HIGH impak USD hari ini
-                              </td>
-                            </tr>
-                          );
+                          return <p className="text-gray-400 italic col-span-2">Tiada news impak tinggi USD buat masa ini.</p>;
                         }
-
-                        const myt = toZonedTime(new Date(), 'Asia/Kuala_Lumpur');
-                        const curH = myt.getHours();
-                        const curM = myt.getMinutes();
-
-                        return medHighNews.map((item: any, i: number) => {
-                          const minsLeft = calculateNewsMinutesLeft(item.time, curH, curM);
-                          const sugg = item.suggestion ? {
-                            action: item.action,
-                            suggestion: item.suggestion,
-                            estimatedPips: item.estimatedPips,
-                            reason: item.reason
-                          } : getNewsTradeSuggestion(item.event, item.forecast, item.previous);
-
+                        return medHighNews.slice(0, 4).map((n: any, idx: number) => {
+                          const s = n.suggestion ? n : getNewsTradeSuggestion(n.event, n.forecast, n.previous);
                           return (
-                            <tr key={i} className="hover:bg-white/5 transition-colors">
-                              <td className="px-3 py-2 sm:px-2 sm:py-1.5 text-center font-mono font-bold">{item.time}</td>
-                              <td className="px-3 py-2 sm:px-2 sm:py-1.5 font-medium">{item.event}</td>
-                              <td className="px-1 py-1.5 text-center text-gray-400 hidden sm:table-cell">{item.forecast}</td>
-                              <td className="px-1 py-1.5 text-center text-gray-400 hidden sm:table-cell">{item.previous}</td>
-                              <td className="px-2 py-1.5 text-center font-bold">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wide ${
-                                  sugg.action === 'BUY' 
-                                    ? 'text-emerald-300 bg-emerald-950/80 border border-emerald-700/60' 
-                                    : sugg.action === 'SELL' 
-                                    ? 'text-rose-300 bg-rose-950/80 border border-rose-700/60' 
-                                    : 'text-amber-300 bg-amber-950/80 border border-amber-700/60'
-                                }`}>
-                                  {sugg.suggestion || 'BUY XAUUSD'}
+                            <div key={idx} className="bg-black/60 p-3 rounded-lg border border-gray-800 space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-black text-white text-xs">{n.event} ({n.time})</span>
+                                <span className={`font-black text-[10px] px-2 py-0.5 rounded ${s.action === 'BUY' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : s.action === 'SELL' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'}`}>
+                                  {s.suggestion || 'BUY XAUUSD'}
                                 </span>
-                              </td>
-                              <td className="px-2 py-1.5 text-center font-mono text-[#ffcc00] font-bold hidden sm:table-cell">
-                                ⚡ ~{sugg.estimatedPips || '150-300 PIPS'}
-                              </td>
-                              <td className={`px-3 py-2 sm:px-2 sm:py-1.5 font-bold text-center ${item.impact === 'HIGH' ? 'text-[#ef4444]' : 'text-[#eab308]'}`}>
-                                {item.impact}
-                              </td>
-                              <td className="px-3 py-2 sm:px-2 sm:py-1.5 text-center">
-                                {minsLeft === null ? (
-                                  <span className="text-gray-500">-</span>
-                                ) : minsLeft < -15 ? (
-                                  <span className="text-gray-500 font-semibold text-[10px] inline-flex items-center gap-1 bg-gray-900/60 px-1.5 py-0.5 rounded border border-gray-800">
-                                    <CheckCircle2 className="w-2.5 h-2.5 text-gray-500" /> Selesai
-                                  </span>
-                                ) : minsLeft >= -15 && minsLeft <= 15 ? (
-                                  <span className="text-red-400 font-black text-[10px] bg-red-950/90 border border-red-800 px-2 py-0.5 rounded animate-pulse inline-flex items-center gap-1 shadow">
-                                    🔥 LIVE
-                                  </span>
-                                ) : (
-                                  <span className="font-mono font-extrabold text-[10px] text-[#ffcc00] bg-amber-950/50 border border-amber-800/60 px-2 py-0.5 rounded inline-flex items-center gap-1 shadow-sm">
-                                    ⏳ {Math.floor(minsLeft / 60) > 0 ? `${Math.floor(minsLeft / 60)}j ` : ''}{minsLeft % 60}m
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
+                              </div>
+                              <p className="text-gray-300 text-xs">
+                                <span className="text-[#ffcc00] font-bold">Jangkaan Pips: </span> ⚡ ~{s.estimatedPips || '150-300 PIPS'}
+                              </p>
+                              <p className="text-gray-300 text-[11px] italic leading-relaxed">
+                                {s.reason || 'Kawal Stop Loss & nantikan zon FVG/SBR H1 sebelum entry.'}
+                              </p>
+                            </div>
                           );
                         });
                       })()}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="p-4 border-t border-[#b49a45] flex flex-col gap-2 bg-[#111] mt-auto">
-                  <div className="text-xs text-[#ffcc00] font-bold border-b border-gray-700 pb-1 flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4" /> 
-                      AI TRADING ANALYSIS & BIAS
-                    </span>
-                    <span className="text-[10px] text-gray-400 font-normal">XAUUSD (GOLD)</span>
-                  </div>
-                  <div className="text-[10px] sm:text-[11px] text-gray-300 space-y-1.5 leading-relaxed">
-                    {(() => {
-                      const medHighNews = data.news?.filter((item: any) => item.impact === 'HIGH' || item.impact === 'MED' || item.impact === 'MEDIUM') || [];
-                      if (medHighNews.length === 0) {
-                        return <p className="text-gray-400 italic">Tiada news impak tinggi USD buat masa ini.</p>;
-                      }
-                      return medHighNews.slice(0, 2).map((n: any, idx: number) => {
-                        const s = n.suggestion ? n : getNewsTradeSuggestion(n.event, n.forecast, n.previous);
-                        return (
-                          <div key={idx} className="bg-black/60 p-2.5 rounded border border-gray-800 space-y-1">
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-white text-xs">{n.event} ({n.time})</span>
-                              <span className={`font-black text-[10px] px-2 py-0.5 rounded ${s.action === 'BUY' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : s.action === 'SELL' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'}`}>
-                                {s.suggestion || 'BUY XAUUSD'}
-                              </span>
-                            </div>
-                            <p className="text-gray-300 text-[10px]">
-                              <span className="text-[#ffcc00] font-bold">Jangkaan Pips: </span> ⚡ ~{s.estimatedPips || '150-300 PIPS'}
-                            </p>
-                            <p className="text-gray-300 text-[9.5px] italic">
-                              {s.reason || 'Kawal Stop Loss & nantikan zon FVG/SBR H1 sebelum entry.'}
-                            </p>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                  <div className="flex gap-2 items-start mt-1 p-2 bg-blue-900/20 border border-blue-900/50 rounded">
-                    <AlertTriangle className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
-                    <div className="text-[9px] sm:text-[10px] text-blue-300 italic">
-                      *AI mengemas kini cadangan & volatiliti pips secara automatik mengikut kalendar berita ekonomi semasa.
+                    </div>
+                    <div className="flex gap-2 items-start mt-2 p-2.5 bg-blue-900/20 border border-blue-900/50 rounded-lg">
+                      <AlertTriangle className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                      <div className="text-xs text-blue-300 italic">
+                        *AI mengemas kini cadangan & volatiliti pips secara automatik mengikut kalendar berita ekonomi semasa tanpa perlu skrol.
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* RIGHT COLUMN (Analysis Panels) */}
-          <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-3 lg:gap-4">
-            
-            <SessionWarning />
-            
-            {/* AI SUMMARY */}
-            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
-              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2 flex justify-between items-center">
-                <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide flex items-center gap-2">
-                  <span className="text-lg">🤖</span> GEMINI AI RUMUSAN PASARAN
-                </span>
-              </div>
-              <div className="p-4">
-                {!aiSummary && !isLoadingAi && (
-                  <button onClick={fetchAiSummary} className="w-full py-2 bg-blue-900/40 text-blue-400 border border-blue-500/50 rounded font-bold hover:bg-blue-800/40 transition-colors text-sm flex items-center justify-center gap-2">
-                    <span className="text-lg">✨</span> Jana Rumusan Pasaran (AI)
-                  </button>
-                )}
-                {isLoadingAi && (
-                  <div className="text-center text-sm text-gray-400 py-4 flex flex-col items-center gap-2">
-                    <div className="w-5 h-5 border-2 border-[#4da6ff] border-t-transparent rounded-full animate-spin"></div>
-                    Menganalisis pasaran...
+          <div className={`${viewMode === 'FOCUS' && !['sec-bias-plan', 'sec-ob-fvg', 'sec-sbr-rbs', 'sec-liquidity', 'sec-liquidity-bos'].includes(activeSection) ? 'hidden' : viewMode === 'FOCUS' ? 'col-span-12 flex flex-col gap-3 lg:gap-4' : 'lg:col-span-5 xl:col-span-4 flex flex-col gap-3 lg:gap-4'}`}>
+            {(viewMode === 'ALL' || activeSection === 'sec-bias-plan') && (
+              <div id="sec-bias-plan" className="scroll-mt-6 flex flex-col gap-3 lg:gap-4">
+                <SessionWarning />
+                
+                {/* AI SUMMARY */}
+                <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+                  <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2 flex justify-between items-center">
+                    <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide flex items-center gap-2">
+                      <span className="text-lg">🤖</span> GEMINI AI RUMUSAN PASARAN
+                    </span>
                   </div>
-                )}
-                {aiSummary && (
-                  <div className="text-sm">
-                    {renderFormattedSummary(aiSummary)}
+                  <div className="p-4">
+                    {!aiSummary && !isLoadingAi && (
+                      <button onClick={fetchAiSummary} className="w-full py-2 bg-blue-900/40 text-blue-400 border border-blue-500/50 rounded font-bold hover:bg-blue-800/40 transition-colors text-sm flex items-center justify-center gap-2">
+                        <span className="text-lg">✨</span> Jana Rumusan Pasaran (AI)
+                      </button>
+                    )}
+                    {isLoadingAi && (
+                      <div className="text-center text-sm text-gray-400 py-4 flex flex-col items-center gap-2">
+                        <div className="w-5 h-5 border-2 border-[#4da6ff] border-t-transparent rounded-full animate-spin"></div>
+                        Menganalisis pasaran...
+                      </div>
+                    )}
+                    {aiSummary && (
+                      <div className="text-sm">
+                        {renderFormattedSummary(aiSummary)}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* BIAS UTAMA */}
-            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
-              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
-                <span className="text-white font-bold text-xs sm:text-sm tracking-wide">BIAS UTAMA</span>
-              </div>
-              <div className="p-4">
-                <div className={`text-5xl sm:text-6xl font-display font-bold mb-3 tracking-wide ${data.bias.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`} >
-                  {data.bias.direction}
                 </div>
-                <ul className="text-xs sm:text-sm text-gray-200 space-y-2 list-disc pl-4 ml-1">
-                  {data.bias.reasons.map((reason, i) => (
-                    <li key={i}>{reason.split('\n').map((line, j) => <div key={j}>{line}</div>)}</li>
-                  ))}
-                </ul>
+
+                {/* BIAS UTAMA */}
+                <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+                  <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
+                    <span className="text-white font-bold text-xs sm:text-sm tracking-wide">BIAS UTAMA</span>
+                  </div>
+                  <div className="p-4">
+                    <div className={`text-5xl sm:text-6xl font-display font-bold mb-3 tracking-wide ${data.bias.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`} >
+                      {data.bias.direction}
+                    </div>
+                    <ul className="text-xs sm:text-sm text-gray-200 space-y-2 list-disc pl-4 ml-1">
+                      {data.bias.reasons.map((reason, i) => (
+                        <li key={i}>{reason.split('\n').map((line, j) => <div key={j}>{line}</div>)}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
             
             {/* SBR & RBS (Support/Resistance & SND Structure) */}
-            <div className="border border-[#b49a45]/40 rounded-xl bg-[#0a0a0a] shadow-xl shadow-black/80 overflow-hidden">
-              {/* Card Header */}
-              <div className="border-b border-[#b49a45]/30 bg-gradient-to-r from-[#14120a] via-[#111111] to-[#0d131a] px-4 py-3 flex flex-wrap justify-between items-center gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-1.5 rounded-lg bg-[#ffcc00]/10 border border-[#ffcc00]/30 text-[#ffcc00] font-bold text-xs">
-                    ⚡
+            {(viewMode === 'ALL' || activeSection === 'sec-sbr-rbs') && (
+              <div id="sec-sbr-rbs" className="scroll-mt-6 border border-[#b49a45]/40 rounded-xl bg-[#0a0a0a] shadow-xl shadow-black/80 overflow-hidden">
+                {/* Card Header */}
+                <div className="border-b border-[#b49a45]/30 bg-gradient-to-r from-[#14120a] via-[#111111] to-[#0d131a] px-4 py-3 flex flex-wrap justify-between items-center gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-[#ffcc00]/10 border border-[#ffcc00]/30 text-[#ffcc00] font-bold text-xs">
+                      ⚡
+                    </div>
+                    <div>
+                      <h3 className="text-[#ffcc00] font-extrabold text-xs sm:text-sm tracking-wide flex items-center gap-2">
+                        SBR & RBS <span className="text-gray-300 font-medium text-[11px] hidden sm:inline">(Support/Resistance & SND Structure)</span>
+                      </h3>
+                      <p className="text-[10px] text-gray-400">Peta Struktur RBR (Rally-Base-Rally) & DBD (Drop-Base-Drop)</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-[#ffcc00] font-extrabold text-xs sm:text-sm tracking-wide flex items-center gap-2">
-                      SBR & RBS <span className="text-gray-300 font-medium text-[11px] hidden sm:inline">(Support/Resistance & SND Structure)</span>
-                    </h3>
-                    <p className="text-[10px] text-gray-400">Peta Struktur RBR (Rally-Base-Rally) & DBD (Drop-Base-Drop)</p>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] bg-red-950/80 text-red-300 border border-red-800/60 px-2 py-0.5 rounded font-extrabold">
+                      DBD / SBR = SELL
+                    </span>
+                    <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 px-2 py-0.5 rounded font-extrabold">
+                      RBR / RBS = BUY
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] bg-red-950/80 text-red-300 border border-red-800/60 px-2 py-0.5 rounded font-extrabold">
-                    DBD / SBR = SELL
-                  </span>
-                  <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 px-2 py-0.5 rounded font-extrabold">
-                    RBR / RBS = BUY
-                  </span>
+                {/* Technique Guide Banner */}
+                <div className="bg-[#111111]/90 border-b border-gray-800/80 px-4 py-2.5 grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
+                  <div className="flex items-center gap-2 bg-red-950/20 border border-red-900/30 p-2 rounded-lg">
+                    <span className="text-base">🔻</span>
+                    <div>
+                      <span className="font-bold text-red-400">SBR / DBD (Drop-Base-Drop):</span>
+                      <p className="text-gray-300 text-[10px]">Support tembus (Breakout Low) → Bertukar jadi Resistance. Tunggu Pullback untuk <strong>ENTRY SELL</strong>.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 bg-emerald-950/20 border border-emerald-900/30 p-2 rounded-lg">
+                    <span className="text-base">🟢</span>
+                    <div>
+                      <span className="font-bold text-emerald-400">RBS / RBR (Rally-Base-Rally):</span>
+                      <p className="text-gray-300 text-[10px]">Resistance tembus (Breakout High) → Bertukar jadi Support. Tunggu Pullback untuk <strong>ENTRY BUY</strong>.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Interactive Technical Diagrams for SBR, DBD, RBS, RBR */}
+                <div className="px-4 pt-3">
+                  <SbrRbsVisualDiagram />
+                </div>
+
+                {/* Main Content Grid: H4 vs H1 */}
+                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* H4 TIMEFRAME */}
+                  <div className="bg-[#0e0e0e] border border-gray-800/80 rounded-xl p-3.5 space-y-3">
+                    <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                      <span className="text-[#ffcc00] font-black text-xs tracking-wider flex items-center gap-1.5">
+                        📊 TIMEFRAME H4
+                      </span>
+                      <span className="text-[10px] text-gray-400 bg-black px-2 py-0.5 rounded border border-gray-800 font-mono">
+                        Major SNR
+                      </span>
+                    </div>
+
+                    {/* H4 SBR */}
+                    {data.sbr_rbs?.h4?.sbr ? (
+                      <div className="bg-gradient-to-r from-red-950/40 via-black to-[#0a0a0a] border border-red-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
+                        <div className="flex justify-between items-center flex-wrap gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-black bg-red-600 text-white px-2 py-0.5 rounded shadow">
+                              🔻 SELL SIGNAL
+                            </span>
+                            <span className="text-xs font-bold text-red-300">
+                              DBD / SBR (H4)
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
+                            WinRate: {data.sbr_rbs.h4.sbr.winRate}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-1">
+                          <span className="text-[11px] text-gray-400">Paras Entry SBR:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-extrabold text-sm text-white bg-black px-2 py-0.5 rounded border border-red-900/60">
+                              {data.sbr_rbs.h4.sbr.price}
+                            </span>
+                            <QuickCopyBtn text={data.sbr_rbs.h4.sbr.price} />
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-gray-400 italic">
+                          {data.sbr_rbs.h4.sbr.description || 'Support H4 tembus → bertukar jadi Resistance. Cari Rejection Sell.'}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {/* H4 RBS */}
+                    {data.sbr_rbs?.h4?.rbs ? (
+                      <div className="bg-gradient-to-r from-emerald-950/40 via-black to-[#0a0a0a] border border-emerald-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
+                        <div className="flex justify-between items-center flex-wrap gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-black bg-emerald-600 text-white px-2 py-0.5 rounded shadow">
+                              🟢 BUY SIGNAL
+                            </span>
+                            <span className="text-xs font-bold text-emerald-300">
+                              RBR / RBS (H4)
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
+                            WinRate: {data.sbr_rbs.h4.rbs.winRate}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-1">
+                          <span className="text-[11px] text-gray-400">Paras Entry RBS:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-extrabold text-sm text-white bg-black px-2 py-0.5 rounded border border-emerald-900/60">
+                              {data.sbr_rbs.h4.rbs.price}
+                            </span>
+                            <QuickCopyBtn text={data.sbr_rbs.h4.rbs.price} />
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-gray-400 italic">
+                          {data.sbr_rbs.h4.rbs.description || 'Resistance H4 tembus → bertukar jadi Support. Cari Rejection Buy.'}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {!data.sbr_rbs?.h4?.sbr && !data.sbr_rbs?.h4?.rbs && (
+                      <div className="text-gray-500 text-xs italic text-center py-4 bg-black/40 rounded-lg border border-dashed border-gray-800">
+                        Tiada persilangan SBR/RBS yang jelas di H4 buat masa ini.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* H1 TIMEFRAME */}
+                  <div className="bg-[#0e0e0e] border border-gray-800/80 rounded-xl p-3.5 space-y-3">
+                    <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                      <span className="text-[#4da6ff] font-black text-xs tracking-wider flex items-center gap-1.5">
+                        📈 TIMEFRAME H1
+                      </span>
+                      <span className="text-[10px] text-gray-400 bg-black px-2 py-0.5 rounded border border-gray-800 font-mono">
+                        Precision SNR
+                      </span>
+                    </div>
+
+                    {/* H1 SBR */}
+                    {data.sbr_rbs?.h1?.sbr ? (
+                      <div className="bg-gradient-to-r from-red-950/40 via-black to-[#0a0a0a] border border-red-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
+                        <div className="flex justify-between items-center flex-wrap gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-black bg-red-600 text-white px-2 py-0.5 rounded shadow">
+                              🔻 SELL SIGNAL
+                            </span>
+                            <span className="text-xs font-bold text-red-300">
+                              DBD / SBR (H1)
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
+                            WinRate: {data.sbr_rbs.h1.sbr.winRate}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-1">
+                          <span className="text-[11px] text-gray-400">Paras Entry SBR:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-extrabold text-sm text-white bg-black px-2 py-0.5 rounded border border-red-900/60">
+                              {data.sbr_rbs.h1.sbr.price}
+                            </span>
+                            <QuickCopyBtn text={data.sbr_rbs.h1.sbr.price} />
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-gray-400 italic">
+                          {data.sbr_rbs.h1.sbr.description || 'Support H1 tembus → bertukar jadi Resistance. Cari Rejection Sell.'}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {/* H1 RBS */}
+                    {data.sbr_rbs?.h1?.rbs ? (
+                      <div className="bg-gradient-to-r from-emerald-950/40 via-black to-[#0a0a0a] border border-emerald-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
+                        <div className="flex justify-between items-center flex-wrap gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-black bg-emerald-600 text-white px-2 py-0.5 rounded shadow">
+                              🟢 BUY SIGNAL
+                            </span>
+                            <span className="text-xs font-bold text-emerald-300">
+                              RBR / RBS (H1)
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
+                            WinRate: {data.sbr_rbs.h1.rbs.winRate}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-1">
+                          <span className="text-[11px] text-gray-400">Paras Entry RBS:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-extrabold text-sm text-white bg-black px-2 py-0.5 rounded border border-emerald-900/60">
+                              {data.sbr_rbs.h1.rbs.price}
+                            </span>
+                            <QuickCopyBtn text={data.sbr_rbs.h1.rbs.price} />
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-gray-400 italic">
+                          {data.sbr_rbs.h1.rbs.description || 'Resistance H1 tembus → bertukar jadi Support. Cari Rejection Buy.'}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {!data.sbr_rbs?.h1?.sbr && !data.sbr_rbs?.h1?.rbs && (
+                      <div className="text-gray-500 text-xs italic text-center py-4 bg-black/40 rounded-lg border border-dashed border-gray-800">
+                        Tiada persilangan SBR/RBS yang jelas di H1 buat masa ini.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              {/* Technique Guide Banner */}
-              <div className="bg-[#111111]/90 border-b border-gray-800/80 px-4 py-2.5 grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
-                <div className="flex items-center gap-2 bg-red-950/20 border border-red-900/30 p-2 rounded-lg">
-                  <span className="text-base">🔻</span>
-                  <div>
-                    <span className="font-bold text-red-400">SBR / DBD (Drop-Base-Drop):</span>
-                    <p className="text-gray-300 text-[10px]">Support tembus (Breakout Low) → Bertukar jadi Resistance. Tunggu Pullback untuk <strong>ENTRY SELL</strong>.</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 bg-emerald-950/20 border border-emerald-900/30 p-2 rounded-lg">
-                  <span className="text-base">🟢</span>
-                  <div>
-                    <span className="font-bold text-emerald-400">RBS / RBR (Rally-Base-Rally):</span>
-                    <p className="text-gray-300 text-[10px]">Resistance tembus (Breakout High) → Bertukar jadi Support. Tunggu Pullback untuk <strong>ENTRY BUY</strong>.</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Main Content Grid: H4 vs H1 */}
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* H4 TIMEFRAME */}
-                <div className="bg-[#0e0e0e] border border-gray-800/80 rounded-xl p-3.5 space-y-3">
-                  <div className="flex justify-between items-center border-b border-gray-800 pb-2">
-                    <span className="text-[#ffcc00] font-black text-xs tracking-wider flex items-center gap-1.5">
-                      📊 TIMEFRAME H4
-                    </span>
-                    <span className="text-[10px] text-gray-400 bg-black px-2 py-0.5 rounded border border-gray-800 font-mono">
-                      Major SNR
-                    </span>
-                  </div>
-
-                  {/* H4 SBR */}
-                  {data.sbr_rbs?.h4?.sbr ? (
-                    <div className="bg-gradient-to-r from-red-950/40 via-black to-[#0a0a0a] border border-red-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
-                      <div className="flex justify-between items-center flex-wrap gap-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-black bg-red-600 text-white px-2 py-0.5 rounded shadow">
-                            🔻 SELL SIGNAL
-                          </span>
-                          <span className="text-xs font-bold text-red-300">
-                            DBD / SBR (H4)
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
-                          WinRate: {data.sbr_rbs.h4.sbr.winRate}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center pt-1">
-                        <span className="text-[11px] text-gray-400">Paras Entry SBR:</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-extrabold text-sm text-white bg-black px-2 py-0.5 rounded border border-red-900/60">
-                            {data.sbr_rbs.h4.sbr.price}
-                          </span>
-                          <QuickCopyBtn text={data.sbr_rbs.h4.sbr.price} />
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-gray-400 italic">
-                        {data.sbr_rbs.h4.sbr.description || 'Support H4 tembus → bertukar jadi Resistance. Cari Rejection Sell.'}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {/* H4 RBS */}
-                  {data.sbr_rbs?.h4?.rbs ? (
-                    <div className="bg-gradient-to-r from-emerald-950/40 via-black to-[#0a0a0a] border border-emerald-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
-                      <div className="flex justify-between items-center flex-wrap gap-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-black bg-emerald-600 text-white px-2 py-0.5 rounded shadow">
-                            🟢 BUY SIGNAL
-                          </span>
-                          <span className="text-xs font-bold text-emerald-300">
-                            RBR / RBS (H4)
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
-                          WinRate: {data.sbr_rbs.h4.rbs.winRate}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center pt-1">
-                        <span className="text-[11px] text-gray-400">Paras Entry RBS:</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-extrabold text-sm text-white bg-black px-2 py-0.5 rounded border border-emerald-900/60">
-                            {data.sbr_rbs.h4.rbs.price}
-                          </span>
-                          <QuickCopyBtn text={data.sbr_rbs.h4.rbs.price} />
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-gray-400 italic">
-                        {data.sbr_rbs.h4.rbs.description || 'Resistance H4 tembus → bertukar jadi Support. Cari Rejection Buy.'}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {!data.sbr_rbs?.h4?.sbr && !data.sbr_rbs?.h4?.rbs && (
-                    <div className="text-gray-500 text-xs italic text-center py-4 bg-black/40 rounded-lg border border-dashed border-gray-800">
-                      Tiada persilangan SBR/RBS yang jelas di H4 buat masa ini.
-                    </div>
-                  )}
-                </div>
-
-                {/* H1 TIMEFRAME */}
-                <div className="bg-[#0e0e0e] border border-gray-800/80 rounded-xl p-3.5 space-y-3">
-                  <div className="flex justify-between items-center border-b border-gray-800 pb-2">
-                    <span className="text-[#4da6ff] font-black text-xs tracking-wider flex items-center gap-1.5">
-                      📈 TIMEFRAME H1
-                    </span>
-                    <span className="text-[10px] text-gray-400 bg-black px-2 py-0.5 rounded border border-gray-800 font-mono">
-                      Precision SNR
-                    </span>
-                  </div>
-
-                  {/* H1 SBR */}
-                  {data.sbr_rbs?.h1?.sbr ? (
-                    <div className="bg-gradient-to-r from-red-950/40 via-black to-[#0a0a0a] border border-red-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
-                      <div className="flex justify-between items-center flex-wrap gap-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-black bg-red-600 text-white px-2 py-0.5 rounded shadow">
-                            🔻 SELL SIGNAL
-                          </span>
-                          <span className="text-xs font-bold text-red-300">
-                            DBD / SBR (H1)
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
-                          WinRate: {data.sbr_rbs.h1.sbr.winRate}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center pt-1">
-                        <span className="text-[11px] text-gray-400">Paras Entry SBR:</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-extrabold text-sm text-white bg-black px-2 py-0.5 rounded border border-red-900/60">
-                            {data.sbr_rbs.h1.sbr.price}
-                          </span>
-                          <QuickCopyBtn text={data.sbr_rbs.h1.sbr.price} />
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-gray-400 italic">
-                        {data.sbr_rbs.h1.sbr.description || 'Support H1 tembus → bertukar jadi Resistance. Cari Rejection Sell.'}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {/* H1 RBS */}
-                  {data.sbr_rbs?.h1?.rbs ? (
-                    <div className="bg-gradient-to-r from-emerald-950/40 via-black to-[#0a0a0a] border border-emerald-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
-                      <div className="flex justify-between items-center flex-wrap gap-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-black bg-emerald-600 text-white px-2 py-0.5 rounded shadow">
-                            🟢 BUY SIGNAL
-                          </span>
-                          <span className="text-xs font-bold text-emerald-300">
-                            RBR / RBS (H1)
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
-                          WinRate: {data.sbr_rbs.h1.rbs.winRate}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center pt-1">
-                        <span className="text-[11px] text-gray-400">Paras Entry RBS:</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-extrabold text-sm text-white bg-black px-2 py-0.5 rounded border border-emerald-900/60">
-                            {data.sbr_rbs.h1.rbs.price}
-                          </span>
-                          <QuickCopyBtn text={data.sbr_rbs.h1.rbs.price} />
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-gray-400 italic">
-                        {data.sbr_rbs.h1.rbs.description || 'Resistance H1 tembus → bertukar jadi Support. Cari Rejection Buy.'}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {!data.sbr_rbs?.h1?.sbr && !data.sbr_rbs?.h1?.rbs && (
-                    <div className="text-gray-500 text-xs italic text-center py-4 bg-black/40 rounded-lg border border-dashed border-gray-800">
-                      Tiada persilangan SBR/RBS yang jelas di H1 buat masa ini.
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            )}
 
             <ConfluenceScore data={data} />
 
-            {/* LIQUIDITY */}
-            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
-              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
-                <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">LIQUIDITY</span>
-              </div>
-              <div className="p-4 space-y-4">
-                <div>
-                  <div className="text-[#22c55e] font-bold text-xs sm:text-sm mb-2 tracking-wide">BUY-SIDE LIQUIDITY</div>
-                  {data.liquidity.buySide.map((item, i) => (
-                    <div key={i} className="flex justify-between items-center text-xs sm:text-sm text-gray-200 py-0.5">
-                      <span>{item.price} {item.label} <span className="text-green-400 font-bold ml-1">({item.winRate}%)</span></span>
-                      <ArrowUp className="w-4 h-4 text-[#22c55e]" strokeWidth={3} />
+            {/* LIQUIDITY & BOS */}
+            {(viewMode === 'ALL' || activeSection === 'sec-liquidity' || activeSection === 'sec-liquidity-bos') && (
+              <div id="sec-liquidity" className="scroll-mt-6 flex flex-col gap-3 lg:gap-4">
+                <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+                  <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
+                    <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">LIQUIDITY</span>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    <div>
+                      <div className="text-[#22c55e] font-bold text-xs sm:text-sm mb-2 tracking-wide">BUY-SIDE LIQUIDITY</div>
+                      {data.liquidity.buySide.map((item, i) => (
+                        <div key={i} className="flex justify-between items-center text-xs sm:text-sm text-gray-200 py-0.5">
+                          <span>{item.price} {item.label} <span className="text-green-400 font-bold ml-1">({item.winRate}%)</span></span>
+                          <ArrowUp className="w-4 h-4 text-[#22c55e]" strokeWidth={3} />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                
-                <div>
-                  <div className="text-[#ef4444] font-bold text-xs sm:text-sm mb-2 tracking-wide">SELL-SIDE LIQUIDITY</div>
-                  {data.liquidity.sellSide.map((item, i) => (
-                    <div key={i} className="flex justify-between items-center text-xs sm:text-sm text-gray-200 py-0.5">
-                      <span>{item.price} {item.label} <span className="text-green-400 font-bold ml-1">({item.winRate}%)</span></span>
-                      <ArrowDown className="w-4 h-4 text-[#ef4444]" strokeWidth={3} />
+                    
+                    <div>
+                      <div className="text-[#ef4444] font-bold text-xs sm:text-sm mb-2 tracking-wide">SELL-SIDE LIQUIDITY</div>
+                      {data.liquidity.sellSide.map((item, i) => (
+                        <div key={i} className="flex justify-between items-center text-xs sm:text-sm text-gray-200 py-0.5">
+                          <span>{item.price} {item.label} <span className="text-green-400 font-bold ml-1">({item.winRate}%)</span></span>
+                          <ArrowDown className="w-4 h-4 text-[#ef4444]" strokeWidth={3} />
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            
-            {/* ORDER BLOCK */}
-            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
-              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
-                <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">ORDER BLOCK (OB)</span>
-              </div>
-              <div className="p-4">
-                <div className="flex flex-col gap-3">
-                  {data.orderBlock && data.orderBlock.h4 && (
-                    <div>
-                      <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.orderBlock.h4.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
-                        {data.orderBlock.h4.direction} OB (H4)
-                      </div>
-                      <div className="bg-[#4c1d95] text-white px-3 py-2 sm:px-2 sm:py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-purple-900/20">
-                        {data.orderBlock.h4.range} <span className="text-green-400 font-bold ml-1">({data.orderBlock.h4.winRate}%)</span>
-                      </div>
+                {/* BOS */}
+                <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+                  <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
+                    <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">BOS (BREAK OF STRUCTURE)</span>
+                  </div>
+                  <div className="p-4 text-xs sm:text-sm text-gray-200 space-y-2">
+                    <p className="text-[#ffcc00]">{data.bos.status}</p>
+                    <p>Structure masih:</p>
+                    <p className="text-[#ef4444] font-bold text-base tracking-widest bg-red-950/30 p-2 rounded text-center border border-red-900/50">
+                      {data.bos.structure}
+                    </p>
+                    <div className="border-t border-gray-700 pt-3 mt-3">
+                      <p className="mb-2 text-gray-400">Tukar bias jika:</p>
+                      {data.bos.changeBiasConditions.map((cond, i) => (
+                        <div key={i} className={`flex items-center gap-2 text-gray-300 bg-[#111] p-1.5 rounded ${i===0 ? 'mb-1' : ''} border border-gray-800`}>
+                          <CheckCircle2 className="w-4 h-4 text-[#22c55e] shrink-0" />
+                          <span>{cond}</span>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                  {data.orderBlock && data.orderBlock.h1 && (
-                    <div>
-                      <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.orderBlock.h1.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
-                        {data.orderBlock.h1.direction} OB (H1)
-                      </div>
-                      <div className="bg-[#4c1d95] text-white px-3 py-2 sm:px-2 sm:py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-purple-900/20">
-                        {data.orderBlock.h1.range} <span className="text-green-400 font-bold ml-1">({data.orderBlock.h1.winRate}%)</span>
-                      </div>
-                    </div>
-                  )}
-                  {(!data.orderBlock || (!data.orderBlock.h4 && !data.orderBlock.h1)) && (
-                    <div className="text-gray-400 text-xs sm:text-sm italic">
-                      Tiada Order Block yang jelas ditemui pada H4/H1.
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* FVG */}
-            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
-              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
-                <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">FVG (FAIR VALUE GAP)</span>
-              </div>
-              <div className="p-4">
-                <div className="flex flex-col gap-3 mb-3">
-                  {data.fvg.h4 && (
-                    <div>
-                      <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.fvg.h4.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
-                        {data.fvg.h4.direction} FVG (H4)
+            {/* ORDER BLOCK & FVG */}
+            {(viewMode === 'ALL' || activeSection === 'sec-ob-fvg') && (
+              <div id="sec-ob-fvg" className="scroll-mt-6 flex flex-col gap-3 lg:gap-4">
+                {/* ORDER BLOCK */}
+                <div className="border border-[#b49a45]/40 rounded-xl bg-[#0a0a0a] shadow-xl overflow-hidden">
+                  <div className="border-b border-[#b49a45]/30 bg-gradient-to-r from-[#111] via-[#1a1505] to-[#111] px-4 py-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-purple-950/80 border border-purple-500/50 text-purple-300 font-black text-xs">
+                        📦
                       </div>
-                      <div className="bg-[#1e3a8a] text-white px-3 py-2 sm:px-2 sm:py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-blue-900/20">
-                        {data.fvg.h4.range} <span className="text-green-400 font-bold ml-1">({data.fvg.h4.winRate}%)</span>
-                      </div>
-                    </div>
-                  )}
-                  {data.fvg.h1 && (
-                    <div>
-                      <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.fvg.h1.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
-                        {data.fvg.h1.direction} FVG (H1)
-                      </div>
-                      <div className="bg-[#1e3a8a] text-white px-3 py-2 sm:px-2 sm:py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-blue-900/20">
-                        {data.fvg.h1.range} <span className="text-green-400 font-bold ml-1">({data.fvg.h1.winRate}%)</span>
+                      <div>
+                        <span className="text-[#ffcc00] font-black text-xs sm:text-sm tracking-wide">ORDER BLOCK (OB) - CADANGAN ENTRY</span>
+                        <p className="text-[10px] text-gray-400">Zon Pengumpulan Institusi (Smart Money Order Flow)</p>
                       </div>
                     </div>
-                  )}
-                  {!data.fvg.h4 && !data.fvg.h1 && (
-                     <div>
-                      <div className={`font-bold text-xs sm:text-sm mb-1 tracking-wide ${data.fvg.direction === 'BEARISH' ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
-                        {data.fvg.direction} FVG ({data.fvg.timeframe})
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    {/* Render H4 OB */}
+                    {data.orderBlock && data.orderBlock.h4 && (
+                      <div className={`p-3 rounded-lg border ${
+                        data.orderBlock.h4.direction === 'BULLISH'
+                          ? 'bg-emerald-950/30 border-emerald-500/50'
+                          : 'bg-rose-950/30 border-rose-500/50'
+                      }`}>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="text-white font-black text-xs sm:text-sm flex items-center gap-1.5">
+                            📦 H4 {data.orderBlock.h4.direction} ORDER BLOCK
+                          </span>
+                          {/* Explicit BUY / SELL Suggestion Badge */}
+                          <span className={`px-2.5 py-1 rounded font-black text-xs flex items-center gap-1 shadow-md animate-pulse ${
+                            data.orderBlock.h4.direction === 'BULLISH'
+                              ? 'bg-emerald-500 text-black'
+                              : 'bg-rose-500 text-white'
+                          }`}>
+                            {data.orderBlock.h4.direction === 'BULLISH' ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                            SUGGEST {data.orderBlock.h4.direction === 'BULLISH' ? 'BUY XAUUSD' : 'SELL XAUUSD'}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 bg-black/60 p-2 rounded border border-white/10 text-xs">
+                          <div>
+                            <span className="text-gray-400 text-[10px] block font-bold">ZON ENTRY (OB RANGE):</span>
+                            <span className="text-[#ffcc00] font-black font-mono">{data.orderBlock.h4.range}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 text-[10px] block font-bold">WIN RATE:</span>
+                            <span className="text-emerald-400 font-bold font-mono">{data.orderBlock.h4.winRate}%</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 text-[10px] block font-bold">ANGGARAN PIP TARGET:</span>
+                            <span className="text-white font-black font-mono">⚡ 120 - 250 PIPS</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-2 text-[10px] text-gray-300 leading-relaxed bg-black/40 p-2 rounded border border-white/5">
+                          💡 <span className="text-[#ffcc00] font-bold">Strategi H4 OB:</span> {
+                            data.orderBlock.h4.direction === 'BULLISH'
+                              ? 'Tunggu harga pullback masuk ke zon Bullish OB ini. Cari confirmation Rejection/Engulfing M5/M15 untuk peluang ENTRY BUY.'
+                              : 'Tunggu harga retest ke zon Bearish OB ini. Cari confirmation Rejection/Engulfing M5/M15 untuk peluang ENTRY SELL.'
+                          }
+                        </div>
                       </div>
-                      <div className="bg-[#1e3a8a] text-white px-3 py-2 sm:px-2 sm:py-1 text-xs sm:text-sm font-bold inline-block rounded-sm shadow-lg shadow-blue-900/20">
-                        {data.fvg.range}
+                    )}
+
+                    {/* Render H1 OB */}
+                    {data.orderBlock && data.orderBlock.h1 && (
+                      <div className={`p-3 rounded-lg border ${
+                        data.orderBlock.h1.direction === 'BULLISH'
+                          ? 'bg-emerald-950/30 border-emerald-500/50'
+                          : 'bg-rose-950/30 border-rose-500/50'
+                      }`}>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="text-white font-black text-xs sm:text-sm flex items-center gap-1.5">
+                            🎯 H1 {data.orderBlock.h1.direction} ORDER BLOCK (PRESISI)
+                          </span>
+                          <span className={`px-2.5 py-1 rounded font-black text-xs flex items-center gap-1 shadow-md animate-pulse ${
+                            data.orderBlock.h1.direction === 'BULLISH'
+                              ? 'bg-emerald-500 text-black'
+                              : 'bg-rose-500 text-white'
+                          }`}>
+                            {data.orderBlock.h1.direction === 'BULLISH' ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                            SUGGEST {data.orderBlock.h1.direction === 'BULLISH' ? 'BUY XAUUSD' : 'SELL XAUUSD'}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 bg-black/60 p-2 rounded border border-white/10 text-xs">
+                          <div>
+                            <span className="text-gray-400 text-[10px] block font-bold">ZON ENTRY (OB RANGE):</span>
+                            <span className="text-[#ffcc00] font-black font-mono">{data.orderBlock.h1.range}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 text-[10px] block font-bold">WIN RATE:</span>
+                            <span className="text-emerald-400 font-bold font-mono">{data.orderBlock.h1.winRate}%</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 text-[10px] block font-bold">ANGGARAN PIP TARGET:</span>
+                            <span className="text-white font-black font-mono">⚡ 80 - 180 PIPS</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-2 text-[10px] text-gray-300 leading-relaxed bg-black/40 p-2 rounded border border-white/5">
+                          💡 <span className="text-[#ffcc00] font-bold">Strategi H1 OB:</span> {
+                            data.orderBlock.h1.direction === 'BULLISH'
+                              ? 'Zon H1 Bullish OB lebih tajam. Sesuai untuk Scalping / Intraday BUY dengan Stop Loss di bawah zon OB.'
+                              : 'Zon H1 Bearish OB lebih tajam. Sesuai untuk Scalping / Intraday SELL dengan Stop Loss di atas zon OB.'
+                          }
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+
+                    {(!data.orderBlock || (!data.orderBlock.h4 && !data.orderBlock.h1)) && (
+                      <div className="text-gray-400 text-xs italic p-3 bg-black/40 rounded border border-gray-800 text-center">
+                        Tiada Order Block H4/H1 yang jelas ditemui pada carta semasa.
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <ul className="text-xs text-gray-200 space-y-1.5 mb-2">
-                  {data.fvg.notes.map((note, i) => (
-                    <li key={i} className="flex gap-2 items-start leading-tight">
-                      <Search className="w-4 h-4 text-[#4da6ff] shrink-0 mt-0.5"/> 
-                      {note}
-                    </li>
-                  ))}
-                </ul>
-                <FvgIllustration />
+
+                {/* FVG (FAIR VALUE GAP) */}
+                <div className="border border-[#b49a45]/40 rounded-xl bg-[#0a0a0a] shadow-xl overflow-hidden">
+                  <div className="border-b border-[#b49a45]/30 bg-gradient-to-r from-[#111] via-[#0f1d3a] to-[#111] px-4 py-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-blue-950/80 border border-blue-500/50 text-blue-300 font-black text-xs">
+                        ⚡
+                      </div>
+                      <div>
+                        <span className="text-[#ffcc00] font-black text-xs sm:text-sm tracking-wide">FAIR VALUE GAP (FVG) - CADANGAN ENTRY</span>
+                        <p className="text-[10px] text-gray-400">Kelompangan Volum Imbalance (Smart Money Rebalancing)</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    {data.fvg?.h4 && (
+                      <div className={`p-3 rounded-lg border ${
+                        data.fvg.h4.direction === 'BULLISH'
+                          ? 'bg-emerald-950/30 border-emerald-500/50'
+                          : 'bg-rose-950/30 border-rose-500/50'
+                      }`}>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="text-white font-black text-xs sm:text-sm flex items-center gap-1.5">
+                            ⚡ H4 {data.fvg.h4.direction} FVG (IMBALANCE)
+                          </span>
+                          <span className={`px-2.5 py-1 rounded font-black text-xs flex items-center gap-1 shadow-md animate-pulse ${
+                            data.fvg.h4.direction === 'BULLISH'
+                              ? 'bg-emerald-500 text-black'
+                              : 'bg-rose-500 text-white'
+                          }`}>
+                            {data.fvg.h4.direction === 'BULLISH' ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                            SUGGEST {data.fvg.h4.direction === 'BULLISH' ? 'BUY XAUUSD' : 'SELL XAUUSD'}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 bg-black/60 p-2 rounded border border-white/10 text-xs">
+                          <div>
+                            <span className="text-gray-400 text-[10px] block font-bold">ZON FVG RANGE:</span>
+                            <span className="text-[#ffcc00] font-black font-mono">{data.fvg.h4.range}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 text-[10px] block font-bold">WIN RATE:</span>
+                            <span className="text-emerald-400 font-bold font-mono">{data.fvg.h4.winRate}%</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 text-[10px] block font-bold">ANGGARAN PIP TARGET:</span>
+                            <span className="text-white font-black font-mono">⚡ 100 - 220 PIPS</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-2 text-[10px] text-gray-300 leading-relaxed bg-black/40 p-2 rounded border border-white/5">
+                          💡 <span className="text-[#ffcc00] font-bold">Strategi FVG:</span> {
+                            data.fvg.h4.direction === 'BULLISH'
+                              ? 'Harga dijangka turun mengisi ketiadaan volum FVG H4 sebelum melantun naik. Sedia perhatikan peluang BUY.'
+                              : 'Harga dijangka naik mengisi ketiadaan volum FVG H4 sebelum memantul turun. Sedia perhatikan peluang SELL.'
+                          }
+                        </div>
+                      </div>
+                    )}
+
+                    {data.fvg?.h1 && (
+                      <div className={`p-3 rounded-lg border ${
+                        data.fvg.h1.direction === 'BULLISH'
+                          ? 'bg-emerald-950/30 border-emerald-500/50'
+                          : 'bg-rose-950/30 border-rose-500/50'
+                      }`}>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="text-white font-black text-xs sm:text-sm flex items-center gap-1.5">
+                            ⚡ H1 {data.fvg.h1.direction} FVG (IMBALANCE)
+                          </span>
+                          <span className={`px-2.5 py-1 rounded font-black text-xs flex items-center gap-1 shadow-md animate-pulse ${
+                            data.fvg.h1.direction === 'BULLISH'
+                              ? 'bg-emerald-500 text-black'
+                              : 'bg-rose-500 text-white'
+                          }`}>
+                            {data.fvg.h1.direction === 'BULLISH' ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                            SUGGEST {data.fvg.h1.direction === 'BULLISH' ? 'BUY XAUUSD' : 'SELL XAUUSD'}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 bg-black/60 p-2 rounded border border-white/10 text-xs">
+                          <div>
+                            <span className="text-gray-400 text-[10px] block font-bold">ZON FVG RANGE:</span>
+                            <span className="text-[#ffcc00] font-black font-mono">{data.fvg.h1.range}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 text-[10px] block font-bold">WIN RATE:</span>
+                            <span className="text-emerald-400 font-bold font-mono">{data.fvg.h1.winRate}%</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 text-[10px] block font-bold">ANGGARAN PIP TARGET:</span>
+                            <span className="text-white font-black font-mono">⚡ 70 - 150 PIPS</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-2 text-[10px] text-gray-300 leading-relaxed bg-black/40 p-2 rounded border border-white/5">
+                          💡 <span className="text-[#ffcc00] font-bold">Strategi H1 FVG:</span> {
+                            data.fvg.h1.direction === 'BULLISH'
+                              ? 'Tunggu pergerakan retest 50% CE (Consequent Encroachment) zon H1 FVG ini untuk pencarian setup BUY.'
+                              : 'Tunggu pergerakan retest 50% CE (Consequent Encroachment) zon H1 FVG ini untuk pencarian setup SELL.'
+                          }
+                        </div>
+                      </div>
+                    )}
+
+                    {!data.fvg?.h4 && !data.fvg?.h1 && data.fvg?.direction && (
+                      <div className={`p-3 rounded-lg border ${
+                        data.fvg.direction === 'BULLISH'
+                          ? 'bg-emerald-950/30 border-emerald-500/50'
+                          : 'bg-rose-950/30 border-rose-500/50'
+                      }`}>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="text-white font-black text-xs sm:text-sm">
+                            ⚡ {data.fvg.direction} FVG ({data.fvg.timeframe})
+                          </span>
+                          <span className={`px-2.5 py-1 rounded font-black text-xs flex items-center gap-1 shadow-md animate-pulse ${
+                            data.fvg.direction === 'BULLISH'
+                              ? 'bg-emerald-500 text-black'
+                              : 'bg-rose-500 text-white'
+                          }`}>
+                            {data.fvg.direction === 'BULLISH' ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                            SUGGEST {data.fvg.direction === 'BULLISH' ? 'BUY XAUUSD' : 'SELL XAUUSD'}
+                          </span>
+                        </div>
+                        <div className="text-xs font-mono text-[#ffcc00] font-bold">{data.fvg.range}</div>
+                      </div>
+                    )}
+
+                    <ul className="text-xs text-gray-200 space-y-1.5 mb-2">
+                      {data.fvg.notes.map((note: string, i: number) => (
+                        <li key={i} className="flex gap-2 items-start leading-tight">
+                          <Search className="w-4 h-4 text-[#4da6ff] shrink-0 mt-0.5"/> 
+                          {note}
+                        </li>
+                      ))}
+                    </ul>
+                    <FvgIllustration />
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* BOS */}
             <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
@@ -2208,39 +2455,52 @@ export default function App() {
                 </div>
               </div>
             </div>
-
           </div>
         </div>
+
+        {/* FRONT PAGE HIGH IMPACT NEWS HISTORY & ANALYSIS SECTION */}
+        {(viewMode === 'ALL' || activeSection === 'sec-news-history') && (
+          <div id="sec-news-history" className="scroll-mt-6">
+            <FrontPageNewsHistory 
+              newsList={newsHistoryList}
+              onOpenModal={() => setShowNewsModal(true)}
+              onAutoSyncNews={handleAutoSyncNews}
+            />
+          </div>
+        )}
 
         {/* BOTTOM BANNER */}
-        <div className="flex flex-col md:flex-row gap-4 mt-3 lg:mt-4">
-          <div className="flex-1 border-2 border-[#b49a45] rounded-md bg-[#0a0a0a] p-3 sm:p-4 flex items-start gap-3 sm:gap-4 shadow-[0_0_15px_rgba(180,154,69,0.1)]">
-            <AlertTriangle className="w-10 h-10 sm:w-12 sm:h-12 text-[#ffcc00] shrink-0 mt-1" />
-            <div>
-              <div className="text-[#ffcc00] font-bold text-sm sm:text-base mb-1 tracking-wider">PERINGATAN GRINGGO</div>
-              <p className="text-xs sm:text-sm text-gray-300 leading-relaxed font-medium">
-                Pasaran boleh buat Judas Swing sebelum/selepas news.<br className="hidden sm:block"/>
-                Jangan FOMO. Tunggu liquidity disapu dulu,<br className="hidden sm:block"/>
-                baru masuk bila confirmation muncul.
-              </p>
+        {(viewMode === 'ALL' || activeSection === 'sec-warning') && (
+          <div id="sec-warning" className="scroll-mt-6 flex flex-col md:flex-row gap-4 mt-3 lg:mt-4">
+            <div className="flex-1 border-2 border-[#b49a45] rounded-md bg-[#0a0a0a] p-3 sm:p-4 flex items-start gap-3 sm:gap-4 shadow-[0_0_15px_rgba(180,154,69,0.1)]">
+              <AlertTriangle className="w-10 h-10 sm:w-12 sm:h-12 text-[#ffcc00] shrink-0 mt-1" />
+              <div>
+                <div className="text-[#ffcc00] font-bold text-sm sm:text-base mb-1 tracking-wider">PERINGATAN GRINGGO</div>
+                <p className="text-xs sm:text-sm text-gray-300 leading-relaxed font-medium">
+                  Pasaran boleh buat Judas Swing sebelum/selepas news.<br className="hidden sm:block"/>
+                  Jangan FOMO. Tunggu liquidity disapu dulu,<br className="hidden sm:block"/>
+                  baru masuk bila confirmation muncul.
+                </p>
+              </div>
+            </div>
+            
+            <div className="md:w-1/3 flex items-center justify-end text-right px-4">
+              <div className="relative">
+                <span className="absolute -left-6 -top-4 text-[#ffcc00] text-5xl opacity-40 font-serif">&quot;</span>
+                <p className="text-sm sm:text-base text-gray-200 italic relative z-10 leading-snug">
+                  Disiplin hari ini, konsisten esok,<br/>
+                  profit akan jadi kebiasaan.
+                </p>
+                <div className="text-[#ffcc00] font-bold text-sm sm:text-base mt-2 tracking-wider">- GRINGGO</div>
+              </div>
             </div>
           </div>
-          
-          <div className="md:w-1/3 flex items-center justify-end text-right px-4">
-            <div className="relative">
-              <span className="absolute -left-6 -top-4 text-[#ffcc00] text-5xl opacity-40 font-serif">"</span>
-              <p className="text-sm sm:text-base text-gray-200 italic relative z-10 leading-snug">
-                Disiplin hari ini, konsisten esok,<br/>
-                profit akan jadi kebiasaan.
-              </p>
-              <div className="text-[#ffcc00] font-bold text-sm sm:text-base mt-2 tracking-wider">- GRINGGO</div>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
+  </div>
     
-    {showJournal && (
+  {showJournal && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-[#0a0a0a] border-2 border-[#b49a45] rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-[0_0_30px_rgba(180,154,69,0.2)] overflow-hidden">
             <div className="flex justify-between items-center p-4 border-b border-gray-800 bg-[#111]">

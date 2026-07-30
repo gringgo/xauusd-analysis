@@ -12,6 +12,7 @@ let fallbackNewsHistory = [
     id: 1,
     event: "Non-Farm Employment Change (NFP)",
     category: "NFP",
+    impact: "HIGH",
     date: "03 Jul 2026 | 08:30 PM",
     forecast: "180K",
     previous: "218K",
@@ -27,6 +28,7 @@ let fallbackNewsHistory = [
     id: 2,
     event: "FOMC Statement & Federal Funds Rate",
     category: "FOMC",
+    impact: "HIGH",
     date: "18 Jun 2026 | 02:00 AM",
     forecast: "5.25%",
     previous: "5.25%",
@@ -42,6 +44,7 @@ let fallbackNewsHistory = [
     id: 3,
     event: "Core CPI m/m (Consumer Price Index)",
     category: "CPI",
+    impact: "HIGH",
     date: "12 Jun 2026 | 08:30 PM",
     forecast: "0.3%",
     previous: "0.4%",
@@ -57,6 +60,7 @@ let fallbackNewsHistory = [
     id: 4,
     event: "Core PPI m/m (Producer Price Index)",
     category: "PPI",
+    impact: "MED",
     date: "13 Jun 2026 | 08:30 PM",
     forecast: "0.2%",
     previous: "0.5%",
@@ -72,6 +76,7 @@ let fallbackNewsHistory = [
     id: 5,
     event: "Non-Farm Payrolls (NFP)",
     category: "NFP",
+    impact: "HIGH",
     date: "05 Jun 2026 | 08:30 PM",
     forecast: "185K",
     previous: "165K",
@@ -87,6 +92,7 @@ let fallbackNewsHistory = [
     id: 6,
     event: "Core Retail Sales m/m",
     category: "RETAIL_SALES",
+    impact: "MED",
     date: "16 Jul 2026 | 08:30 PM",
     forecast: "0.1%",
     previous: "0.3%",
@@ -102,6 +108,7 @@ let fallbackNewsHistory = [
     id: 7,
     event: "FOMC Rate Decision & Press Conference",
     category: "FOMC",
+    impact: "HIGH",
     date: "31 Jul 2026 | 02:00 AM",
     forecast: "5.25%",
     previous: "5.25%",
@@ -117,6 +124,7 @@ let fallbackNewsHistory = [
     id: 8,
     event: "Non-Farm Employment Change (NFP)",
     category: "NFP",
+    impact: "HIGH",
     date: "07 Ogos 2026 | 08:30 PM",
     forecast: "165K",
     previous: "142K",
@@ -134,7 +142,8 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: "15mb" }));
+  app.use(express.urlencoded({ limit: "15mb", extended: true }));
 
   // High Impact News History API Routes
   app.post("/api/auto-sync-news", async (req, res) => {
@@ -306,6 +315,7 @@ Hanya pulangkan format JSON sahaja.`;
         return {
           title: item.title,
           category,
+          impact: item.impact || 'HIGH',
           dateStr,
           forecast: item.forecast || '-',
           previous: item.previous || '-',
@@ -377,6 +387,7 @@ Sila pulangkan JSON array yang mengandungi ramalan & analisis dalam Bahasa Melay
         const newsEntry = {
           event: item.title,
           category: item.category,
+          impact: item.impact || "HIGH",
           date: item.dateStr,
           forecast: item.forecast,
           previous: item.previous,
@@ -404,6 +415,8 @@ Sila pulangkan JSON array yang mengandungi ramalan & analisis dalam Bahasa Melay
         fallbackNewsHistory.unshift(fallbackItem);
         syncedItems.push(fallbackItem);
       }
+
+      autoCheckPendingNews().catch(err => console.warn("Background news check warning:", err));
 
       res.json(syncedItems);
     } catch (e: any) {
@@ -456,6 +469,300 @@ Kembalikan jawapan dalam format JSON sahaja seperti berikut:
     } catch (e: any) {
       console.error("AI Generation error:", e);
       res.status(500).json({ error: e.message || "Ralat semasa menjana ramalan AI." });
+    }
+  });
+
+  let lastAutoCheckTime = 0;
+  let isAutoChecking = false;
+
+  async function autoCheckPendingNews() {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return;
+
+    const now = Date.now();
+    // Cooldown 15 minutes between background auto-checks
+    if (now - lastAutoCheckTime < 15 * 60 * 1000 || isAutoChecking) {
+      return;
+    }
+
+    isAutoChecking = true;
+    lastAutoCheckTime = now;
+
+    try {
+      let pendingItems: any[] = [];
+      if (db) {
+        pendingItems = await db.select().from(highImpactNews).where(eq(highImpactNews.status, 'PENDING'));
+      } else {
+        pendingItems = fallbackNewsHistory.filter((n: any) => n.status === 'PENDING');
+      }
+
+      if (!pendingItems || pendingItems.length === 0) {
+        isAutoChecking = false;
+        return;
+      }
+
+      // Process max 2 pending items per batch to preserve API quota
+      const itemsToCheck = pendingItems.slice(0, 2);
+      const ai = new GoogleGenAI({ apiKey });
+
+      for (const item of itemsToCheck) {
+        try {
+          const prompt = `Berita ekonomi berikut telah pun (atau sepatutnya sudah) diumumkan (Waktu: ${item.date}):
+Nama Berita: ${item.event}
+Kategori: ${item.category}
+Forecast Sebelumnya: ${item.forecast}
+Previous: ${item.previous}
+Ramalan AI sebelum berita: ${item.prediction}
+
+Gunakan Google Search Grounding untuk mencari data SEBENAR (Actual Data) yang terkini untuk berita ini dari Forex Factory / TradingEconomics / berita rasmi.
+Jika data SEBENAR TELAH DIUMUMKAN:
+- Set "actual" kepada nilai data sebenar (contoh: 175K, 0.2%, 5.25%)
+- Set "status" kepada "BETUL" atau "SALAH" bergantung kepada samada pergerakan pasaran XAUUSD menyokong ramalan AI (${item.prediction})
+- Set "pipsWon" kepada integer anggaran pips (positif jika BETUL, negatif jika SALAH)
+- Set "analysis" kepada huraian ringkas 2-3 ayat tentang pergerakan sebenar XAUUSD berikutan data ini.
+
+Jika data SEBENAR BELUM DIUMUMKAN:
+- Set "actual": "-", "status": "PENDING", "pipsWon": 0, "analysis": item.analysis
+
+Pulangkan JSON sahaja.`;
+
+          const response = await ai.models.generateContent({
+            model: "gemini-3.6-flash",
+            contents: prompt,
+            config: {
+              tools: [{ googleSearch: {} }],
+              responseMimeType: "application/json"
+            }
+          });
+
+          if (response.text) {
+            const parsed = JSON.parse(response.text);
+            if (parsed.actual && parsed.actual !== '-' && parsed.status && parsed.status !== 'PENDING') {
+              const updates = {
+                actual: parsed.actual,
+                status: parsed.status,
+                pipsWon: typeof parsed.pipsWon === 'number' ? parsed.pipsWon : 100,
+                analysis: parsed.analysis || item.analysis
+              };
+
+              if (db) {
+                await db.update(highImpactNews)
+                  .set(updates)
+                  .where(eq(highImpactNews.id, item.id));
+              }
+              const idx = fallbackNewsHistory.findIndex((n: any) => n.id === item.id);
+              if (idx !== -1) {
+                fallbackNewsHistory[idx] = { ...fallbackNewsHistory[idx], ...updates };
+              }
+            }
+          }
+        } catch (itemErr: any) {
+          const errMsg = itemErr?.message || '';
+          if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota')) {
+            // Stop processing remaining items if rate limit / quota hit
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      // ignore background errors quietly
+    } finally {
+      isAutoChecking = false;
+    }
+  }
+
+  app.post("/api/news-history/:id/check-result", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      let newsItem: any = null;
+
+      if (db) {
+        const entries = await db.select().from(highImpactNews).where(eq(highImpactNews.id, id));
+        if (entries && entries.length > 0) newsItem = entries[0];
+      }
+      if (!newsItem) {
+        newsItem = fallbackNewsHistory.find((n: any) => n.id === id);
+      }
+
+      if (!newsItem) {
+        return res.status(404).json({ error: "News item not found." });
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(400).json({ error: "GEMINI_API_KEY tidak dikonfigurasi." });
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `Berita ekonomi berikut telah pun (atau sepatutnya sudah) diumumkan (Waktu: ${newsItem.date}):
+Nama Berita: ${newsItem.event}
+Kategori: ${newsItem.category}
+Forecast Sebelumnya: ${newsItem.forecast}
+Previous: ${newsItem.previous}
+Ramalan AI sebelum berita: ${newsItem.prediction}
+
+Gunakan Google Search Grounding untuk mencari data SEBENAR (Actual Data) yang terkini untuk berita ini. Kemudian, bandingkan data sebenar dengan forecast/previous dan ramalan AI (BULLISH/BEARISH untuk XAUUSD).
+Adakah ramalan AI BETUL atau SALAH? Berapakah anggaran pips yang telah dimenangi (atau loss jika salah)?
+
+Pulangkan JSON sahaja dengan format ini:
+{
+  "actual": "Nilai data sebenar (cth: 175K, atau 0.2%)",
+  "status": "BETUL" atau "SALAH",
+  "pipsWon": 150 (integer, anggaran pergerakan pips hasil daripada berita ini, positif jika betul, negatif jika salah),
+  "analysis": "Huraian ringkas 2-3 ayat tentang impak sebenar berita terhadap XAUUSD."
+}
+Pastikan anda memulangkan JSON array atau objek yang tepat tanpa markdown yang tidak perlu.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.6-flash",
+        contents: prompt,
+        config: {
+          tools: [{ googleSearch: {} }],
+          responseMimeType: "application/json"
+        }
+      });
+
+      const text = response.text;
+      if (text) {
+        const parsed = JSON.parse(text);
+        
+        // Update database or fallback array
+        const updates = {
+          actual: parsed.actual,
+          status: parsed.status,
+          pipsWon: parsed.pipsWon,
+          analysis: parsed.analysis || newsItem.analysis
+        };
+
+        if (db) {
+          try {
+            const result = await db.update(highImpactNews)
+              .set(updates)
+              .where(eq(highImpactNews.id, id))
+              .returning();
+            if (result && result[0]) return res.json(result[0]);
+          } catch (dbErr) {
+            console.warn("DB update failed, updating fallback:", dbErr);
+          }
+        }
+        
+        const idx = fallbackNewsHistory.findIndex((n: any) => n.id === id);
+        if (idx !== -1) {
+          fallbackNewsHistory[idx] = { ...fallbackNewsHistory[idx], ...updates };
+          return res.json(fallbackNewsHistory[idx]);
+        }
+
+        return res.json(parsed);
+      }
+      res.status(500).json({ error: "Gagal menjana semakan result AI." });
+    } catch (e: any) {
+      console.error("AI Check Result error:", e);
+      const errMsg = e?.message || '';
+      if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota')) {
+        return res.status(429).json({ error: "Limit kuota API Gemini percuma telah dicapai sementara. Sila cuba lagi selepas 1-2 minit." });
+      }
+      res.status(500).json({ error: e.message || "Ralat semasa menyemak result AI." });
+    }
+  });
+
+  app.post("/api/analyze-chart-snapshot", async (req, res) => {
+    try {
+      const { imageBase64, timeframe, notes } = req.body;
+      if (!imageBase64) {
+        return res.status(400).json({ error: "Sila muat naik atau tampal gambar carta terlebih dahulu." });
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(400).json({ error: "GEMINI_API_KEY tidak dikonfigurasi." });
+      }
+
+      // Clean base64 string
+      let mimeType = "image/png";
+      let pureBase64 = imageBase64;
+      if (imageBase64.includes(";base64,")) {
+        const parts = imageBase64.split(";base64,");
+        mimeType = parts[0].replace("data:", "") || "image/png";
+        pureBase64 = parts[1];
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `Anda adalah Penganalisis Pasaran XAUUSD (Emas / Gold Spot) Kanan pakar Smart Money Concepts (SMC), Price Action, SNR / SBR / RBS, Liquidity Sweep, dan Fair Value Gap (FVG).
+
+Analisis gambar carta teknikal XAUUSD ini yang dimuat naik oleh pengguna.
+${timeframe ? `Timeframe dipilih pengguna: ${timeframe}` : ''}
+${notes ? `Nota/Pertanyaan pengguna: ${notes}` : ''}
+
+Berikan cadangan dagangan yang padu, jujur, dan terperinci dalam bahasa Melayu.
+
+WAJIB memulangkan jawapan dalam format JSON SAHAJA mengikut skema berikut:
+{
+  "action": "BUY" | "SELL" | "WAIT",
+  "setupName": "Nama persediaan teknikal (cth: Buy at RBS + FVG Fill, Sell at H4 Order Block & Liquidity Sweep)",
+  "confidence": "HIGH" | "MEDIUM" | "LOW",
+  "timeframeDetected": "M5 / M15 / H1 / H4 / D1",
+  "currentPrice": "Harga anggaran semasa (cth: 2385.50)",
+  "suggestedEntry": "Harga Entry disyorkan (cth: 2382.00 - 2384.00)",
+  "suggestedSL": "Harga Stop Loss disyorkan (cth: 2378.00)",
+  "suggestedTP1": "Harga Take Profit 1 (cth: 2392.00)",
+  "suggestedTP2": "Harga Take Profit 2 (cth: 2400.00)",
+  "riskRewardRatio": "Nisbah Risk to Reward (cth: 1:2.5)",
+  "reasons": [
+    "Sebab 1 (cth: Breakout Rintangan Major $2380 bertukar Support RBS)",
+    "Sebab 2 (cth: Terdapat zon Imbalance / FVG di M15 yang menjadi magnet harga)",
+    "Sebab 3 (cth: Liquidity Sweep telah berlaku mengesahkan persediaan)"
+  ],
+  "technicalDescription": "Huraian teknikal terperinci mengenai struktur pasaran (BOS/CHoCH), zon penawaran/permintaan (Supply & Demand / Order Block), dan corak candlestick confirmation sebelum entry.",
+  "riskWarning": "Nasihat pengurusan risiko dan lot size yang sesuai."
+}`;
+
+      // Try valid supported models from @google/genai
+      const candidateModels = ["gemini-3.6-flash", "gemini-flash-latest"];
+      let lastErr: any = null;
+
+      const imagePart = {
+        inlineData: {
+          mimeType: mimeType,
+          data: pureBase64,
+        },
+      };
+      const textPart = {
+        text: prompt,
+      };
+
+      for (const modelName of candidateModels) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: { parts: [imagePart, textPart] },
+            config: {
+              responseMimeType: "application/json"
+            }
+          });
+
+          if (response.text) {
+            const parsed = JSON.parse(response.text);
+            return res.json(parsed);
+          }
+        } catch (modelErr: any) {
+          console.warn(`Model ${modelName} failed in chart analysis:`, modelErr?.message);
+          lastErr = modelErr;
+        }
+      }
+
+      const errMsg = lastErr?.message || "";
+      if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota')) {
+        return res.status(429).json({ error: "Limit kuota API Gemini percuma telah dicapai sementara (Rate Limit). Sila cuba lagi selepas 1 minit." });
+      }
+
+      res.status(500).json({ error: "Gagal menjana analisis chart snapshot." });
+    } catch (e: any) {
+      console.error("Analyze chart snapshot error:", e);
+      const errMsg = e?.message || "";
+      if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota')) {
+        return res.status(429).json({ error: "Limit kuota API Gemini percuma telah dicapai sementara. Sila cuba lagi selepas 1 minit." });
+      }
+      res.status(500).json({ error: e.message || "Ralat semasa menganalisis gambar carta." });
     }
   });
 

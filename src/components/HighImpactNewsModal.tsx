@@ -12,7 +12,8 @@ import {
   Trash2, 
   Edit3, 
   Award,
-  Filter
+  Filter,
+  RefreshCcw
 } from 'lucide-react';
 
 export interface NewsItem {
@@ -52,6 +53,7 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
   onAutoSyncNews
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [impactFilter, setImpactFilter] = useState<'ALL_MED_HIGH' | 'HIGH' | 'MED'>('ALL_MED_HIGH');
   const [timeFilter, setTimeFilter] = useState<'THIS_WEEK' | 'ALL'>('THIS_WEEK');
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -110,8 +112,16 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Filter list by time first
+  // Filter list by impact (strictly MEDIUM & HIGH ONLY) and time
   const timeFilteredList = newsList.filter(n => {
+    const imp = (n.impact || 'HIGH').toUpperCase();
+    const isMedOrHigh = imp.includes('HIGH') || imp.includes('MED');
+    // Exclude LOW impact items
+    if (!isMedOrHigh) return false;
+
+    if (impactFilter === 'HIGH' && !imp.includes('HIGH')) return false;
+    if (impactFilter === 'MED' && !imp.includes('MED')) return false;
+
     if (timeFilter === 'ALL') return true;
     if (!n.createdAt) return false;
     try {
@@ -515,6 +525,31 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
             </form>
           )}
 
+          {/* Impact Filter Bar */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 text-xs no-scrollbar border-b border-gray-800 mb-2">
+            <span className="text-gray-400 text-xs flex items-center gap-1 mr-1 shrink-0 font-bold">
+              🔥 TAHAP IMPAK:
+            </span>
+            <button 
+              onClick={() => setImpactFilter('ALL_MED_HIGH')}
+              className={`px-3 py-1 rounded-full font-bold whitespace-nowrap transition-colors ${impactFilter === 'ALL_MED_HIGH' ? 'bg-[#ffcc00] text-black' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+            >
+              🔥⚡ Medium & High
+            </button>
+            <button 
+              onClick={() => setImpactFilter('HIGH')}
+              className={`px-3 py-1 rounded-full font-bold whitespace-nowrap transition-colors ${impactFilter === 'HIGH' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+            >
+              🔥 High Impact Only
+            </button>
+            <button 
+              onClick={() => setImpactFilter('MED')}
+              className={`px-3 py-1 rounded-full font-bold whitespace-nowrap transition-colors ${impactFilter === 'MED' ? 'bg-amber-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+            >
+              ⚡ Medium Impact Only
+            </button>
+          </div>
+
           {/* Time Filter Bar */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-2 text-xs no-scrollbar border-b border-gray-800 mb-2">
             <span className="text-gray-400 text-xs flex items-center gap-1 mr-1 shrink-0 font-bold">
@@ -666,6 +701,31 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
                       Penganalisis: GRINGGO XAUUSD
                     </div>
                     <div className="flex items-center gap-2">
+                      {item.status === 'PENDING' && (
+                        <button
+                          onClick={async () => {
+                            if (confirm('Biar AI cari data sebenar terkini di internet (menggunakan Google Search) dan update result secara automatik?')) {
+                              try {
+                                const res = await fetch(`/api/news-history/${item.id}/check-result`, { method: 'POST' });
+                                if (!res.ok) throw new Error(await res.text());
+                                const updated = await res.json();
+                                if (updated && updated.actual) {
+                                  alert(`✅ Berjaya disemak AI!\nData Sebenar: ${updated.actual}\nStatus: ${updated.status}\nPips: ${updated.pipsWon}`);
+                                  // Refresh list natively by re-fetching if onAutoSyncNews is passed or standard refresh
+                                  if (onAutoSyncNews) await onAutoSyncNews();
+                                  else window.location.reload();
+                                }
+                              } catch (e: any) {
+                                alert('Ralat semakan AI: ' + (e.message || 'Tiada sambungan internet atau kuota API limit.'));
+                              }
+                            }
+                          }}
+                          className="flex items-center gap-1 text-[10px] px-2 py-1 rounded bg-blue-900/40 text-blue-400 hover:bg-blue-800/60 font-bold border border-blue-800/50 transition-colors"
+                        >
+                          <RefreshCcw className="w-3 h-3" />
+                          AI Semak Result
+                        </button>
+                      )}
                       <button 
                         onClick={() => handleStartEdit(item)}
                         className="flex items-center gap-1 text-xs text-gray-400 hover:text-[#ffcc00] bg-gray-800 hover:bg-gray-700 px-2.5 py-1 rounded transition-colors"
