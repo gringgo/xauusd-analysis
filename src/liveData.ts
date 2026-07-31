@@ -1,5 +1,44 @@
 import { format, toZonedTime } from 'date-fns-tz';
 
+
+export const parseMalayDate = (dateStr: string): number => {
+    if (!dateStr) return 0;
+    try {
+      const cleaned = dateStr.replace(/\(MYT\)/g, '').trim();
+      const parts = cleaned.split('|');
+      if (parts.length < 2) {
+        const ms = new Date(dateStr).getTime();
+        return isNaN(ms) ? 0 : ms;
+      }
+      
+      let [datePart, timePart] = parts;
+      datePart = datePart.trim();
+      datePart = datePart.replace(/^[a-zA-Z]+,\s*/, '');
+      timePart = timePart.trim();
+
+      const months: Record<string, string> = {
+        'Januari': 'Jan', 'Februari': 'Feb', 'Mac': 'Mar', 'Mei': 'May',
+        'Julai': 'Jul', 'Ogos': 'Aug', 'Ogo': 'Aug', 'Oktober': 'Oct', 'Okt': 'Oct',
+        'Disember': 'Dec', 'Dis': 'Dec'
+      };
+
+      let englishDatePart = datePart;
+      for (const [my, en] of Object.entries(months)) {
+        if (datePart.includes(my)) {
+          englishDatePart = datePart.replace(my, en);
+          break;
+        }
+      }
+
+      const finalDateStr = `${englishDatePart} ${timePart} GMT+0800`;
+      const ms = new Date(finalDateStr).getTime();
+      return isNaN(ms) ? 0 : ms;
+    } catch (e) {
+      return 0;
+    }
+};
+
+
 // KuCoin kline format:
 // [Open time, Open, High, Low, Close, Volume, Close time, Quote asset volume, Number of trades, Taker buy base asset volume, Taker buy quote asset volume, Ignore]
 
@@ -93,7 +132,7 @@ function aggregateCandles(h1Data: any[], hoursPerCandle: number, offsetHours: nu
 
   for (const c of h1Data) {
     const shiftMs = (24 - offsetHours) * 60 * 60 * 1000;
-    const shiftedTime = c.time + shiftMs;
+    const shiftedTime = (c?.time || 0) + shiftMs;
     const periodMs = hoursPerCandle * 60 * 60 * 1000;
     const bucketIndex = Math.floor(shiftedTime / periodMs);
     const bucketStartTime = bucketIndex * periodMs - shiftMs;
@@ -150,8 +189,8 @@ function findBOS(candles: any[]) {
     const isHigh = c.high > candles[i-1].high && c.high > candles[i-2].high && c.high > candles[i+1].high && c.high > candles[i+2].high;
     const isLow = c.low < candles[i-1].low && c.low < candles[i-2].low && c.low < candles[i+1].low && c.low < candles[i+2].low;
     
-    if (isHigh) swings.push({ type: 'HIGH', val: c.high, index: i, time: c.time });
-    if (isLow) swings.push({ type: 'LOW', val: c.low, index: i, time: c.time });
+    if (isHigh) swings.push({ type: 'HIGH', val: c.high, index: i, time: c?.time });
+    if (isLow) swings.push({ type: 'LOW', val: c.low, index: i, time: c?.time });
   }
 
   let latestBOS = null;
@@ -161,12 +200,12 @@ function findBOS(candles: any[]) {
     for (let j = swing.index + 1; j < candles.length; j++) {
       if (swing.type === 'HIGH' && candles[j].close > swing.val) {
         if (!latestBOS || latestBOS.index < j) {
-           latestBOS = { type: 'BULLISH', brokenPrice: swing.val, time: candles[j].time, index: j };
+           latestBOS = { type: 'BULLISH', brokenPrice: swing.val, time: candles[j]?.time, index: j };
         }
       }
       if (swing.type === 'LOW' && candles[j].close < swing.val) {
         if (!latestBOS || latestBOS.index < j) {
-           latestBOS = { type: 'BEARISH', brokenPrice: swing.val, time: candles[j].time, index: j };
+           latestBOS = { type: 'BEARISH', brokenPrice: swing.val, time: candles[j]?.time, index: j };
         }
       }
     }
@@ -494,13 +533,13 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
 
   let m5Raw;
   try {
-    const m5Res = await fetchWithTimeout(`/api/klines?interval=5m`);
+    const m5Res = await fetchWithTimeout(`/api/klines?interval=5m${queryParams}`);
     if (!m5Res.ok) throw new Error("M5 proxy fetch status: " + m5Res.status);
     m5Raw = await m5Res.json();
   } catch (proxyErr) {
     console.warn("Local proxy fetch failed, falling back to direct KuCoin API...", proxyErr);
     try {
-      const directUrl = `https://api.kucoin.com/api/v1/market/candles?type=5min&symbol=PAXG-USDT`;
+      const directUrl = `https://api.kucoin.com/api/v1/market/candles?type=5min&symbol=PAXG-USDT${queryParams}`;
       const m5Res = await fetchWithTimeout(directUrl);
       if (!m5Res.ok) throw new Error("Direct KuCoin fetch status: " + m5Res.status);
       m5Raw = await m5Res.json();
@@ -519,82 +558,57 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
 
   
   
-  let liveNewsData = [];
+  
+  let formattedNews: any[] = [];
   try {
-    const newsRes = await fetchWithTimeout('/api/news');
+    const newsRes = await fetchWithTimeout('/api/news-history');
     if (newsRes.ok) {
       const allNews = await newsRes.json();
       
-      // Filter for USD news and sort by date
       if (Array.isArray(allNews)) {
-        liveNewsData = allNews
-          .filter(n => n.country === 'USD')
-          .map(n => {
-            const dateObj = new Date(n.date);
-            const timeStr = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' });
-            
-            let impact = "LOW";
-            if (n.impact === "High") impact = "HIGH";
-            else if (n.impact === "Medium") impact = "MED";
-            
+         // Filter pending only
+         const pendingNews = allNews.filter(n => n.status === 'PENDING');
+         
+         // Sort by nearest upcoming
+         const now = Date.now();
+         pendingNews.sort((a, b) => {
+            const diffA = Math.abs(parseMalayDate(a.date) - now);
+            const diffB = Math.abs(parseMalayDate(b.date) - now);
+            return diffA - diffB;
+         });
+
+         // Always get 10 items
+         const upcoming10 = pendingNews.slice(0, 10);
+
+         formattedNews = upcoming10.map(n => {
+            // Already has full format: "Jumaat, 31 Jul 2026 | 08:30 PM (MYT)"
+            // We'll separate the time and date for display.
+            const parts = n.date.split('|');
+            const displayTime = parts.length > 1 ? parts[1].replace('(MYT)', '').trim() : n.date;
+
             return {
-              time: timeStr,
-              event: n.title,
-              impact: impact,
-              date: dateObj,
-              forecast: n.forecast || "-",
-              previous: n.previous || "-"
+              time: displayTime,
+              dateISO: new Date(parseMalayDate(n.date)).toISOString(),
+              event: n.event || n.title,
+              impact: (n.impact || 'HIGH').toUpperCase(),
+              forecast: n.forecast || '-',
+              previous: n.previous || '-',
+              action: n.prediction === 'BULLISH' ? 'BUY' : n.prediction === 'BEARISH' ? 'SELL' : 'NEUTRAL',
+              suggestion: n.prediction === 'BULLISH' ? 'BUY XAUUSD' : n.prediction === 'BEARISH' ? 'SELL XAUUSD' : 'NEUTRAL',
+              estimatedPips: `~${n.estimatedPips || 150} PIPS`,
+              reason: n.analysis || ''
             };
-          });
+         });
       }
     }
   } catch (e) {
     console.error("Failed to fetch live news:", e);
   }
 
-  let formattedNews = [];
-  try {
-    if (liveNewsData.length > 0) {
-      // Return all High impact news for the week (the raw data is already for this week)
-      // The user wants to see all high impact news, not just today's.
-      // And we filter by HIGH impact only
-      
-      const highImpactNewsThisWeek = liveNewsData.filter(n => n.impact === 'HIGH');
-      
-      if (highImpactNewsThisWeek.length > 0) {
-        // Sort by date ascending
-        highImpactNewsThisWeek.sort((a, b) => a.date.getTime() - b.date.getTime());
-        
-        formattedNews = highImpactNewsThisWeek.map(n => {
-          const sugg = getNewsTradeSuggestion(n.event, n.forecast, n.previous);
-          
-          // Format date for display (e.g., "Mon, 10:00 PM")
-          const displayDate = n.date.toLocaleDateString('ms-MY', { weekday: 'short', timeZone: 'Asia/Kuala_Lumpur' });
-          const displayTime = `${displayDate} - ${n.time}`;
-          
-          return { 
-            time: displayTime, 
-            dateISO: n.date.toISOString(),
-            event: n.event, 
-            impact: n.impact,
-            forecast: n.forecast,
-            previous: n.previous,
-            action: sugg.action,
-            suggestion: sugg.suggestion,
-            estimatedPips: sugg.estimatedPips,
-            reason: sugg.reason
-          };
-        });
-      } else {
-        formattedNews = [{ time: "-", event: "Tiada news HIGH impact USD minggu ini", impact: "INFO", forecast: "-", previous: "-", action: "NEUTRAL", suggestion: "TIADA TRADE", estimatedPips: "0 PIPS", reason: "Tiada impak news USD." }];
-      }
-    } else {
-      formattedNews = [{ time: "-", event: "Gagal dapatkan news / Tiada news", impact: "INFO", forecast: "-", previous: "-", action: "NEUTRAL", suggestion: "TIADA TRADE", estimatedPips: "0 PIPS", reason: "Tiada data news." }];
-    }
-  } catch(e) {
-    console.error("Failed to generate news:", e);
-    formattedNews = [{ time: "-", event: "Tiada news USD berimpak tinggi hari ini", impact: "-" }];
+  if (formattedNews.length === 0) {
+    formattedNews = [{ time: "-", event: "Tiada berita menunggu/pending.", impact: "INFO", forecast: "-", previous: "-", action: "NEUTRAL", suggestion: "TIADA TRADE", estimatedPips: "0 PIPS", reason: "Sila klik butang Auto-Sync AI." }];
   }
+
 
 
 
@@ -612,7 +626,10 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
   
   
   
-  const currentPrice = h1[h1.length - 1].close;
+  const currentPrice = h1.length > 0 ? h1[h1.length - 1].close : 0;
+  if (currentPrice === 0) {
+    throw new Error("Tiada data klines didapati untuk tarikh ini.");
+  }
   
   // Basic Trend Analysis (SMA 10 vs 20 on D1)
   const sma10 = calculateSMA(d1, 10) || currentPrice;
@@ -687,6 +704,16 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
   // Format for charts
   const formatChart = (candles: any[], timeFormat: string) => {
     const c = candles.slice(-15);
+    if (!c || c.length === 0) {
+      return {
+        candles: [],
+        min: 0,
+        max: 0,
+        xLabels: ['-', '-', '-'],
+        yLabels: ['-', '-', '-', '-']
+      };
+    }
+    
     const minRaw = Math.min(...c.map(x => x.low));
     const maxRaw = Math.max(...c.map(x => x.high));
     const rangeRaw = maxRaw - minRaw;
@@ -701,9 +728,9 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
       min: min,
       max: max,
       xLabels: [
-        format(toZonedTime(new Date(c[0].time), 'Asia/Kuala_Lumpur'), timeFormat),
-        format(toZonedTime(new Date(c[Math.floor(c.length/2)].time), 'Asia/Kuala_Lumpur'), timeFormat),
-        format(toZonedTime(new Date(c[c.length-1].time), 'Asia/Kuala_Lumpur'), timeFormat),
+        format(toZonedTime(new Date(c[0]?.time || 0), 'Asia/Kuala_Lumpur'), timeFormat),
+        format(toZonedTime(new Date(c[Math.floor(c.length/2)]?.time || 0), 'Asia/Kuala_Lumpur'), timeFormat),
+        format(toZonedTime(new Date(c[c.length-1]?.time || 0), 'Asia/Kuala_Lumpur'), timeFormat),
       ],
       yLabels: [
         { val: (max).toFixed(2) },

@@ -3,7 +3,6 @@ import { FrontPageNewsHistory } from './components/FrontPageNewsHistory';
 import { SbrRbsVisualDiagram } from './components/SbrRbsVisualDiagram';
 import { ChartSnapshotAnalyzer } from './components/ChartSnapshotAnalyzer';
 import { SidebarNav } from './components/SidebarNav';
-import { LivePriceSetup } from './components/LivePriceSetup';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, BarChart, Bar, Cell } from 'recharts';
 import { useState, useEffect } from 'react';
 import { format, toZonedTime } from 'date-fns-tz';
@@ -1043,7 +1042,7 @@ const HighImpactNewsBanner = ({ news, targetDate }: { news: any[], targetDate: D
     let minMinutes = Infinity;
 
     for (const n of newsList) {
-      const minutesLeft = calculateNewsMinutesLeft(n.time, currentHour, currentMinute, n.dateISO);
+      const minutesLeft = calculateNewsMinutesLeft(n?.time, currentHour, currentMinute, n.dateISO);
       if (minutesLeft === null) continue;
 
       if (minutesLeft >= -15 && minutesLeft < minMinutes) {
@@ -1117,7 +1116,7 @@ const HighImpactNewsBanner = ({ news, targetDate }: { news: any[], targetDate: D
                 </div>
               )}
               <div className={`text-[9px] font-bold mt-1 tracking-wider ${isHigh ? 'text-red-400' : 'text-amber-400'}`}>
-                EXPECTED: {item.time} MYT
+                EXPECTED: {item?.time} MYT
               </div>
             </div>
           </div>
@@ -1634,19 +1633,7 @@ export default function App() {
               <ChartSnapshotAnalyzer />
             )}
 
-            {(viewMode === 'ALL' || activeSection === 'sec-live-analysis') && (
-              <div id="sec-live-analysis" className="scroll-mt-6 w-full mt-4">
-                <LivePriceSetup 
-                  currentPrice={data.currentPrice} 
-                  biasDirection={data.bias}
-                  sbr_rbs={data.sbr_rbs}
-                  fvg={data.fvg}
-                  orderBlock={data.orderBlock}
-                  liquidity={data.liquidity}
-                  bos={data.bos}
-                />
-              </div>
-            )}
+            
 
             {/* Fundamentals & Impact Row - Full Width */}
             {(viewMode === 'ALL' || activeSection === 'sec-news-feed') && (
@@ -1699,7 +1686,7 @@ export default function App() {
                           const curM = myt.getMinutes();
 
                           return medHighNews.map((item: any, i: number) => {
-                            const minsLeft = calculateNewsMinutesLeft(item.time, curH, curM, item.dateISO);
+                            const minsLeft = calculateNewsMinutesLeft(item?.time, curH, curM, item.dateISO);
                             const sugg = item.suggestion ? {
                               action: item.action,
                               suggestion: item.suggestion,
@@ -1709,7 +1696,7 @@ export default function App() {
 
                             return (
                               <tr key={i} className="hover:bg-white/5 transition-colors">
-                                <td className="px-4 py-2.5 text-center font-mono font-black text-white">{item.time}</td>
+                                <td className="px-4 py-2.5 text-center font-mono font-black text-white">{item?.time}</td>
                                 <td className="px-4 py-2.5 font-bold text-gray-100">{item.event}</td>
                                 <td className="px-3 py-2.5 text-center text-gray-400 font-mono">{item.forecast}</td>
                                 <td className="px-3 py-2.5 text-center text-gray-400 font-mono">{item.previous}</td>
@@ -1773,7 +1760,7 @@ export default function App() {
                           return (
                             <div key={idx} className="bg-black/60 p-3 rounded-lg border border-gray-800 space-y-1">
                               <div className="flex items-center justify-between">
-                                <span className="font-black text-white text-xs">{n.event} ({n.time})</span>
+                                <span className="font-black text-white text-xs">{n.event} ({n?.time})</span>
                                 <span className={`font-black text-[10px] px-2 py-0.5 rounded ${s.action === 'BUY' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : s.action === 'SELL' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'}`}>
                                   {s.suggestion || 'BUY XAUUSD'}
                                 </span>
@@ -2101,28 +2088,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* BOS */}
-                <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
-                  <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
-                    <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">BOS (BREAK OF STRUCTURE)</span>
-                  </div>
-                  <div className="p-4 text-xs sm:text-sm text-gray-200 space-y-2">
-                    <p className="text-[#ffcc00]">{data.bos.status}</p>
-                    <p>Structure masih:</p>
-                    <p className="text-[#ef4444] font-bold text-base tracking-widest bg-red-950/30 p-2 rounded text-center border border-red-900/50">
-                      {data.bos.structure}
-                    </p>
-                    <div className="border-t border-gray-700 pt-3 mt-3">
-                      <p className="mb-2 text-gray-400">Tukar bias jika:</p>
-                      {data.bos.changeBiasConditions.map((cond, i) => (
-                        <div key={i} className={`flex items-center gap-2 text-gray-300 bg-[#111] p-1.5 rounded ${i===0 ? 'mb-1' : ''} border border-gray-800`}>
-                          <CheckCircle2 className="w-4 h-4 text-[#22c55e] shrink-0" />
-                          <span>{cond}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+
               </div>
             )}
 
@@ -2387,28 +2353,7 @@ export default function App() {
               </div>
             )}
 
-            {/* BOS */}
-            <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
-              <div className="border-b border-[#b49a45]/30 bg-[#111] px-4 py-2">
-                <span className="text-[#ffcc00] font-bold text-xs sm:text-sm tracking-wide">BOS (BREAK OF STRUCTURE)</span>
-              </div>
-              <div className="p-4 text-xs sm:text-sm text-gray-200 space-y-2">
-                <p className="text-[#ffcc00]">{data.bos.status}</p>
-                <p>Structure masih:</p>
-                <p className="text-[#ef4444] font-bold text-base tracking-widest bg-red-950/30 p-2 rounded text-center border border-red-900/50">
-                  {data.bos.structure}
-                </p>
-                <div className="border-t border-gray-700 pt-3 mt-3">
-                  <p className="mb-2 text-gray-400">Tukar bias jika:</p>
-                  {data.bos.changeBiasConditions.map((cond, i) => (
-                    <div key={i} className={`flex items-center gap-2 text-gray-300 bg-[#111] p-1.5 rounded ${i===0 ? 'mb-1' : ''} border border-gray-800`}>
-                      <CheckCircle2 className="w-4 h-4 text-[#22c55e] shrink-0" />
-                      <span>{cond}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+
 
             {/* TRADING PLAN */}
             <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)] flex-1">

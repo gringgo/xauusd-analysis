@@ -1,22 +1,18 @@
 const fs = require('fs');
-let code = fs.readFileSync('src/App.tsx', 'utf-8');
-const target = `  if (!data) return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading Live Data...</div>;
+let code = fs.readFileSync('src/liveData.ts', 'utf8');
 
-  return (`;
-const replace = `  if (!data) return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading Live Data...</div>;
+code = code.replace(/c\.time \+ shiftMs/g, '(c?.time || 0) + shiftMs');
+code = code.replace(/time: c\.time \}/g, 'time: c?.time }');
+code = code.replace(/time: candles\[j\]\.time,/g, 'time: candles[j]?.time,');
+code = code.replace(/c\[0\]\.time/g, 'c[0]?.time || 0');
+code = code.replace(/c\[Math\.floor\(c\.length\/2\)\]\.time/g, 'c[Math.floor(c.length/2)]?.time || 0');
+code = code.replace(/c\[c\.length-1\]\.time/g, 'c[c.length-1]?.time || 0');
+code = code.replace(/n\.time/g, 'n?.time');
+code = code.replace(/item\.time/g, 'item?.time');
 
-  const getMarketStatus = () => {
-    const d = new Date();
-    const mytTime = new Date(d.getTime() + 8 * 3600 * 1000);
-    const day = mytTime.getUTCDay();
-    const hours = mytTime.getUTCHours();
-    if (day === 6 && hours >= 6) return false;
-    if (day === 0) return false;
-    if (day === 1 && hours < 6) return false;
-    return true;
-  };
-  const marketOpen = getMarketStatus();
+fs.writeFileSync('src/liveData.ts', code);
 
-  return (`;
-code = code.replace(target, replace);
-fs.writeFileSync('src/App.tsx', code);
+let app = fs.readFileSync('src/App.tsx', 'utf8');
+app = app.replace(/n\.time/g, 'n?.time');
+app = app.replace(/item\.time/g, 'item?.time');
+fs.writeFileSync('src/App.tsx', app);

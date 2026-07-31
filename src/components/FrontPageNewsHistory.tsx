@@ -49,6 +49,8 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
       
       let [datePart, timePart] = parts;
       datePart = datePart.trim();
+      // Remove any weekday prefix like "Rabu," or "Khamis, "
+      datePart = datePart.replace(/^[a-zA-Z]+,\s*/, '');
       timePart = timePart.trim();
 
       const months: Record<string, string> = {
@@ -79,39 +81,6 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
     if (!imp.includes('HIGH') && !imp.includes('MED')) return false;
     if (selectedCategory !== 'ALL' && n.category !== selectedCategory) return false;
     
-    // Only show news for TODAY in MYT timezone
-    const today = new Date();
-    const todayMYT = toZonedTime(today, 'Asia/Kuala_Lumpur');
-    const todayString = format(todayMYT, 'yyyy-MM-dd');
-    
-    // Tomorrow morning window (before 6 AM)
-    const tomorrowMYT = new Date(todayMYT);
-    tomorrowMYT.setDate(tomorrowMYT.getDate() + 1);
-    const tomorrowString = format(tomorrowMYT, 'yyyy-MM-dd');
-
-    if (n.date) {
-      const newsTime = parseMalayDate(n.date);
-      if (newsTime > 0) {
-        const newsDateMYT = toZonedTime(new Date(newsTime), 'Asia/Kuala_Lumpur');
-        const newsDateString = format(newsDateMYT, 'yyyy-MM-dd');
-        
-        if (newsDateString !== todayString) {
-          // If it's tomorrow but before 6 AM, it counts as "today's overnight news"
-          if (newsDateString === tomorrowString && newsDateMYT.getHours() < 6) {
-             // keep it
-          } else {
-             return false;
-          }
-        }
-      } else if (n.createdAt) {
-        try {
-          const createDateMYT = toZonedTime(new Date(n.createdAt), 'Asia/Kuala_Lumpur');
-          if (format(createDateMYT, 'yyyy-MM-dd') !== todayString) {
-            return false;
-          }
-        } catch (e) {}
-      }
-    }
     return true;
   });
 

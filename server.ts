@@ -172,16 +172,24 @@ async function startServer() {
       }
 
       // Filter for USD news with High or Medium impact
-      let highImpactUsd = rawNews.filter((n: any) => 
-        n.country === 'USD' && (n.impact === 'High' || n.impact === 'Medium')
-      );
+      let highImpactUsd = rawNews.filter((n: any) => {
+        if (n.country !== 'USD') return false;
+        if (n.impact !== 'High' && n.impact !== 'Medium') return false;
+        
+        // Only keep future news
+        if (n.date) {
+           const d = new Date(n.date).getTime();
+           if (!isNaN(d) && d < Date.now()) return false;
+        }
+        return true;
+      });
 
       // 2. If external fetch failed or returned no items, use Gemini AI with Google Search Grounding to check live economic news calendar
-      if (!highImpactUsd || highImpactUsd.length === 0) {
+      if (!highImpactUsd || highImpactUsd.length < 10) {
         if (ai) {
           try {
             const nowStr = new Date().toLocaleDateString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' });
-            const aiPrompt = `Semak takwim ekonomi rasmi (Forex Factory / Economic Calendar) untuk berita berimpak tinggi atau sederhana (High/Medium Impact) bagi USD minggu ini (bermula tarikh ${nowStr}) untuk pasaran XAUUSD (Emas) dalam WAKTU MALAYSIA (GMT+8 / MYT).
+            const aiPrompt = `Cari 10 berita ekonomi USD yang PALING HAMPIR (UPCOMING) berimpak tinggi atau sederhana (High/Medium Impact) bagi pasaran XAUUSD bermula dari tarikh ${nowStr}. Sila pastikan berita ini adalah pada masa hadapan. Semua masa mestilah dalam WAKTU MALAYSIA (GMT+8 / MYT).
 
 Jika HARI INI atau minggu ini TIADA berita berimpak tinggi/sederhana USD, pulangkan JSON array kosong [].
 
@@ -189,7 +197,7 @@ Jika ada berita sebenar, pulangkan JSON array mengikut format berikut:
 [
   {
     "title": "Nama Berita Rasmi",
-    "date": "29 Julai 2026 | 08:30 PM (MYT)",
+    "date": "Rabu, 29 Julai 2026 | 08:30 PM (MYT)",
     "forecast": "165K",
     "previous": "142K",
     "actual": "-",
@@ -211,7 +219,7 @@ Hanya pulangkan format JSON sahaja.`;
               const cleanJson = aiGenRes.text.replace(/```json/g, '').replace(/```/g, '').trim();
               const generatedList = JSON.parse(cleanJson);
               if (Array.isArray(generatedList) && generatedList.length > 0) {
-                highImpactUsd = generatedList.map(g => ({
+                const generatedMapped = generatedList.map(g => ({
                   title: g.title,
                   date: g.date,
                   forecast: g.forecast || '-',
@@ -223,6 +231,13 @@ Hanya pulangkan format JSON sahaja.`;
                   estimatedPips: g.estimatedPips || 100,
                   isAIGenerated: true
                 }));
+                // Filter out duplicates based on title and date, then append
+                for (const g of generatedMapped) {
+                  if (highImpactUsd.length >= 10) break;
+                  if (!highImpactUsd.find(h => h.title === g.title)) {
+                    highImpactUsd.push(g);
+                  }
+                }
               }
             }
           } catch (e) {
@@ -232,9 +247,10 @@ Hanya pulangkan format JSON sahaja.`;
       }
 
       // 3. Fallback static curated list if both external calendar & AI generator fail
-      if (!highImpactUsd || highImpactUsd.length === 0) {
-        const todayMsia = new Date().toLocaleDateString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur' });
-        highImpactUsd = [
+      
+      if (!highImpactUsd || highImpactUsd.length < 10) {
+        const todayMsia = new Date().toLocaleDateString('ms-MY', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur' });
+        const fallbackList = [
           {
             title: "Non-Farm Employment Change (NFP)",
             date: `${todayMsia} | 08:30 PM (MYT)`,
@@ -272,12 +288,26 @@ Hanya pulangkan format JSON sahaja.`;
             isAIGenerated: true
           }
         ];
+        
+        for (const f of fallbackList) {
+           if (highImpactUsd.length >= 10) break;
+           highImpactUsd.push(f);
+        }
       }
+
 
       const syncedItems: any[] = [];
 
       // Process items (up to 10)
+      
+      // Sort by date ascending to get nearest
+      highImpactUsd.sort((a, b) => {
+         const da = new Date(a.date).getTime();
+         const db = new Date(b.date).getTime();
+         return (isNaN(da) ? Infinity : da) - (isNaN(db) ? Infinity : db);
+      });
       const itemsToProcess = highImpactUsd.slice(0, 10);
+
 
       // Pre-process dates & categories
       const formattedItems = itemsToProcess.map((item: any) => {
@@ -286,7 +316,7 @@ Hanya pulangkan format JSON sahaja.`;
           try {
             const dateObj = new Date(item.date);
             if (!isNaN(dateObj.getTime())) {
-              const formattedDate = dateObj.toLocaleDateString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur' });
+              const formattedDate = dateObj.toLocaleDateString('ms-MY', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur' });
               const formattedTime = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' });
               dateStr = `${formattedDate} | ${formattedTime} (MYT)`;
             }
@@ -444,6 +474,7 @@ Sila pulangkan JSON array yang mengandungi ramalan & analisis dalam Bahasa Melay
       }
 
       autoCheckPendingNews().catch(err => console.warn("Background news check warning:", err));
+      backgroundWeeklySync().catch(err => console.warn("Background weekly sync warning:", err));
 
       res.json(syncedItems);
     } catch (e: any) {
@@ -841,14 +872,38 @@ WAJIB memulangkan jawapan dalam format JSON SAHAJA mengikut skema berikut:
     }
   });
 
-  app.get("/api/news-history", async (req, res) => {
+  
+let lastWeeklySyncTime = 0;
+let isWeeklySyncing = false;
+async function backgroundWeeklySync() {
+    const now = Date.now();
+    // once every 12 hours
+    if (now - lastWeeklySyncTime < 12 * 60 * 60 * 1000 || isWeeklySyncing) return;
+    isWeeklySyncing = true;
+    lastWeeklySyncTime = now;
+    try {
+        await fetch("http://127.0.0.1:3000/api/auto-sync-news", { method: "POST" });
+        console.log("Background weekly news sync completed.");
+    } catch (e) {
+        console.warn("Background weekly news sync failed:", e);
+    } finally {
+        isWeeklySyncing = false;
+    }
+}
+
+    app.get("/api/news-history", async (req, res) => {
     try {
       // Background check for pending news to automatically check result
       autoCheckPendingNews().catch(err => console.warn("Background news check warning:", err));
-
+      
       if (db) {
         const entries = await db.select().from(highImpactNews).orderBy(desc(highImpactNews.id));
         if (entries && entries.length > 0) {
+          const pendingCount = entries.filter(e => e.status === 'PENDING').length;
+          if (pendingCount < 10) {
+             // trigger background sync to populate more
+             fetch("http://127.0.0.1:3000/api/auto-sync-news", { method: "POST" }).catch(e => console.warn(e));
+          }
           return res.json(entries);
         }
       }
