@@ -1654,8 +1654,8 @@ export default function App() {
                       ANALISIS & HISTORY NEWS
                     </button>
                   </div>
-                  <div className="w-full">
-                    <table className="w-full text-xs text-left text-gray-200">
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full text-xs text-left text-gray-200 min-w-[800px]">
                       <thead className="text-gray-400 border-b border-gray-700 bg-black/60 font-bold uppercase tracking-wider text-[11px]">
                         <tr>
                           <th className="px-4 py-2.5 text-center w-24">TIME</th>
@@ -1740,48 +1740,6 @@ export default function App() {
                         })()}
                       </tbody>
                     </table>
-                  </div>
-                  <div className="p-4 border-t border-[#b49a45]/30 flex flex-col gap-2 bg-[#111] mt-auto">
-                    <div className="text-xs text-[#ffcc00] font-bold border-b border-gray-700 pb-1.5 flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <BarChart3 className="w-4 h-4 text-amber-400" /> 
-                        AI TRADING ANALYSIS & BIAS IMPAK BERITA
-                      </span>
-                      <span className="text-[10px] text-gray-400 font-normal">XAUUSD (GOLD) INSTRUMEN</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1">
-                      {(() => {
-                        const medHighNews = data.news?.filter((item: any) => item.impact === 'HIGH' || item.impact === 'MED' || item.impact === 'MEDIUM') || [];
-                        if (medHighNews.length === 0) {
-                          return <p className="text-gray-400 italic col-span-2">Tiada news impak tinggi USD buat masa ini.</p>;
-                        }
-                        return medHighNews.slice(0, 4).map((n: any, idx: number) => {
-                          const s = n.suggestion ? n : getNewsTradeSuggestion(n.event, n.forecast, n.previous);
-                          return (
-                            <div key={idx} className="bg-black/60 p-3 rounded-lg border border-gray-800 space-y-1">
-                              <div className="flex items-center justify-between">
-                                <span className="font-black text-white text-xs">{n.event} ({n?.time})</span>
-                                <span className={`font-black text-[10px] px-2 py-0.5 rounded ${s.action === 'BUY' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : s.action === 'SELL' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'}`}>
-                                  {s.suggestion || 'BUY XAUUSD'}
-                                </span>
-                              </div>
-                              <p className="text-gray-300 text-xs">
-                                <span className="text-[#ffcc00] font-bold">Jangkaan Pips: </span> ⚡ ~{s.estimatedPips || '150-300 PIPS'}
-                              </p>
-                              <p className="text-gray-300 text-[11px] italic leading-relaxed">
-                                {s.reason || 'Kawal Stop Loss & nantikan zon FVG/SBR H1 sebelum entry.'}
-                              </p>
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
-                    <div className="flex gap-2 items-start mt-2 p-2.5 bg-blue-900/20 border border-blue-900/50 rounded-lg">
-                      <AlertTriangle className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                      <div className="text-xs text-blue-300 italic">
-                        *AI mengemas kini cadangan & volatiliti pips secara automatik mengikut kalendar berita ekonomi semasa tanpa perlu skrol.
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>

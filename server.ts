@@ -216,8 +216,16 @@ Hanya pulangkan format JSON sahaja.`;
               }
             });
             if (aiGenRes.text) {
-              const cleanJson = aiGenRes.text.replace(/```json/g, '').replace(/```/g, '').trim();
-              const generatedList = JSON.parse(cleanJson);
+              
+              let text = aiGenRes.text;
+              const jsonMatch = text.match(/\[[\s\S]*?\]/);
+              if (jsonMatch) {
+                text = jsonMatch[0];
+              } else {
+                text = text.replace(/\s*Berikut.*\n/gi, '').replace(/```json/g, '').replace(/```/g, '').trim();
+              }
+              const generatedList = JSON.parse(text);
+
               if (Array.isArray(generatedList) && generatedList.length > 0) {
                 const generatedMapped = generatedList.map(g => ({
                   title: g.title,
@@ -241,7 +249,12 @@ Hanya pulangkan format JSON sahaja.`;
               }
             }
           } catch (e) {
-            console.warn("Gemini AI news generation failed:", e);
+            const errMsg = e?.message || "";
+            if (errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+              console.warn("Gemini AI news generation failed: API Quota exceeded.");
+            } else {
+              console.warn("Gemini AI news generation failed:", e?.message || String(e));
+            }
           }
         }
       }
@@ -408,7 +421,12 @@ Sila pulangkan JSON array yang mengandungi ramalan & analisis dalam Bahasa Melay
             }
           }
         } catch (e) {
-          console.warn("Batch Gemini AI analysis failed, falling back to smart defaults:", e);
+          const errMsg = e?.message || "";
+          if (errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+            console.warn("Batch Gemini AI analysis failed: API Quota exceeded.");
+          } else {
+            console.warn("Batch Gemini AI analysis failed, falling back to smart defaults:", e?.message || String(e));
+          }
         }
       }
 
