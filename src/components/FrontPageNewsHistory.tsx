@@ -155,8 +155,9 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
     setIsSyncing(true);
     try {
       await onAutoSyncNews();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      alert(e.message || "Gagal sinkronkan news.");
     } finally {
       setIsSyncing(false);
     }
