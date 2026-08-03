@@ -8,7 +8,9 @@ import { useSignals } from './lib/signalStore';
 import { HighImpactNewsModal, NewsItem } from './components/HighImpactNewsModal';
 import { FrontPageNewsHistory } from './components/FrontPageNewsHistory';
 import { ChartSnapshotAnalyzer } from './components/ChartSnapshotAnalyzer';
-import { SidebarNav } from './components/SidebarNav';
+import { SidebarNav, NAV_SECTIONS } from './components/SidebarNav';
+import { useXauUsdLivePrice } from './lib/priceService';
+import { TwelveDataModal } from './components/TwelveDataModal';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, BarChart, Bar, Cell } from 'recharts';
 import { useState, useEffect } from 'react';
 import { format, toZonedTime } from 'date-fns-tz';
@@ -1209,7 +1211,21 @@ export default function App() {
 
   const [showJournal, setShowJournal] = useState(false);
   const [showNewsModal, setShowNewsModal] = useState(false);
+  const [showTwelveDataModal, setShowTwelveDataModal] = useState(false);
   const [newsHistoryList, setNewsHistoryList] = useState<NewsItem[]>([]);
+
+  const livePriceState = useXauUsdLivePrice(data?.currentPrice);
+
+  // Sync real-time price feed directly with main application state
+  useEffect(() => {
+    if (livePriceState.price) {
+      setData((prev: any) => {
+        if (!prev) return prev;
+        if (prev.currentPrice === livePriceState.price) return prev;
+        return { ...prev, currentPrice: livePriceState.price };
+      });
+    }
+  }, [livePriceState.price]);
 
   useEffect(() => {
     fetch('/api/news-history')
@@ -1612,8 +1628,11 @@ export default function App() {
           setViewMode={setViewMode}
           onOpenNewsModal={() => setShowNewsModal(true)}
           onOpenJournalModal={() => setShowJournal(true)}
+          onOpenTwelveDataModal={() => setShowTwelveDataModal(true)}
           isCollapsed={isSidebarCollapsed}
           setIsCollapsed={setIsSidebarCollapsed}
+          currentPrice={data?.currentPrice}
+          marketOpen={marketOpen}
         />
 
         {/* MAIN APP CONTAINER */}
@@ -1631,8 +1650,62 @@ export default function App() {
             </button>
           </div>
 
-          <div id="export-container" className={`w-full border-t-4 border-[#b49a45] bg-[#050505] p-3 sm:p-5 md:p-6 rounded-xl shadow-[0_0_50px_rgba(180,154,69,0.08)] transition-opacity duration-300 space-y-6 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+          <div id="export-container" className={`w-full border-t-4 border-[#b49a45] bg-[#050505] p-3 sm:p-5 md:p-6 rounded-xl shadow-[0_0_50px_rgba(180,154,69,0.08)] transition-opacity duration-300 space-y-5 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
             
+            {/* GLOBAL PERSISTENT LIVE PRICE TICKER BAR (ALWAYS VISIBLE IN ALL MODULES) */}
+            <div className="bg-gradient-to-r from-[#091209] via-[#111e12] to-[#091209] border border-emerald-500/50 rounded-xl p-3 shadow-[0_0_25px_rgba(34,197,94,0.12)] flex flex-wrap items-center justify-between gap-3 sticky top-2 z-20 backdrop-blur-md">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 bg-black/70 px-3 py-1.5 rounded-lg border border-emerald-500/60 shadow-inner">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-xs font-black text-gray-300 tracking-wider">HARGA LIVE XAUUSD:</span>
+                  <span className="text-xl sm:text-2xl font-black text-[#ffcc00] font-mono drop-shadow-[0_0_10px_rgba(255,204,0,0.6)]">
+                    {data?.currentPrice ? `$${data.currentPrice.toFixed(2)}` : 'Memuatkan...'}
+                  </span>
+                </div>
+
+                <div className="hidden sm:flex items-center gap-2 text-xs font-bold">
+                  <span className={`px-2.5 py-1 rounded border tracking-wide font-black ${marketOpen ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50' : 'bg-rose-500/20 text-rose-300 border-rose-500/50'}`}>
+                    {marketOpen ? '🟢 PASARAN BUKA' : '🔴 PASARAN TUTUP'}
+                  </span>
+                  <span className="text-gray-400 font-mono text-[11px] bg-black/50 px-2.5 py-1 rounded border border-gray-800">
+                    {data?.time ? `${data.time} MYT` : 'LIVE'}
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => setShowTwelveDataModal(true)}
+                  className="bg-[#141414] hover:bg-[#1f1f1f] border border-[#ffcc00]/50 text-[#ffcc00] px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow transition-all hover:scale-105"
+                  title="Tetapan Twelve Data WebSocket API Key"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="font-mono text-[10px] bg-[#ffcc00]/20 text-[#ffcc00] px-1.5 py-0.5 rounded font-black">
+                    {livePriceState.source === 'TwelveData-WS' ? '⚡ TWELVE DATA WS' : '🌐 SPOT GOLD LIVE'}
+                  </span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 ml-auto">
+                <div className="bg-black/70 border border-gray-800 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-300 flex items-center gap-1.5">
+                  <span className="text-gray-500 uppercase text-[10px] font-mono">MODUL AKTIF:</span>
+                  <span className="text-[#ffcc00] font-black truncate max-w-[140px] sm:max-w-[240px]">
+                    {NAV_SECTIONS.find(s => s.id === activeSection)?.label || 'Dashboard Ringkasan'}
+                  </span>
+                </div>
+
+                {viewMode === 'FOCUS' && (
+                  <button 
+                    onClick={() => setViewMode('ALL')}
+                    className="text-[11px] bg-[#ffcc00] hover:bg-yellow-400 text-black font-black px-3 py-1.5 rounded-lg shadow-md transition-all hover:scale-105"
+                  >
+                    PAPAR SEMUA
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* OVERVIEW SECTION */}
             {(viewMode === 'ALL' || activeSection === 'sec-overview') && (
               <div id="sec-overview" className="scroll-mt-6 space-y-4">
@@ -2673,6 +2746,18 @@ export default function App() {
         onUpdateNews={handleUpdateNews}
         onDeleteNews={handleDeleteNews}
         onAutoSyncNews={handleAutoSyncNews}
+      />
+
+      <TwelveDataModal
+        isOpen={showTwelveDataModal}
+        onClose={() => setShowTwelveDataModal(false)}
+        apiKey={livePriceState.apiKey}
+        setApiKey={livePriceState.setApiKey}
+        swissquoteUrl={livePriceState.swissquoteUrl}
+        setSwissquoteUrl={livePriceState.setSwissquoteUrl}
+        source={livePriceState.source}
+        isConnected={livePriceState.isConnected}
+        currentPrice={data?.currentPrice || null}
       />
 
     </>

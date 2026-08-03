@@ -1101,22 +1101,74 @@ async function backgroundWeeklySync() {
   });
 
   
-  // API route for Economic Calendar
+  // API route for Live Price (Swissquote / Twelve Data / Spot Gold Fallback)
   app.get("/api/price", async (req, res) => {
     try {
-      const response = await fetch("https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=PAXG-USDT");
-      if (!response.ok) {
-        throw new Error(`KuCoin API returned ${response.status}`);
+      const customKey = req.query.apikey as string;
+      const swissquoteUrl = (req.query.swissquoteUrl as string) || process.env.SWISSQUOTE_PRICE_URL;
+
+      // 1. Swissquote Custom Feed Endpoint (if configured)
+      if (swissquoteUrl) {
+        try {
+          const sqRes = await fetch(swissquoteUrl);
+          if (sqRes.ok) {
+            const sqData = await sqRes.json();
+            const sqPrice = parseFloat(sqData.price || sqData.last || sqData.ask || sqData.bid);
+            if (!isNaN(sqPrice) && sqPrice > 0) {
+              return res.json({ price: sqPrice, source: 'Swissquote' });
+            }
+          }
+        } catch (err) {
+          console.warn("Swissquote custom feed failed, falling back:", err);
+        }
       }
-      const data = await response.json();
-      if (data && data.data && data.data.price) {
-        res.json({ price: parseFloat(data.data.price) });
-      } else {
-        res.status(500).json({ error: "Invalid response format from KuCoin" });
+
+      // 2. Twelve Data
+      const twelveDataKey = customKey || process.env.TWELVE_DATA_API_KEY || process.env.VITE_TWELVE_DATA_API_KEY;
+      if (twelveDataKey) {
+        try {
+          const tdRes = await fetch(`https://api.twelvedata.com/price?symbol=XAU/USD&apikey=${twelveDataKey}`);
+          if (tdRes.ok) {
+            const tdData = await tdRes.json();
+            if (tdData && tdData.price) {
+              return res.json({ price: parseFloat(tdData.price), source: 'TwelveData-REST' });
+            }
+          }
+        } catch (err) {
+          console.warn("Twelve Data REST API failed, falling back:", err);
+        }
       }
+
+      // 3. Gold-API Spot Rate Fallback (Ensures live market gold price availability without 500 errors)
+      try {
+        const gRes = await fetch("https://api.gold-api.com/price/XAU");
+        if (gRes.ok) {
+          const gData = await gRes.json();
+          if (gData && gData.price) {
+            return res.json({ price: parseFloat(gData.price), source: 'Spot Gold' });
+          }
+        }
+      } catch (err) {
+        console.warn("GoldAPI fallback failed:", err);
+      }
+
+      // 4. Coinbase PAXG Spot Rate Backup
+      try {
+        const cbRes = await fetch("https://api.coinbase.com/v2/prices/PAXG-USD/spot");
+        if (cbRes.ok) {
+          const cbData = await cbRes.json();
+          if (cbData && cbData.data && cbData.data.amount) {
+            return res.json({ price: parseFloat(cbData.data.amount), source: 'PAXG Spot' });
+          }
+        }
+      } catch (err) {
+        console.warn("Coinbase PAXG fallback failed:", err);
+      }
+
+      return res.json({ price: null, source: 'None', message: 'Ready for Twelve Data API Key or Swissquote URL' });
     } catch (error: any) {
       console.error("Error fetching price:", error);
-      res.status(500).json({ error: error.message });
+      res.json({ price: null, source: 'None', error: error.message });
     }
   });
 

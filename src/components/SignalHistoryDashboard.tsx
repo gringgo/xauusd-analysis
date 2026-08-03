@@ -29,7 +29,7 @@ export const SignalHistoryDashboard = ({
     ? statusFiltered 
     : statusFiltered.filter(s => s.type === activeTab);
 
-  // Global Statistics calculation across all signals
+  // Statistics calculation
   const totalCount = signals.length;
   const wins = signals.filter(s => s.status === 'TP_HIT').length;
   const losses = signals.filter(s => s.status === 'SL_HIT').length;
@@ -38,6 +38,20 @@ export const SignalHistoryDashboard = ({
 
   const winRate = completedCount > 0 ? (wins / completedCount) * 100 : 0;
   const lossRate = completedCount > 0 ? (losses / completedCount) * 100 : 0;
+
+  // Helper to get win rate per SOP type
+  const getSopWinRate = (type: string) => {
+    const typeSignals = signals.filter(s => s.type === type);
+    const typeWins = typeSignals.filter(s => s.status === 'TP_HIT').length;
+    const typeLosses = typeSignals.filter(s => s.status === 'SL_HIT').length;
+    const typeCompleted = typeWins + typeLosses;
+    if (typeCompleted === 0) return null;
+    return {
+      rate: ((typeWins / typeCompleted) * 100).toFixed(0),
+      wins: typeWins,
+      completed: typeCompleted
+    };
+  };
 
   const renderFloating = (signal: SignalRecord) => {
     let diff = 0;
@@ -74,7 +88,14 @@ export const SignalHistoryDashboard = ({
       <div className="border-b border-gray-800 bg-gradient-to-r from-[#111] via-[#1a1a1a] to-[#111] px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <History className="w-5 h-5 text-gray-400" />
-          <h2 className="text-sm font-black text-white tracking-wide">REKOD SIGNAL AKTIF / LALU</h2>
+          <h2 className="text-sm font-black text-white tracking-wide flex items-center gap-2">
+            REKOD SIGNAL AKTIF / LALU
+            {completedCount > 0 && (
+              <span className="text-[10px] bg-yellow-500/20 text-yellow-400 border border-yellow-500/40 px-2 py-0.5 rounded-full font-mono font-bold">
+                🎯 Win Rate: {winRate.toFixed(1)}%
+              </span>
+            )}
+          </h2>
         </div>
         <button 
           onClick={clearSignals}
@@ -240,17 +261,27 @@ export const SignalHistoryDashboard = ({
         >
           SEMUA
         </button>
-        {uniqueTypes.map(type => (
-          <button
-            key={type}
-            onClick={() => setActiveTab(type)}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-bold whitespace-nowrap transition-colors ${
-              activeTab === type ? 'bg-gray-200 text-black' : 'bg-gray-800/80 text-gray-400 hover:text-white'
-            }`}
-          >
-            {type}
-          </button>
-        ))}
+        {uniqueTypes.map(type => {
+          const sopStats = getSopWinRate(type);
+          return (
+            <button
+              key={type}
+              onClick={() => setActiveTab(type)}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                activeTab === type ? 'bg-gray-200 text-black' : 'bg-gray-800/80 text-gray-400 hover:text-white'
+              }`}
+            >
+              <span>{type}</span>
+              {sopStats && (
+                <span className={`text-[9px] px-1 py-0.2 rounded font-mono font-black ${
+                  activeTab === type ? 'bg-emerald-800 text-emerald-100' : 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50'
+                }`}>
+                  {sopStats.rate}% Win
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div>

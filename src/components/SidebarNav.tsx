@@ -36,8 +36,11 @@ interface SidebarNavProps {
   setViewMode: (mode: 'ALL' | 'FOCUS') => void;
   onOpenNewsModal?: () => void;
   onOpenJournalModal?: () => void;
+  onOpenTwelveDataModal?: () => void;
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
+  currentPrice?: number;
+  marketOpen?: boolean;
 }
 
 export const NAV_SECTIONS: NavSection[] = [
@@ -139,8 +142,11 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   setViewMode,
   onOpenNewsModal,
   onOpenJournalModal,
+  onOpenTwelveDataModal,
   isCollapsed,
   setIsCollapsed,
+  currentPrice,
+  marketOpen = true,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -161,23 +167,32 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   return (
     <>
       {/* Mobile Top Navigation Toggle Button */}
-      <div className="lg:hidden w-full bg-[#0a0a0a] border border-[#b49a45]/30 p-2.5 rounded-xl mb-3 flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-2">
+      <div className="lg:hidden w-full bg-[#0a0a0a] border border-[#b49a45]/30 p-2.5 rounded-xl mb-3 flex items-center justify-between shadow-lg gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-lg bg-[#ffcc00]/10 border border-[#ffcc00]/40 text-[#ffcc00] hover:bg-[#ffcc00]/20 transition-all"
+            className="p-2 rounded-lg bg-[#ffcc00]/10 border border-[#ffcc00]/40 text-[#ffcc00] hover:bg-[#ffcc00]/20 transition-all shrink-0"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <div>
-            <span className="text-[#ffcc00] font-black text-xs tracking-wider block">NAVIGATION MENU</span>
-            <span className="text-[10px] text-gray-400">
+          <div className="truncate">
+            <span className="text-[#ffcc00] font-black text-xs tracking-wider block">MENU</span>
+            <span className="text-[10px] text-gray-400 truncate block">
               {NAV_SECTIONS.find(s => s.id === activeSection)?.label || 'Dashboard Utama'}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        {/* Live Price Badge Mobile */}
+        {currentPrice && (
+          <div className="flex items-center gap-1.5 bg-[#141414] border border-[#ffcc00]/40 px-2.5 py-1 rounded-lg shrink-0">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <span className="text-[10px] text-gray-400 font-bold hidden sm:inline">LIVE XAUUSD:</span>
+            <span className="text-xs font-black text-[#ffcc00] font-mono">${currentPrice.toFixed(2)}</span>
+          </div>
+        )}
+
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={() => setViewMode(viewMode === 'ALL' ? 'FOCUS' : 'ALL')}
             className="px-2.5 py-1 rounded-md text-[10px] font-black bg-black/60 border border-gray-700 text-gray-300 hover:text-white flex items-center gap-1"
@@ -240,6 +255,40 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Live XAUUSD Price Widget inside Sidebar */}
+        <div 
+          onClick={onOpenTwelveDataModal}
+          className={`mx-2 my-1.5 p-2.5 rounded-xl border bg-gradient-to-r from-[#0e160e] via-[#121c13] to-[#0e160e] border-emerald-500/40 shadow-lg cursor-pointer hover:border-[#ffcc00]/60 transition-all ${isCollapsed ? 'text-center' : ''}`}
+          title="Klik untuk tetapan Twelve Data WebSocket"
+        >
+          {isCollapsed ? (
+            <div className="flex flex-col items-center justify-center">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mb-1" />
+              <span className="text-[10px] font-mono font-black text-[#ffcc00] leading-none">
+                {currentPrice ? `$${currentPrice.toFixed(0)}` : 'LIVE'}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <div>
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">HARGA LIVE XAUUSD</span>
+                  <span className="text-base font-black text-[#ffcc00] font-mono tracking-tight block">
+                    {currentPrice ? `$${currentPrice.toFixed(2)}` : 'Menghubung...'}
+                  </span>
+                </div>
+              </div>
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ${marketOpen ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border-rose-500/40'}`}>
+                {marketOpen ? 'OPEN' : 'CLOSED'}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* View Mode Switcher Header */}
