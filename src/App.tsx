@@ -1751,11 +1751,6 @@ export default function App() {
                       <BookOpen className="w-4 h-4" />
                       JURNAL
                     </button>
-
-                    <button onClick={() => setShowNewsModal(true)} className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 bg-red-600/20 text-red-400 border border-red-600/50 px-4 py-2 rounded-lg font-black text-xs hover:bg-red-600/30 transition-all shadow-[0_0_15px_rgba(220,38,38,0.15)]">
-                      <Flame className="w-4 h-4 text-[#ffcc00]" />
-                      NEWS IMPAK TINGGI
-                    </button>
                     
                     <div className="hidden sm:flex text-xl sm:text-2xl font-display font-medium text-[#ffcc00]/80 tracking-wide italic ml-auto xl:ml-4" >
                       BY {data.author}
