@@ -1023,14 +1023,15 @@ async function backgroundWeeklySync() {
 
   app.post("/api/journal", async (req, res) => {
     try {
-      const { date, bias, bos, fvg, plan, status } = req.body;
+      const { date, bias, bos, fvg, plan, status, resultData } = req.body;
       const result = await db.insert(journalEntries).values({
         date,
         bias,
         bos,
         fvg,
         plan,
-        status: status || 'PENDING'
+        status: status || 'PENDING',
+        resultData
       }).returning();
       res.json(result[0]);
     } catch (e: any) {
@@ -1042,9 +1043,13 @@ async function backgroundWeeklySync() {
   app.patch("/api/journal/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { status } = req.body;
+      const { status, pipsWon } = req.body;
+      const updateData: any = {};
+      if (status !== undefined) updateData.status = status;
+      if (pipsWon !== undefined) updateData.pipsWon = pipsWon;
+      
       const result = await db.update(journalEntries)
-        .set({ status })
+        .set(updateData)
         .where(eq(journalEntries.id, id))
         .returning();
       res.json(result[0]);

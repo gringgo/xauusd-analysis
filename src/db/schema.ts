@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
 
 export const journalEntries = pgTable("journal_entries", {
   id: serial("id").primaryKey(),
@@ -8,6 +8,8 @@ export const journalEntries = pgTable("journal_entries", {
   fvg: varchar("fvg", { length: 255 }).notNull(),
   plan: varchar("plan", { length: 50 }),
   status: varchar("status", { length: 50 }).notNull().default('PENDING'),
+  pipsWon: integer("pips_won").default(0),
+  resultData: jsonb("result_data"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

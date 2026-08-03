@@ -585,9 +585,11 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
             // We'll separate the time and date for display.
             const parts = n.date.split('|');
             const displayTime = parts.length > 1 ? parts[1].replace('(MYT)', '').trim() : n.date;
+            const dateText = parts.length > 0 ? parts[0].trim() : '';
 
             return {
               time: displayTime,
+              dateText: dateText,
               dateISO: new Date(parseMalayDate(n.date)).toISOString(),
               event: n.event || n.title,
               impact: (n.impact || 'HIGH').toUpperCase(),
@@ -875,6 +877,7 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
     tradingPlan: {
       planA: {
         title: "PLAN A (ENTRY FVG " + fvgTimeframe + ")",
+        winRate: getWinRate((fvg.top + fvg.bottom) / 2),
         steps: [
           `Tunggu harga masuk ke zone FVG (${fvg.bottom.toFixed(2)} - ${fvg.top.toFixed(2)})`,
           "Tunggu confirmation:",
@@ -890,11 +893,18 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
       },
       planB: {
         title: "PLAN B (BREAKOUT ZONE)",
+        winRate: getWinRate(fvg.direction === 'BULLISH' ? fvg.bottom : fvg.top),
         steps: [
           `Jika FVG ${fvg.direction === 'BULLISH' ? fvg.bottom.toFixed(2) : fvg.top.toFixed(2)} pecah dengan momentum`,
           `Tunggu pullback ke zone FVG yang dah pecah (menjadi ${fvg.direction === 'BULLISH' ? 'resistance' : 'support'})`,
           `Cari ${fvg.direction === 'BULLISH' ? 'sell' : 'buy'} setup / continuation`
-        ]
+        ],
+        entry: fvg.direction === "BULLISH" ? "SELL" : "BUY",
+        entryPrice: fvg.direction === "BULLISH" ? fvg.bottom.toFixed(2) : fvg.top.toFixed(2),
+        sl: fvg.direction === "BULLISH" ? (fvg.bottom + 5).toFixed(2) : (fvg.top - 5).toFixed(2),
+        tp1: fvg.direction === "BULLISH" ? (sup).toFixed(2) : (res).toFixed(2),
+        tp2: fvg.direction === "BULLISH" ? (sup - 15).toFixed(2) : (res + 15).toFixed(2),
+        tp3: fvg.direction === "BULLISH" ? (sup - 30).toFixed(2) : (res + 30).toFixed(2)
       }
     }
   };

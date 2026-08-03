@@ -1,6 +1,10 @@
+import { SbrRbsVisualDiagram } from './components/SbrRbsVisualDiagram';
+import { StructureSOPDashboard } from './components/StructureSOPDashboard';
+import { ObSOPDashboard } from './components/ObSOPDashboard';
+import { FvgSOPDashboard } from './components/FvgSOPDashboard';
+import { ZonKebenaranSOPDashboard } from './components/ZonKebenaranSOPDashboard';
 import { HighImpactNewsModal, NewsItem } from './components/HighImpactNewsModal';
 import { FrontPageNewsHistory } from './components/FrontPageNewsHistory';
-import { SbrRbsVisualDiagram } from './components/SbrRbsVisualDiagram';
 import { ChartSnapshotAnalyzer } from './components/ChartSnapshotAnalyzer';
 import { SidebarNav } from './components/SidebarNav';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, BarChart, Bar, Cell } from 'recharts';
@@ -23,7 +27,8 @@ import {
   Save,
   X,
   Smartphone,
-  Copy
+  Copy,
+  Activity
 } from 'lucide-react';
 import { getLiveAnalysis, getNewsTradeSuggestion } from './liveData';
 import { LightweightChart } from "./components/LightweightChart";
@@ -31,6 +36,8 @@ import * as htmlToImage from 'html-to-image';
 import { Download } from 'lucide-react';
 
 
+
+import { TradingPlanResult } from './components/TradingPlanResult';
 
 const MockCandleChart = (props: any) => null; const OldMockCandleChart = ({ title, subtitle, data, yLabels, xLabels, heightClass = "h-[200px]", fvgBox }: any) => {
   return (
@@ -535,6 +542,9 @@ const ConfluenceScore = ({ data }: { data: any }) => {
             );
           })}
         </div>
+        
+        {/* ZON KEBENARAN SOP DASHBOARD */}
+        <ZonKebenaranSOPDashboard zones={zones} currentPrice={data.currentPrice} />
       </div>
     </div>
   );
@@ -613,13 +623,12 @@ const JournalAnalytics = ({ journal }: { journal: any[] }) => {
   const losses = journal.filter(j => j.status === 'LOSS').length;
   const winRate = completed.length > 0 ? ((wins / completed.length) * 100).toFixed(1) : '0.0';
   
-  const equityData: any[] = [{ trade: 0, balance: 100, date: "" }];
-  let currentBalance = 100;
+  const equityData: any[] = [{ trade: 0, balance: 0, date: "" }];
+  let currentBalance = 0;
   // Journal entries are likely in reverse chronological order (newest first)
   // So we reverse it to get chronological order for the equity curve
   [...completed].reverse().forEach((j, i) => {
-    if (j.status === 'WIN') currentBalance += 2; // Assuming 1:2 RR risking 1%
-    else if (j.status === 'LOSS') currentBalance -= 1;
+    currentBalance += (j.pipsWon || 0);
     equityData.push({ trade: i + 1, balance: currentBalance, date: j.date });
   });
 
@@ -1116,7 +1125,7 @@ const HighImpactNewsBanner = ({ news, targetDate }: { news: any[], targetDate: D
                 </div>
               )}
               <div className={`text-[9px] font-bold mt-1 tracking-wider ${isHigh ? 'text-red-400' : 'text-amber-400'}`}>
-                EXPECTED: {item?.time} MYT
+                {item?.dateText && `${item.dateText} | `}{item?.time}
               </div>
             </div>
           </div>
@@ -1373,7 +1382,7 @@ export default function App() {
     }
   };
 
-  const saveToJournal = async (plan: string) => {
+  const saveToJournal = async (plan: string, planData?: any) => {
     if (!data) return;
     
     // Prevent duplicate entries for the same date and plan
@@ -1388,7 +1397,8 @@ export default function App() {
       bos: data.bos.structure,
       fvg: `${data.fvg.direction} FVG`,
       plan: plan,
-      status: 'PENDING'
+      status: 'PENDING',
+      resultData: planData
     };
 
     try {
@@ -1426,19 +1436,98 @@ export default function App() {
     }
   };
 
-  const updateJournalStatus = async (id: number, status: string) => {
+  const updateJournal = async (id: number, updates: any) => {
     try {
       await fetch(`/api/journal/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
+        body: JSON.stringify(updates)
       });
-      setJournal(journal.map(j => j.id === id ? { ...j, status } : j));
+      setJournal(journal.map(j => j.id === id ? { ...j, ...updates } : j));
     } catch (e) {
       console.error(e);
       alert('Gagal mengemas kini jurnal.');
     }
   };
+
+  useEffect(() => {
+    if (!data?.currentPrice || !journal.length) return;
+    
+    let isMounted = true;
+
+    const checkPendingPlans = async () => {
+      let updated = false;
+      let newJournal = [...journal];
+
+      for (let i = 0; i < newJournal.length; i++) {
+        const entry = newJournal[i];
+        if (entry.status === 'PENDING' && entry.resultData) {
+          const plan = entry.resultData;
+          if (!plan.entryPrice || !plan.sl || !plan.tp1) continue;
+          
+          const entryPrice = parseFloat(plan.entryPrice);
+          const sl = parseFloat(plan.sl);
+          const tp1 = parseFloat(plan.tp1);
+          const tp3 = plan.tp3 ? parseFloat(plan.tp3) : tp1;
+          const tp2 = plan.tp2 ? parseFloat(plan.tp2) : tp1;
+          const isBuy = plan.entry === 'BUY';
+          const cp = data.currentPrice;
+          
+          let isResolved = false;
+          let newStatus = 'PENDING';
+          let pips = 0;
+          
+          if (isBuy) {
+            if (cp <= sl) {
+              isResolved = true;
+              newStatus = 'LOSS';
+              pips = (sl - entryPrice) * 10;
+            } else if (cp >= tp1) { 
+              isResolved = true;
+              newStatus = 'WIN';
+              pips = (tp1 - entryPrice) * 10;
+              if (cp >= tp3) pips = (tp3 - entryPrice) * 10;
+              else if (cp >= tp2) pips = (tp2 - entryPrice) * 10;
+            }
+          } else {
+            if (cp >= sl) {
+              isResolved = true;
+              newStatus = 'LOSS';
+              pips = (entryPrice - sl) * 10;
+            } else if (cp <= tp1) {
+              isResolved = true;
+              newStatus = 'WIN';
+              pips = (entryPrice - tp1) * 10;
+              if (cp <= tp3) pips = (entryPrice - tp3) * 10;
+              else if (cp <= tp2) pips = (entryPrice - tp2) * 10;
+            }
+          }
+          
+          if (isResolved) {
+            try {
+              await fetch(`/api/journal/${entry.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus, pipsWon: Math.round(pips) })
+              });
+              newJournal[i] = { ...entry, status: newStatus, pipsWon: Math.round(pips) };
+              updated = true;
+            } catch (e) {
+              console.error(e);
+            }
+          }
+        }
+      }
+      
+      if (updated && isMounted) {
+        setJournal(newJournal);
+      }
+    };
+    
+    checkPendingPlans();
+    
+    return () => { isMounted = false };
+  }, [data?.currentPrice, journal.length]);
 
   const deleteJournalEntry = async (id: number) => {
     try {
@@ -1658,7 +1747,7 @@ export default function App() {
                     <table className="w-full text-xs text-left text-gray-200 min-w-[800px]">
                       <thead className="text-gray-400 border-b border-gray-700 bg-black/60 font-bold uppercase tracking-wider text-[11px]">
                         <tr>
-                          <th className="px-4 py-2.5 text-center w-24">TIME</th>
+                          <th className="px-4 py-2.5 text-center w-36">DATE & TIME</th>
                           <th className="px-4 py-2.5">PERISTIWA / NEWS</th>
                           <th className="px-3 py-2.5 text-center w-20">FCST</th>
                           <th className="px-3 py-2.5 text-center w-20">PREV</th>
@@ -1696,7 +1785,10 @@ export default function App() {
 
                             return (
                               <tr key={i} className="hover:bg-white/5 transition-colors">
-                                <td className="px-4 py-2.5 text-center font-mono font-black text-white">{item?.time}</td>
+                                <td className="px-4 py-2.5 text-center">
+                                  {item?.dateText && <div className="text-[10px] text-gray-400 font-bold whitespace-nowrap mb-0.5">{item.dateText}</div>}
+                                  <div className="font-mono font-black text-white">{item?.time}</div>
+                                </td>
                                 <td className="px-4 py-2.5 font-bold text-gray-100">{item.event}</td>
                                 <td className="px-3 py-2.5 text-center text-gray-400 font-mono">{item.forecast}</td>
                                 <td className="px-3 py-2.5 text-center text-gray-400 font-mono">{item.previous}</td>
@@ -1799,6 +1891,8 @@ export default function App() {
             )}
 
             
+
+            
             {/* SBR & RBS (Support/Resistance & SND Structure) */}
             {(viewMode === 'ALL' || activeSection === 'sec-sbr-rbs') && (
               <div id="sec-sbr-rbs" className="scroll-mt-6 border border-[#b49a45]/40 rounded-xl bg-[#0a0a0a] shadow-xl shadow-black/80 overflow-hidden">
@@ -1809,7 +1903,7 @@ export default function App() {
                       ⚡
                     </div>
                     <div>
-                      <h3 className="text-[#ffcc00] font-extrabold text-xs sm:text-sm tracking-wide flex items-center gap-2">
+                      <h3 className="text-white font-black text-sm tracking-wide flex items-center gap-2">
                         SBR & RBS <span className="text-gray-300 font-medium text-[11px] hidden sm:inline">(Support/Resistance & SND Structure)</span>
                       </h3>
                       <p className="text-[10px] text-gray-400">Peta Struktur RBR (Rally-Base-Rally) & DBD (Drop-Base-Drop)</p>
@@ -1818,34 +1912,16 @@ export default function App() {
 
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] bg-red-950/80 text-red-300 border border-red-800/60 px-2 py-0.5 rounded font-extrabold">
-                      DBD / SBR = SELL
+                      SELL @ DBD / SBR
                     </span>
                     <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 px-2 py-0.5 rounded font-extrabold">
-                      RBR / RBS = BUY
+                      BUY @ RBR / RBS
                     </span>
                   </div>
                 </div>
 
-                {/* Technique Guide Banner */}
-                <div className="bg-[#111111]/90 border-b border-gray-800/80 px-4 py-2.5 grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
-                  <div className="flex items-center gap-2 bg-red-950/20 border border-red-900/30 p-2 rounded-lg">
-                    <span className="text-base">🔻</span>
-                    <div>
-                      <span className="font-bold text-red-400">SBR / DBD (Drop-Base-Drop):</span>
-                      <p className="text-gray-300 text-[10px]">Support tembus (Breakout Low) → Bertukar jadi Resistance. Tunggu Pullback untuk <strong>ENTRY SELL</strong>.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 bg-emerald-950/20 border border-emerald-900/30 p-2 rounded-lg">
-                    <span className="text-base">🟢</span>
-                    <div>
-                      <span className="font-bold text-emerald-400">RBS / RBR (Rally-Base-Rally):</span>
-                      <p className="text-gray-300 text-[10px]">Resistance tembus (Breakout High) → Bertukar jadi Support. Tunggu Pullback untuk <strong>ENTRY BUY</strong>.</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Interactive Technical Diagrams for SBR, DBD, RBS, RBR */}
-                <div className="px-4 pt-3">
+                <div className="p-4 border-b border-gray-800/80 bg-[#111] flex flex-col gap-6">
+                  <StructureSOPDashboard sbrRbsData={data.sbr_rbs} currentPrice={data.currentPrice} />
                   <SbrRbsVisualDiagram />
                 </div>
 
@@ -2167,6 +2243,11 @@ export default function App() {
                       </div>
                     )}
                   </div>
+                  
+                  {/* OB SOP DASHBOARD */}
+                  <div className="p-4 border-t border-gray-800/80 bg-[#111]">
+                    <ObSOPDashboard orderBlockData={data.orderBlock} currentPrice={data.currentPrice} />
+                  </div>
                 </div>
 
                 {/* FVG (FAIR VALUE GAP) */}
@@ -2307,6 +2388,11 @@ export default function App() {
                     </ul>
                     <FvgIllustration />
                   </div>
+                  
+                  {/* FVG SOP DASHBOARD */}
+                  <div className="p-4 border-t border-gray-800/80 bg-[#111]">
+                    <FvgSOPDashboard fvgData={data.fvg} currentPrice={data.currentPrice} />
+                  </div>
                 </div>
               </div>
             )}
@@ -2328,10 +2414,16 @@ export default function App() {
               <div className="p-4 text-xs sm:text-sm space-y-4">
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5 text-[#22c55e] font-bold tracking-wide text-sm">
+                    <div className="flex items-center gap-1.5 text-[#22c55e] font-bold tracking-wide text-sm flex-wrap">
                       <Check className="w-4 h-4" strokeWidth={3} /> {data.tradingPlan.planA.title}
+                      {data.tradingPlan.planA.winRate && (
+                        <span className="ml-1 sm:ml-2 bg-[#22c55e]/20 text-[#22c55e] px-1.5 py-0.5 rounded text-[10px] border border-[#22c55e]/30 flex items-center gap-1">
+                          <Activity className="w-3 h-3" />
+                          {data.tradingPlan.planA.winRate}% Win Rate
+                        </span>
+                      )}
                     </div>
-                    <button onClick={() => saveToJournal('PLAN A')} className="flex items-center gap-1 bg-[#1e3a8a] text-white px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold hover:bg-blue-800 transition-colors">
+                    <button onClick={() => saveToJournal('PLAN A', data.tradingPlan.planA)} className="flex items-center gap-1 bg-[#1e3a8a] text-white px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold hover:bg-blue-800 transition-colors">
                       <Save className="w-3 h-3" />
                       SIMPAN PLAN A
                     </button>
@@ -2382,14 +2474,22 @@ export default function App() {
                   {data.tradingPlan.planA.entryPrice && data.tradingPlan.planA.sl && (
                     <RiskCalculator entryPrice={data.tradingPlan.planA.entryPrice} slPrice={data.tradingPlan.planA.sl} />
                   )}
+                  
+                  <TradingPlanResult plan={data.tradingPlan.planA} currentPrice={data.currentPrice} />
                 </div>
                 
                 <div className="border-t border-gray-800 pt-3">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-[#ef4444] font-bold tracking-wide text-sm">
+                    <div className="text-[#ef4444] font-bold tracking-wide text-sm flex items-center gap-1.5 flex-wrap">
                       &gt; {data.tradingPlan.planB.title}
+                      {data.tradingPlan.planB.winRate && (
+                        <span className="ml-1 sm:ml-2 bg-[#ef4444]/20 text-[#ef4444] px-1.5 py-0.5 rounded text-[10px] border border-[#ef4444]/30 flex items-center gap-1">
+                          <Activity className="w-3 h-3" />
+                          {data.tradingPlan.planB.winRate}% Win Rate
+                        </span>
+                      )}
                     </div>
-                    <button onClick={() => saveToJournal('PLAN B')} className="flex items-center gap-1 bg-[#1e3a8a] text-white px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold hover:bg-blue-800 transition-colors">
+                    <button onClick={() => saveToJournal('PLAN B', data.tradingPlan.planB)} className="flex items-center gap-1 bg-[#1e3a8a] text-white px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold hover:bg-blue-800 transition-colors">
                       <Save className="w-3 h-3" />
                       SIMPAN PLAN B
                     </button>
@@ -2399,6 +2499,8 @@ export default function App() {
                       <li key={i}>{step}</li>
                     ))}
                   </ul>
+                  
+                  <TradingPlanResult plan={data.tradingPlan.planB} currentPrice={data.currentPrice} />
                 </div>
               </div>
             </div>
@@ -2471,44 +2573,62 @@ export default function App() {
                   <JournalAnalytics journal={journal} />
                   <div className="space-y-4">
                     {journal.map((entry) => (
-                      <div key={entry.id} className="border border-gray-800 bg-black rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                          <div className="font-bold text-white text-lg">{entry.date}</div>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            <span className={`text-xs px-2 py-0.5 rounded font-bold ${entry.bias === 'BULLISH' ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
-                              {entry.bias}
-                            </span>
-                            <span className="text-xs px-2 py-0.5 rounded font-bold bg-gray-800 text-gray-300">
-                              {entry.bos}
-                            </span>
-                            <span className="text-xs px-2 py-0.5 rounded font-bold bg-blue-900/50 text-blue-400">
-                              {entry.fvg}
-                            </span>
-                            {entry.plan && (
-                              <span className="text-xs px-2 py-0.5 rounded font-bold bg-[#b49a45]/20 text-[#ffcc00] border border-[#b49a45]/50">
-                                {entry.plan}
+                      <div key={entry.id} className="flex flex-col">
+                        <div className="border border-gray-800 bg-black rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div>
+                            <div className="font-bold text-white text-lg">{entry.date}</div>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              <span className={`text-xs px-2 py-0.5 rounded font-bold ${entry.bias === 'BULLISH' ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                                {entry.bias}
                               </span>
+                              <span className="text-xs px-2 py-0.5 rounded font-bold bg-gray-800 text-gray-300">
+                                {entry.bos}
+                              </span>
+                              <span className="text-xs px-2 py-0.5 rounded font-bold bg-blue-900/50 text-blue-400">
+                                {entry.fvg}
+                              </span>
+                              {entry.plan && (
+                                <span className="text-xs px-2 py-0.5 rounded font-bold bg-[#b49a45]/20 text-[#ffcc00] border border-[#b49a45]/50">
+                                  {entry.plan}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
+                            {(entry.status === 'WIN' || entry.status === 'LOSS') && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-400 text-xs uppercase">Pips:</span>
+                                <input 
+                                  type="number" 
+                                  defaultValue={entry.pipsWon || 0}
+                                  onBlur={(e) => updateJournal(entry.id, { pipsWon: parseInt(e.target.value) || 0 })}
+                                  className="w-16 bg-gray-800 text-white text-sm px-2 py-1 rounded outline-none border border-gray-700"
+                                />
+                              </div>
                             )}
+                            <select 
+                              value={entry.status}
+                              onChange={(e) => updateJournal(entry.id, { status: e.target.value })}
+                              className={`text-sm font-bold px-4 py-2.5 sm:px-3 sm:py-1.5 rounded outline-none cursor-pointer ${
+                                entry.status === 'WIN' ? 'bg-[#22c55e] text-black' : 
+                                entry.status === 'LOSS' ? 'bg-[#ef4444] text-white' : 
+                                'bg-gray-700 text-white'
+                              }`}
+                            >
+                              <option value="PENDING">PENDING</option>
+                              <option value="WIN">WIN 🏆</option>
+                              <option value="LOSS">LOSS ❌</option>
+                            </select>
+                            <button onClick={() => deleteJournalEntry(entry.id)} className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-gray-800 rounded transition-colors">
+                              <X className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <select 
-                            value={entry.status}
-                            onChange={(e) => updateJournalStatus(entry.id, e.target.value)}
-                            className={`text-sm font-bold px-4 py-2.5 sm:px-3 sm:py-1.5 rounded outline-none cursor-pointer ${
-                              entry.status === 'WIN' ? 'bg-[#22c55e] text-black' : 
-                              entry.status === 'LOSS' ? 'bg-[#ef4444] text-white' : 
-                              'bg-gray-700 text-white'
-                            }`}
-                          >
-                            <option value="PENDING">PENDING</option>
-                            <option value="WIN">WIN 🏆</option>
-                            <option value="LOSS">LOSS ❌</option>
-                          </select>
-                          <button onClick={() => deleteJournalEntry(entry.id)} className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-gray-800 rounded transition-colors">
-                            <X className="w-4 h-4" />
-                          </button>
+                      {entry.resultData && data?.currentPrice && entry.status === 'PENDING' && (
+                        <div className="border border-gray-800 border-t-0 bg-[#0a0a0a] rounded-b-lg -mt-1 p-2 pb-0 mb-2">
+                          <TradingPlanResult plan={entry.resultData} currentPrice={data.currentPrice} />
                         </div>
+                      )}
                       </div>
                     ))}
                   </div>
@@ -2516,9 +2636,12 @@ export default function App() {
               )}
             </div>
             
-            <div className="p-4 border-t border-gray-800 bg-[#111] flex justify-between items-center text-sm">
-               <div className="text-gray-400">Total Entries: <span className="text-white font-bold">{journal.length}</span></div>
+            <div className="p-4 border-t border-gray-800 bg-[#111] flex flex-wrap justify-between items-center text-sm gap-4">
                <div className="flex gap-4">
+                 <div className="text-gray-400">Total: <span className="text-white font-bold">{journal.length}</span></div>
+                 <div className="text-gray-400">Pips: <span className={`font-bold ${journal.reduce((sum, j) => sum + (j.pipsWon || 0), 0) >= 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>{journal.reduce((sum, j) => sum + (j.pipsWon || 0), 0)}</span></div>
+               </div>
+               <div className="flex flex-wrap gap-4">
                  <div className="text-gray-400">Wins: <span className="text-[#22c55e] font-bold">{journal.filter(j => j.status === 'WIN').length}</span></div>
                  <div className="text-gray-400">Losses: <span className="text-[#ef4444] font-bold">{journal.filter(j => j.status === 'LOSS').length}</span></div>
                  {journal.length > 0 && (
