@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { CheckCircle2, ArrowDown, ArrowUp, Clock, Target } from 'lucide-react';
+import { CheckCircle2, ArrowDown, ArrowUp, Clock, Target, Bell } from 'lucide-react';
 import { dispatchNewSignal } from '../lib/signalStore';
 
 export const ZonKebenaranSOPDashboard = ({ zones, currentPrice }: { zones: any[], currentPrice: number }) => {
@@ -108,8 +108,17 @@ export const ZonKebenaranSOPDashboard = ({ zones, currentPrice }: { zones: any[]
               SOP ZON: {setup.direction}
             </span>
           </div>
-          <div className="text-[10px] text-gray-300 font-mono font-bold bg-black/40 px-2 py-1 rounded shrink-0">
-            {setup.price}
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => alert(`Notifikasi harga telah ditetapkan untuk Zon Kebenaran ${setup.price}`)}
+              className={`flex items-center gap-1 px-2 py-1 rounded text-[9px] sm:text-[10px] font-bold shadow-sm transition-colors ${!isBuy ? 'bg-rose-600/20 text-rose-300 hover:bg-rose-600/40 border border-rose-700/50' : 'bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/40 border border-emerald-700/50'}`}
+            >
+              <Bell className="w-3 h-3" />
+              <span className="hidden sm:inline">Set Alert</span> Harga
+            </button>
+            <div className="text-[10px] text-gray-300 font-mono font-bold bg-black/40 px-2 py-1 rounded shrink-0">
+              {setup.price}
+            </div>
           </div>
         </div>
         <div className="p-4 sm:p-5">
