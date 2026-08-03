@@ -19,12 +19,13 @@ export const ZonKebenaranSOPDashboard = ({ zones, currentPrice }: { zones: any[]
       const step3Complete = step2Complete;
       
       if (step3Complete) {
-          const sigId = setup.timeframe + '-' + setup.direction + '-' + setup.price;
+          const tf = setup.timeframe || 'CONFLUENCE';
+          const sigId = tf + '-' + setup.direction + '-' + setup.price;
           if (!dispatchedRef.current.has(sigId)) {
             dispatchedRef.current.add(sigId);
             dispatchNewSignal({
           type: 'ZON KEBENARAN',
-          timeframe: setup.timeframe + ' TIMEFRAME',
+          timeframe: tf.toUpperCase() + (tf.toUpperCase().includes('TIMEFRAME') ? '' : ' TIMEFRAME'),
           direction: isBuy ? 'BUY' : 'SELL',
           entryRange: setup.price,
           entryPrice: currentPrice,

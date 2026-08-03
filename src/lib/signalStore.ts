@@ -13,8 +13,17 @@ export interface SignalRecord {
   status: 'ACTIVE' | 'TP_HIT' | 'SL_HIT';
 }
 
+const recentDispatches = new Map<string, number>();
+
 export const dispatchNewSignal = (signal: Omit<SignalRecord, 'id' | 'timestamp' | 'status'>) => {
   if (typeof window !== 'undefined') {
+    const key = `${signal.type}-${signal.direction}-${signal.entryRange}`;
+    const now = Date.now();
+    const last = recentDispatches.get(key);
+    if (last && now - last < 15000) {
+      return; // Skip rapid duplicates
+    }
+    recentDispatches.set(key, now);
     window.dispatchEvent(new CustomEvent('NEW_XAUUSD_SIGNAL', { detail: signal }));
   }
 };
@@ -30,6 +39,7 @@ export function useSignals(currentPrice: number) {
         if (Array.isArray(data)) {
           setSignals(data.map((d: any) => ({
             ...d,
+            timeframe: (d.timeframe || '').includes('undefined') ? 'CONFLUENCE TIMEFRAME' : d.timeframe,
             timestamp: new Date(d.signalTimestamp).getTime()
           })));
         }
@@ -48,7 +58,6 @@ export function useSignals(currentPrice: number) {
       // Prevent duplicates
       const isDuplicate = signals.some(s => 
         s.type === newSignal.type && 
-        s.timeframe === newSignal.timeframe &&
         s.direction === newSignal.direction &&
         s.entryRange === newSignal.entryRange &&
         (now - s.timestamp) < fourHours
@@ -69,10 +78,14 @@ export function useSignals(currentPrice: number) {
         
         if (response.ok) {
           const inserted = await response.json();
-          setSignals(prev => [{
-            ...inserted,
-            timestamp: new Date(inserted.signalTimestamp).getTime()
-          }, ...prev]);
+          setSignals(prev => {
+            if (prev.some(p => p.id === inserted.id)) return prev;
+            return [{
+              ...inserted,
+              timeframe: (inserted.timeframe || '').includes('undefined') ? 'CONFLUENCE TIMEFRAME' : inserted.timeframe,
+              timestamp: new Date(inserted.signalTimestamp).getTime()
+            }, ...prev];
+          });
         }
       } catch (err) {
         console.error("Failed to save signal", err);

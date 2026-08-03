@@ -1261,9 +1261,30 @@ async function backgroundWeeklySync() {
     try {
       if (!db) return res.status(503).json({ error: "DB not connected" });
       const newSignal = req.body;
+      let timeframe = newSignal.timeframe || 'CONFLUENCE TIMEFRAME';
+      if (timeframe.includes('undefined')) {
+        timeframe = 'CONFLUENCE TIMEFRAME';
+      }
+
+      // Check if duplicate signal exists in DB (same type, direction, entryRange)
+      const existing = await db.select().from(signals)
+        .where(
+          and(
+            eq(signals.type, newSignal.type),
+            eq(signals.direction, newSignal.direction),
+            eq(signals.entryRange, newSignal.entryRange)
+          )
+        )
+        .orderBy(desc(signals.createdAt))
+        .limit(1);
+
+      if (existing.length > 0) {
+        return res.json(existing[0]);
+      }
+
       const inserted = await db.insert(signals).values({
         type: newSignal.type,
-        timeframe: newSignal.timeframe,
+        timeframe: timeframe,
         direction: newSignal.direction,
         entryRange: newSignal.entryRange,
         entryPrice: newSignal.entryPrice,
