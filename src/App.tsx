@@ -7,7 +7,6 @@ import { SignalHistoryDashboard } from './components/SignalHistoryDashboard';
 import { useSignals } from './lib/signalStore';
 import { HighImpactNewsModal, NewsItem } from './components/HighImpactNewsModal';
 import { FrontPageNewsHistory } from './components/FrontPageNewsHistory';
-import { ChartSnapshotAnalyzer } from './components/ChartSnapshotAnalyzer';
 import { SidebarNav, NAV_SECTIONS } from './components/SidebarNav';
 import { useXauUsdLivePrice } from './lib/priceService';
 import { TwelveDataModal } from './components/TwelveDataModal';
@@ -1605,7 +1604,9 @@ export default function App() {
             });
           }
         })
-        .catch(console.error);
+        .catch(err => {
+          console.warn("Live price fetch retry:", err?.message || err);
+        });
     }, 2000);
 
     return () => clearInterval(priceInterval);
@@ -1770,36 +1771,8 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4">
           
           {/* LEFT COLUMN (Charts & Fundamentals) */}
-          <div className={`${viewMode === 'FOCUS' && !['sec-chart', 'sec-chart-snapshot', 'sec-news-feed'].includes(activeSection) ? 'hidden' : viewMode === 'FOCUS' ? 'col-span-12 flex flex-col gap-3 lg:gap-4' : 'lg:col-span-7 xl:col-span-8 flex flex-col gap-3 lg:gap-4'}`}>
+          <div className={`${viewMode === 'FOCUS' && !['sec-news-feed'].includes(activeSection) ? 'hidden' : viewMode === 'FOCUS' ? 'col-span-12 flex flex-col gap-3 lg:gap-4' : 'lg:col-span-7 xl:col-span-8 flex flex-col gap-3 lg:gap-4'}`}>
             
-            {/* Charts Column */}
-            {(viewMode === 'ALL' || activeSection === 'sec-chart') && (
-              <div id="sec-chart" className="scroll-mt-6 flex flex-col gap-3">
-                <LightweightChart 
-                  title="M5 CHART (5 MINUTE)" 
-                  subtitle="SBR/RBS, Liq, OB, FVG, Zones"
-                  data={data.charts.m5.rawCandles}
-                  heightClass={viewMode === 'FOCUS' && activeSection === 'sec-chart' ? "h-[500px] sm:h-[600px]" : "h-[300px] sm:h-[400px]"}
-                  markers={{
-                    sbr: data.sbr_rbs?.h1?.sbr?.price || data.sbr_rbs?.h4?.sbr?.price,
-                    rbs: data.sbr_rbs?.h1?.rbs?.price || data.sbr_rbs?.h4?.rbs?.price,
-                    buySideLiq: data.liquidity?.buySide?.map((l: any) => l.price),
-                    sellSideLiq: data.liquidity?.sellSide?.map((l: any) => l.price),
-                    ob: data.orderBlock?.h1 || data.orderBlock?.h4,
-                    fvg: data.fvg?.h1 || data.fvg?.h4,
-                    zones: calculateConfluenceZones(data).zones
-                  }}
-                />
-              </div>
-            )}
-
-            {/* AI Chart Snapshot Analyzer Section */}
-            {(viewMode === 'ALL' || activeSection === 'sec-chart-snapshot') && (
-              <ChartSnapshotAnalyzer />
-            )}
-
-            
-
             {/* Fundamentals & Impact Row - Full Width */}
             {(viewMode === 'ALL' || activeSection === 'sec-news-feed') && (
               <div id="sec-news-feed" className="scroll-mt-6 w-full">

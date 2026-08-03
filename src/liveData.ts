@@ -513,41 +513,39 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
   
   let h1Raw;
   try {
-    // Cuba dapatkan data dari local proxy dahulu kerana ia cepat, tiada isu CORS dan lebih dipercayai
     const h1Res = await fetchWithTimeout(`/api/klines?interval=1h${queryParams}`);
     if (!h1Res.ok) throw new Error("H1 proxy fetch status: " + h1Res.status);
     h1Raw = await h1Res.json();
-  } catch (proxyErr) {
-    console.warn("Local proxy fetch failed, falling back to direct KuCoin API...", proxyErr);
-    // Fallback sekiranya local proxy bermasalah atau jika di-host secara static sahaja
+  } catch (proxyErr: any) {
+    console.warn("Local proxy fetch failed, retrying proxy...", proxyErr?.message || proxyErr);
     try {
-      const directUrl = `https://api.kucoin.com/api/v1/market/candles?type=1hour&symbol=PAXG-USDT${queryParams}`;
-      const h1Res = await fetchWithTimeout(directUrl);
-      if (!h1Res.ok) throw new Error("Direct KuCoin fetch status: " + h1Res.status);
+      const h1Res = await fetchWithTimeout(`/api/klines?interval=1h${queryParams}`);
+      if (!h1Res.ok) throw new Error("H1 proxy retry status: " + h1Res.status);
       h1Raw = await h1Res.json();
-    } catch (directErr: any) {
-      throw new Error("Gagal mengambil data dari proxy local mahupun direct KuCoin: " + directErr.message);
+    } catch (retryErr: any) {
+      console.warn("Klines H1 fetch error:", retryErr?.message || retryErr);
+      h1Raw = { data: [] };
     }
   }
-  let h1RawData = h1Raw.data;
+  let h1RawData = h1Raw?.data || [];
 
   let m5Raw;
   try {
     const m5Res = await fetchWithTimeout(`/api/klines?interval=5m${queryParams}`);
     if (!m5Res.ok) throw new Error("M5 proxy fetch status: " + m5Res.status);
     m5Raw = await m5Res.json();
-  } catch (proxyErr) {
-    console.warn("Local proxy fetch failed, falling back to direct KuCoin API...", proxyErr);
+  } catch (proxyErr: any) {
+    console.warn("Local proxy fetch failed, retrying proxy...", proxyErr?.message || proxyErr);
     try {
-      const directUrl = `https://api.kucoin.com/api/v1/market/candles?type=5min&symbol=PAXG-USDT${queryParams}`;
-      const m5Res = await fetchWithTimeout(directUrl);
-      if (!m5Res.ok) throw new Error("Direct KuCoin fetch status: " + m5Res.status);
+      const m5Res = await fetchWithTimeout(`/api/klines?interval=5m${queryParams}`);
+      if (!m5Res.ok) throw new Error("M5 proxy retry status: " + m5Res.status);
       m5Raw = await m5Res.json();
-    } catch (directErr: any) {
-      throw new Error("Gagal mengambil data dari proxy local mahupun direct KuCoin: " + directErr.message);
+    } catch (retryErr: any) {
+      console.warn("Klines M5 fetch error:", retryErr?.message || retryErr);
+      m5Raw = { data: [] };
     }
   }
-  let m5RawData = m5Raw.data;
+  let m5RawData = m5Raw?.data || [];
 
   if (targetDate) {
     const targetTime = targetDate.getTime() / 1000;

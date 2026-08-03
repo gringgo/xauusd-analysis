@@ -62,22 +62,6 @@ export const NAV_SECTIONS: NavSection[] = [
     badgeColor: 'bg-red-500/20 text-red-400 border-red-500/30'
   },
   {
-    id: 'sec-chart',
-    label: 'Carta Live TradingView',
-    category: 'ANALISIS TEKNIKAL',
-    icon: <LineChart className="w-4.5 h-4.5 text-cyan-400" />,
-    badge: 'M5',
-    badgeColor: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
-  },
-  {
-    id: 'sec-chart-snapshot',
-    label: 'AI Chart Snapshot Analyzer',
-    category: 'ANALISIS CARTA SNAPSHOT',
-    icon: <Camera className="w-4.5 h-4.5 text-[#ffcc00]" />,
-    badge: 'VISION AI',
-    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-  },
-  {
     id: 'sec-bias-plan',
     label: 'Bias Utama & Plan Trade',
     category: 'STRATEGI ENTRY',
