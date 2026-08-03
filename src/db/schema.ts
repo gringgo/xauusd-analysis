@@ -1,4 +1,18 @@
-import { pgTable, serial, varchar, text, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, text, integer, timestamp, jsonb, real } from "drizzle-orm/pg-core";
+
+export const signals = pgTable("signals", {
+  id: serial("id").primaryKey(),
+  type: varchar("type", { length: 50 }).notNull(),
+  timeframe: varchar("timeframe", { length: 50 }).notNull(),
+  direction: varchar("direction", { length: 50 }).notNull(),
+  entryRange: varchar("entry_range", { length: 100 }).notNull(),
+  entryPrice: real("entry_price").notNull(),
+  tp: real("tp").notNull(),
+  sl: real("sl").notNull(),
+  status: varchar("status", { length: 50 }).notNull().default('ACTIVE'), // ACTIVE, TP_HIT, SL_HIT
+  signalTimestamp: timestamp("signal_timestamp").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 export const journalEntries = pgTable("journal_entries", {
   id: serial("id").primaryKey(),

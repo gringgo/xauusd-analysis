@@ -1,7 +1,44 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { CheckCircle2, ArrowDown, ArrowUp, Clock, Package } from 'lucide-react';
+import { dispatchNewSignal } from '../lib/signalStore';
 
 export const ObSOPDashboard = ({ orderBlockData, currentPrice }: { orderBlockData: any, currentPrice: number }) => {
+  const dispatchedRef = useRef<Set<string>>(new Set());
+  
+  useEffect(() => {
+    if (!orderBlockData) return;
+    
+    ['h4', 'h1'].forEach(tf => {
+      const setup = orderBlockData[tf];
+      if (setup) {
+        const isBuy = setup.direction === 'BULLISH';
+        const topPrice = parseFloat(setup.top);
+        const bottomPrice = parseFloat(setup.bottom);
+        
+        const isInsideZone = currentPrice <= topPrice && currentPrice >= bottomPrice;
+        const hasRetested = isBuy ? currentPrice <= topPrice : currentPrice >= bottomPrice;
+        const step2Complete = isInsideZone || hasRetested;
+        const step3Complete = step2Complete;
+        
+        if (step3Complete) {
+          const sigId = tf + '-' + setup.direction + '-' + setup.range;
+          if (!dispatchedRef.current.has(sigId)) {
+            dispatchedRef.current.add(sigId);
+            dispatchNewSignal({
+            type: 'OB',
+            timeframe: tf.toUpperCase() + ' TIMEFRAME',
+            direction: isBuy ? 'BUY' : 'SELL',
+            entryRange: setup.range,
+            entryPrice: currentPrice,
+            tp: isBuy ? topPrice + 5 : bottomPrice - 5,
+            sl: isBuy ? bottomPrice - 3 : topPrice + 3
+          });
+          }
+        }
+      }
+    });
+  }, [currentPrice, orderBlockData]);
+
   if (!orderBlockData) return null;
 
   const renderDashboard = (setup: any, timeframe: string) => {
@@ -106,7 +143,7 @@ export const ObSOPDashboard = ({ orderBlockData, currentPrice }: { orderBlockDat
           />
           
           {step3Complete && (
-            <div className={`mt-2 p-3 rounded-lg border ${colorScheme.bgLight} ${colorScheme.border} flex items-center justify-between animate-pulse ${colorScheme.glow}`}>
+            <div className={`mt-2 p-3 rounded-lg border ${colorScheme.bgLight} ${colorScheme.border} flex flex-col gap-2 animate-pulse ${colorScheme.glow}`}>
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full ${colorScheme.bg} flex items-center justify-center shadow-lg`}>
                   {colorScheme.icon}
@@ -114,6 +151,20 @@ export const ObSOPDashboard = ({ orderBlockData, currentPrice }: { orderBlockDat
                 <div>
                   <div className={`font-black text-sm tracking-wide ${colorScheme.text}`}>SIGNAL {isBuy ? 'BUY' : 'SELL'} AKTIF</div>
                   <div className="text-[10px] text-gray-300">Harga dalam zon OB. Sedia untuk entry!</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mt-2 bg-black/60 p-2 rounded-lg border border-gray-800">
+                <div className="text-center">
+                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">ENTRY ZONE</div>
+                  <div className={`font-mono font-black text-[11px] sm:text-xs ${colorScheme.text}`}>{setup.range}</div>
+                </div>
+                <div className="text-center border-l border-gray-800">
+                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">TARGET (TP)</div>
+                  <div className="font-mono font-black text-[11px] sm:text-xs text-[#ffcc00]">{isBuy ? (topPrice + 5).toFixed(2) : (bottomPrice - 5).toFixed(2)}</div>
+                </div>
+                <div className="text-center border-l border-gray-800">
+                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">STOP LOSS (SL)</div>
+                  <div className="font-mono font-black text-[11px] sm:text-xs text-rose-400">{isBuy ? (bottomPrice - 3).toFixed(2) : (topPrice + 3).toFixed(2)}</div>
                 </div>
               </div>
             </div>

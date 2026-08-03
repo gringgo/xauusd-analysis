@@ -1,7 +1,41 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { CheckCircle2, ArrowDown, ArrowUp, Clock, Target } from 'lucide-react';
+import { dispatchNewSignal } from '../lib/signalStore';
 
 export const ZonKebenaranSOPDashboard = ({ zones, currentPrice }: { zones: any[], currentPrice: number }) => {
+  const dispatchedRef = useRef<Set<string>>(new Set());
+  
+  useEffect(() => {
+    if (!zones) return;
+    
+    zones.forEach(setup => {
+      const isBuy = setup.direction === 'BULLISH';
+      const topPrice = parseFloat(setup.top);
+      const bottomPrice = parseFloat(setup.bottom);
+      
+      const isInsideZone = currentPrice <= topPrice && currentPrice >= bottomPrice;
+      const hasRetested = isBuy ? currentPrice <= topPrice : currentPrice >= bottomPrice;
+      const step2Complete = isInsideZone || hasRetested;
+      const step3Complete = step2Complete;
+      
+      if (step3Complete) {
+          const sigId = setup.timeframe + '-' + setup.direction + '-' + setup.price;
+          if (!dispatchedRef.current.has(sigId)) {
+            dispatchedRef.current.add(sigId);
+            dispatchNewSignal({
+          type: 'ZON KEBENARAN',
+          timeframe: setup.timeframe + ' TIMEFRAME',
+          direction: isBuy ? 'BUY' : 'SELL',
+          entryRange: setup.price,
+          entryPrice: currentPrice,
+          tp: isBuy ? topPrice + 7 : bottomPrice - 7,
+          sl: isBuy ? bottomPrice - 3 : topPrice + 3
+        });
+          }
+        }
+    });
+  }, [currentPrice, zones]);
+
   if (!zones || zones.length === 0) return null;
 
   const renderDashboard = (setup: any, index: number) => {
@@ -103,7 +137,7 @@ export const ZonKebenaranSOPDashboard = ({ zones, currentPrice }: { zones: any[]
           />
           
           {step3Complete && (
-            <div className={`mt-2 p-3 rounded-lg border ${colorScheme.bgLight} ${colorScheme.border} flex items-center justify-between animate-pulse ${colorScheme.glow}`}>
+            <div className={`mt-2 p-3 rounded-lg border ${colorScheme.bgLight} ${colorScheme.border} flex flex-col gap-2 animate-pulse ${colorScheme.glow}`}>
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full ${colorScheme.bg} flex items-center justify-center shadow-lg`}>
                   {colorScheme.icon}
@@ -111,6 +145,20 @@ export const ZonKebenaranSOPDashboard = ({ zones, currentPrice }: { zones: any[]
                 <div>
                   <div className={`font-black text-sm tracking-wide ${colorScheme.text}`}>SIGNAL {isBuy ? 'BUY' : 'SELL'} AKTIF</div>
                   <div className="text-[10px] text-gray-300">Zon Kebenaran dicapai. Peluang entry probabiliti tinggi!</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mt-2 bg-black/60 p-2 rounded-lg border border-gray-800">
+                <div className="text-center">
+                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">ENTRY ZONE</div>
+                  <div className={`font-mono font-black text-[11px] sm:text-xs ${colorScheme.text}`}>{setup.price}</div>
+                </div>
+                <div className="text-center border-l border-gray-800">
+                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">TARGET (TP)</div>
+                  <div className="font-mono font-black text-[11px] sm:text-xs text-[#ffcc00]">{isBuy ? (topPrice + 7).toFixed(2) : (bottomPrice - 7).toFixed(2)}</div>
+                </div>
+                <div className="text-center border-l border-gray-800">
+                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">STOP LOSS (SL)</div>
+                  <div className="font-mono font-black text-[11px] sm:text-xs text-rose-400">{isBuy ? (bottomPrice - 3).toFixed(2) : (topPrice + 3).toFixed(2)}</div>
                 </div>
               </div>
             </div>

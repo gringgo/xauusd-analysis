@@ -1,7 +1,49 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { CheckCircle2, Circle, ArrowDown, ArrowUp, Zap, Clock, ShieldAlert } from 'lucide-react';
+import { dispatchNewSignal } from '../lib/signalStore';
 
 export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData: any, currentPrice: number }) => {
+  const dispatchedRef = useRef<Set<string>>(new Set());
+  
+  useEffect(() => {
+    if (!sbrRbsData) return;
+    
+    ['h4', 'h1'].forEach(tf => {
+      const dataForTf = sbrRbsData[tf];
+      if (!dataForTf) return;
+      
+      ['sbr', 'rbs'].forEach(type => {
+        const setup = dataForTf[type];
+        if (setup) {
+          const setupPrice = parseFloat(setup.price);
+          const isSBR = type === 'sbr';
+          
+          const distance = Math.abs(currentPrice - setupPrice);
+          const isRetesting = distance <= 2.5;
+          const hasRetested = isSBR ? currentPrice >= (setupPrice - 0.5) : currentPrice <= (setupPrice + 0.5);
+          const step3Complete = isRetesting || hasRetested; 
+          const step4Complete = step3Complete;
+          
+          if (step4Complete) {
+            const sigId = tf + '-' + type + '-' + setup.price;
+            if (!dispatchedRef.current.has(sigId)) {
+              dispatchedRef.current.add(sigId);
+              dispatchNewSignal({
+              type: type.toUpperCase(),
+              timeframe: tf.toUpperCase() + ' TIMEFRAME',
+              direction: isSBR ? 'SELL' : 'BUY',
+              entryRange: setup.price,
+              entryPrice: currentPrice,
+              tp: isSBR ? setupPrice - 5 : setupPrice + 5,
+              sl: isSBR ? setupPrice + 3 : setupPrice - 3
+            });
+            }
+          }
+        }
+      });
+    });
+  }, [currentPrice, sbrRbsData]);
+
   if (!sbrRbsData) return null;
 
   const renderDashboard = (setup: any, type: 'SBR' | 'RBS', timeframe: string) => {
@@ -116,7 +158,7 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
           />
           
           {step4Complete && (
-            <div className={`mt-2 p-3 rounded-lg border ${colorScheme.bgLight} ${colorScheme.border} flex items-center justify-between animate-pulse ${colorScheme.glow}`}>
+            <div className={`mt-2 p-3 rounded-lg border ${colorScheme.bgLight} ${colorScheme.border} flex flex-col gap-2 animate-pulse ${colorScheme.glow}`}>
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full ${colorScheme.bg} flex items-center justify-center shadow-lg`}>
                   {colorScheme.icon}
@@ -126,7 +168,20 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
                   <div className="text-[10px] text-gray-300">Zon {type} berjaya di-retest. Peluang entry!</div>
                 </div>
               </div>
-              <div className="text-xl font-black text-white font-mono">{setupPrice.toFixed(2)}</div>
+              <div className="grid grid-cols-3 gap-2 mt-2 bg-black/60 p-2 rounded-lg border border-gray-800">
+                <div className="text-center">
+                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">ENTRY PRICE</div>
+                  <div className={`font-mono font-black text-[11px] sm:text-xs ${colorScheme.text}`}>{setupPrice.toFixed(2)}</div>
+                </div>
+                <div className="text-center border-l border-gray-800">
+                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">TARGET (TP)</div>
+                  <div className="font-mono font-black text-[11px] sm:text-xs text-[#ffcc00]">{isSBR ? (setupPrice - 5).toFixed(2) : (setupPrice + 5).toFixed(2)}</div>
+                </div>
+                <div className="text-center border-l border-gray-800">
+                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">STOP LOSS (SL)</div>
+                  <div className="font-mono font-black text-[11px] sm:text-xs text-rose-400">{isSBR ? (setupPrice + 3).toFixed(2) : (setupPrice - 3).toFixed(2)}</div>
+                </div>
+              </div>
             </div>
           )}
         </div>

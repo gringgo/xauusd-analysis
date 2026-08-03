@@ -3,6 +3,8 @@ import { StructureSOPDashboard } from './components/StructureSOPDashboard';
 import { ObSOPDashboard } from './components/ObSOPDashboard';
 import { FvgSOPDashboard } from './components/FvgSOPDashboard';
 import { ZonKebenaranSOPDashboard } from './components/ZonKebenaranSOPDashboard';
+import { SignalHistoryDashboard } from './components/SignalHistoryDashboard';
+import { useSignals } from './lib/signalStore';
 import { HighImpactNewsModal, NewsItem } from './components/HighImpactNewsModal';
 import { FrontPageNewsHistory } from './components/FrontPageNewsHistory';
 import { ChartSnapshotAnalyzer } from './components/ChartSnapshotAnalyzer';
@@ -1187,6 +1189,7 @@ export default function App() {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
   const [data, setData] = useState<any>(null);
+  const { signals, clearSignals } = useSignals(data?.currentPrice || 0);
   const [error, setError] = useState<string | null>(null);
   const [targetDate, setTargetDate] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -2506,6 +2509,13 @@ export default function App() {
             </div>
           </div>
         </div>
+
+        {/* SIGNAL HISTORY DASHBOARD */}
+        {(viewMode === 'ALL' || activeSection === 'sec-signal-history') && (
+          <div id="sec-signal-history" className="scroll-mt-6 mb-6">
+            <SignalHistoryDashboard currentPrice={data.currentPrice} signals={signals} clearSignals={clearSignals} />
+          </div>
+        )}
 
         {/* FRONT PAGE HIGH IMPACT NEWS HISTORY & ANALYSIS SECTION */}
         {(viewMode === 'ALL' || activeSection === 'sec-news-history') && (

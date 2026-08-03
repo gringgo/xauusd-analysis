@@ -3,7 +3,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { db } from "./src/db/index";
-import { journalEntries, highImpactNews } from "./src/db/schema";
+import { journalEntries, highImpactNews, signals } from "./src/db/schema";
 import { desc, eq, and } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 import { XMLParser } from "fast-xml-parser";
@@ -1241,6 +1241,63 @@ async function backgroundWeeklySync() {
 
       // Return empty if no data found
       res.json([]);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Signals API
+  app.get("/api/signals", async (req, res) => {
+    try {
+      if (!db) return res.status(503).json({ error: "DB not connected" });
+      const rows = await db.select().from(signals).orderBy(desc(signals.createdAt)).limit(50);
+      res.json(rows);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/signals", async (req, res) => {
+    try {
+      if (!db) return res.status(503).json({ error: "DB not connected" });
+      const newSignal = req.body;
+      const inserted = await db.insert(signals).values({
+        type: newSignal.type,
+        timeframe: newSignal.timeframe,
+        direction: newSignal.direction,
+        entryRange: newSignal.entryRange,
+        entryPrice: newSignal.entryPrice,
+        tp: newSignal.tp,
+        sl: newSignal.sl,
+        status: newSignal.status || 'ACTIVE',
+        signalTimestamp: new Date(newSignal.timestamp),
+      }).returning();
+      res.json(inserted[0]);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.put("/api/signals/:id", async (req, res) => {
+    try {
+      if (!db) return res.status(503).json({ error: "DB not connected" });
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      const updated = await db.update(signals)
+        .set({ status })
+        .where(eq(signals.id, id))
+        .returning();
+      res.json(updated[0]);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/signals", async (req, res) => {
+    try {
+      if (!db) return res.status(503).json({ error: "DB not connected" });
+      await db.delete(signals);
+      res.json({ success: true });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }

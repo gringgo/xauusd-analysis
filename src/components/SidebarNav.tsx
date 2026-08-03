@@ -107,6 +107,14 @@ export const NAV_SECTIONS: NavSection[] = [
     badgeColor: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30'
   },
   {
+    id: 'sec-signal-history',
+    label: 'Rekod Signal Aktif & Lalu',
+    category: 'SIGNAL TRACKING',
+    icon: <History className="w-4.5 h-4.5 text-green-400" />,
+    badge: 'SIGNALS',
+    badgeColor: 'bg-green-500/20 text-green-400 border-green-500/30'
+  },
+  {
     id: 'sec-news-history',
     label: 'Rekod Impak News Past',
     category: 'LOG HISTORIKAL',
