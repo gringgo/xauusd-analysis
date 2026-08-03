@@ -4,3 +4,19 @@
   --font-sans: "Manrope", sans-serif;
   --font-display: "Oswald", sans-serif;
 }
+
+html {
+  font-size: 17px;
+}
+
+@media (max-width: 640px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-size: 1.02rem;
+}

@@ -35,7 +35,7 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
               entryRange: setup.price,
               entryPrice: currentPrice,
               tp: isSBR ? setupPrice - 5 : setupPrice + 5,
-              sl: isSBR ? setupPrice + 3 : setupPrice - 3
+              sl: isSBR ? setupPrice + 5 : setupPrice - 5
             });
             }
           }
@@ -178,8 +178,8 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
                   <div className="font-mono font-black text-[11px] sm:text-xs text-[#ffcc00]">{isSBR ? (setupPrice - 5).toFixed(2) : (setupPrice + 5).toFixed(2)}</div>
                 </div>
                 <div className="text-center border-l border-gray-800">
-                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">STOP LOSS (SL)</div>
-                  <div className="font-mono font-black text-[11px] sm:text-xs text-rose-400">{isSBR ? (setupPrice + 3).toFixed(2) : (setupPrice - 3).toFixed(2)}</div>
+                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">STOP LOSS (SL 50 PIPS)</div>
+                  <div className="font-mono font-black text-[11px] sm:text-xs text-rose-400">{isSBR ? (setupPrice + 5).toFixed(2) : (setupPrice - 5).toFixed(2)}</div>
                 </div>
               </div>
             </div>
