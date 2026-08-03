@@ -150,7 +150,7 @@ export const FvgSOPDashboard = ({ fvgData, currentPrice }: { fvgData: any, curre
                   </div>
                   <div>
                     <div className={`font-black text-sm tracking-wide ${colorScheme.text}`}>SIGNAL {isBuy ? 'BUY' : 'SELL'} AKTIF</div>
-                    <div className="text-[10px] text-gray-300">Zon FVG telah diretest. Peluang entry!</div>
+                    <div className="text-[10px] text-gray-300">Zon FVG telah diretest. Peluang entry (Abaikan jika harga masuk semula ke zon)!</div>
                   </div>
                 </div>
                 <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 rounded shadow">

@@ -71,13 +71,14 @@ export function useSignals(currentPrice: number) {
       const now = Date.now();
       const fourHours = 4 * 60 * 60 * 1000;
       
-      // Prevent duplicates
-      const isDuplicate = signals.some(s => 
+      // Prevent duplicates: Maximum 1 signal per zone
+      const sameZoneSignals = signals.filter(s => 
         s.type === newSignal.type && 
         s.direction === newSignal.direction &&
-        s.entryRange === newSignal.entryRange &&
-        (now - s.timestamp) < fourHours
+        s.entryRange === newSignal.entryRange
       );
+      
+      const isDuplicate = sameZoneSignals.length >= 1;
 
       if (isDuplicate) return;
 
