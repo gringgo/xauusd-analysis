@@ -31,7 +31,7 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
   onOpenModal,
   onAutoSyncNews
 }) => {
-  const [activeTab, setActiveTab] = useState<'UPCOMING' | 'COMPLETED'>('UPCOMING');
+  const [activeTab, setActiveTab] = useState<'TODAY' | 'UPCOMING' | 'COMPLETED'>('TODAY');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
@@ -42,16 +42,11 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
     try {
       const cleaned = dateStr.replace(/\(MYT\)/g, '').trim();
       const parts = cleaned.split('|');
-      if (parts.length < 2) {
-        const ms = new Date(dateStr).getTime();
-        return isNaN(ms) ? 0 : ms;
-      }
-      
-      let [datePart, timePart] = parts;
-      datePart = datePart.trim();
+      let datePart = (parts[0] || '').trim();
+      let timePart = (parts[1] || '12:00 PM').trim();
+
       // Remove any weekday prefix like "Rabu," or "Khamis, "
       datePart = datePart.replace(/^[a-zA-Z]+,\s*/, '');
-      timePart = timePart.trim();
 
       const months: Record<string, string> = {
         'Januari': 'Jan', 'Februari': 'Feb', 'Mac': 'Mar', 'Mei': 'May',
@@ -67,6 +62,11 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
         }
       }
 
+      if (!/\d{4}/.test(englishDatePart)) {
+        const currentYear = new Date().getFullYear();
+        englishDatePart += ` ${currentYear}`;
+      }
+
       const finalDateStr = `${englishDatePart} ${timePart} GMT+0800`;
       const ms = new Date(finalDateStr).getTime();
       return isNaN(ms) ? 0 : ms;
@@ -75,7 +75,26 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
     }
   };
 
-  // Filter by category, today only, and exclude LOW impact
+  const isTodayNews = (dateStr: string): boolean => {
+    if (!dateStr) return false;
+    try {
+      const ms = parseMalayDate(dateStr);
+      if (ms > 0) {
+        const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+        const itemStr = new Date(ms).toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+        if (todayStr === itemStr) return true;
+      }
+      
+      const lower = dateStr.toLowerCase();
+      if (lower.includes('hari ini') || lower.includes('today')) return true;
+      
+      return false;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // Filter by category and exclude LOW impact
   const categoryFiltered = newsList.filter(n => {
     const imp = (n.impact || 'HIGH').toUpperCase();
     if (!imp.includes('HIGH') && !imp.includes('MED')) return false;
@@ -85,6 +104,15 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
   });
 
   const now = Date.now();
+
+  const todayNews = categoryFiltered
+    .filter(n => isTodayNews(n.date))
+    .sort((a, b) => {
+      const diffA = Math.abs(parseMalayDate(a.date) - now);
+      const diffB = Math.abs(parseMalayDate(b.date) - now);
+      return diffA - diffB;
+    });
+
   const upcomingNews = categoryFiltered
     .filter(n => n.status === 'PENDING')
     .sort((a, b) => {
@@ -97,10 +125,28 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
     .filter(n => n.status === 'BETUL' || n.status === 'SALAH')
     .sort((a, b) => parseMalayDate(b.date) - parseMalayDate(a.date)); // descending for completed
 
-  // Statistics (based on this week's completed news)
+  // Today stats
+  const todayBullishCount = todayNews.filter(n => n.prediction === 'BULLISH').length;
+  const todayBearishCount = todayNews.filter(n => n.prediction === 'BEARISH').length;
+  const todayBias = todayNews.length === 0 
+    ? 'NEUTRAL' 
+    : todayBullishCount > todayBearishCount 
+    ? 'BULLISH (BUY)' 
+    : todayBearishCount > todayBullishCount 
+    ? 'BEARISH (SELL)' 
+    : 'NEUTRAL';
+
+  const todayDateMYT = new Date().toLocaleDateString('ms-MY', {
+    timeZone: 'Asia/Kuala_Lumpur',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+
+  // Statistics (based on completed news)
   const allCompleted = categoryFiltered.filter(n => n.status === 'BETUL' || n.status === 'SALAH');
   const correctCount = allCompleted.filter(n => n.status === 'BETUL').length;
-  const wrongCount = allCompleted.filter(n => n.status === 'SALAH').length;
   const winRate = allCompleted.length > 0 ? ((correctCount / allCompleted.length) * 100).toFixed(0) : '0';
   const totalPips = allCompleted.reduce((acc, curr) => acc + (curr.pipsWon || 0), 0);
 
@@ -133,7 +179,12 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
     }
   };
 
-  const currentDisplayList = activeTab === 'UPCOMING' ? upcomingNews : completedNews;
+  const currentDisplayList = 
+    activeTab === 'TODAY' 
+      ? todayNews 
+      : activeTab === 'UPCOMING' 
+      ? upcomingNews 
+      : completedNews;
 
   return (
     <div className="w-full border-2 border-[#b49a45]/60 rounded-xl bg-[#0a0a0a] shadow-[0_0_25px_rgba(180,154,69,0.15)] overflow-hidden my-4 flex flex-col">
@@ -182,21 +233,32 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
       {/* Tabs & Quick Stats Bar */}
       <div className="bg-[#0f0f0f] border-b border-gray-800 flex flex-col md:flex-row items-center justify-between px-2 sm:px-4 py-2 gap-3">
         {/* Main Tabs */}
-        <div className="flex bg-black/60 p-1 rounded-xl border border-gray-800 w-full md:w-auto">
+        <div className="flex bg-black/60 p-1 rounded-xl border border-gray-800 w-full md:w-auto overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setActiveTab('TODAY')}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 sm:px-5 py-2 rounded-lg font-black text-xs sm:text-sm transition-all whitespace-nowrap ${
+              activeTab === 'TODAY'
+                ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 border border-red-500'
+                : 'text-gray-400 hover:text-white hover:bg-gray-900'
+            }`}
+          >
+            <Flame className="w-4 h-4 text-[#ffcc00] animate-pulse" />
+            HARI INI ({todayNews.length})
+          </button>
           <button
             onClick={() => setActiveTab('UPCOMING')}
-            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2 rounded-lg font-black text-xs sm:text-sm transition-all ${
+            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 sm:px-5 py-2 rounded-lg font-black text-xs sm:text-sm transition-all whitespace-nowrap ${
               activeTab === 'UPCOMING'
                 ? 'bg-[#ffcc00] text-black shadow-lg shadow-[#ffcc00]/20'
                 : 'text-gray-400 hover:text-white hover:bg-gray-900'
             }`}
           >
             <CalendarDays className="w-4 h-4" />
-            MENUNGGU ({newsList.filter(n => n.status === 'PENDING').length})
+            MENUNGGU ({upcomingNews.length})
           </button>
           <button
             onClick={() => setActiveTab('COMPLETED')}
-            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2 rounded-lg font-black text-xs sm:text-sm transition-all ${
+            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 sm:px-5 py-2 rounded-lg font-black text-xs sm:text-sm transition-all whitespace-nowrap ${
               activeTab === 'COMPLETED'
                 ? 'bg-blue-900 text-blue-100 border-blue-700 shadow-lg shadow-blue-900/20'
                 : 'text-gray-400 hover:text-white hover:bg-gray-900'
@@ -249,17 +311,89 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
 
       {/* Content Area */}
       <div className="p-3 sm:p-4 bg-[#0a0a0a] min-h-[300px] max-h-[600px] overflow-y-auto space-y-3">
+
+        {/* MODUL NEWS HARI INI SUMMARY CARD */}
+        {activeTab === 'TODAY' && (
+          <div className="bg-gradient-to-r from-red-950/40 via-[#1a0f0f] to-red-950/40 border-2 border-red-600/50 rounded-xl p-4 mb-3 shadow-[0_0_20px_rgba(220,38,38,0.15)]">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-red-900/40 pb-3 mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-red-600 text-white rounded-lg shadow-md animate-pulse shrink-0">
+                  <Flame className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-red-400 font-black text-xs uppercase tracking-widest flex items-center gap-2 flex-wrap">
+                    MODUL NEWS HARI INI
+                    <span className="bg-red-600/30 text-red-300 text-[10px] px-2 py-0.5 rounded font-mono border border-red-500/40 font-bold">
+                      {todayDateMYT}
+                    </span>
+                  </div>
+                  <div className="text-white font-black text-sm sm:text-base mt-0.5">
+                    {todayNews.length > 0 ? `${todayNews.length} Berita Impak Tinggi Hari Ini` : 'Tiada Berita Impak Tinggi Hari Ini'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-lg border border-red-900/40 shrink-0">
+                <span className="text-gray-400 text-xs font-bold">BIAS DOMINAN:</span>
+                <span className={`text-xs font-black px-2 py-0.5 rounded ${
+                  todayBias.includes('BULLISH') ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' :
+                  todayBias.includes('BEARISH') ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' :
+                  'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                }`}>
+                  {todayBias}
+                </span>
+              </div>
+            </div>
+
+            {/* Metrics grid for today */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+              <div className="bg-black/60 border border-gray-800 p-2 rounded-lg">
+                <span className="text-gray-400 text-[10px] block font-bold">JUMLAH EVENT</span>
+                <span className="text-white font-mono font-black text-sm">{todayNews.length}</span>
+              </div>
+              <div className="bg-black/60 border border-gray-800 p-2 rounded-lg">
+                <span className="text-gray-400 text-[10px] block font-bold">MENUNGGU (PENDING)</span>
+                <span className="text-[#ffcc00] font-mono font-black text-sm">{todayNews.filter(n => n.status === 'PENDING').length}</span>
+              </div>
+              <div className="bg-black/60 border border-gray-800 p-2 rounded-lg">
+                <span className="text-gray-400 text-[10px] block font-bold">SELESAI</span>
+                <span className="text-emerald-400 font-mono font-black text-sm">{todayNews.filter(n => n.status !== 'PENDING').length}</span>
+              </div>
+              <div className="bg-black/60 border border-gray-800 p-2 rounded-lg">
+                <span className="text-gray-400 text-[10px] block font-bold">IMPAK TINGGI 🔥</span>
+                <span className="text-red-400 font-mono font-black text-sm">{todayNews.filter(n => (n.impact || '').toUpperCase().includes('HIGH')).length}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {currentDisplayList.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-gray-800 rounded-2xl bg-black/30">
-            <Clock className="w-10 h-10 text-gray-700 mb-3" />
-            <h3 className="text-gray-400 font-bold text-sm sm:text-base mb-1">
-              Tiada Berita {activeTab === 'UPCOMING' ? 'Menunggu' : 'Selesai'}
+          <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-gray-800 rounded-2xl bg-black/30 p-6">
+            <Clock className="w-10 h-10 text-gray-600 mb-3" />
+            <h3 className="text-gray-300 font-bold text-sm sm:text-base mb-1">
+              {activeTab === 'TODAY' 
+                ? `Tiada Berita Impak Tinggi Dijadualkan Hari Ini (${todayDateMYT})` 
+                : activeTab === 'UPCOMING' 
+                ? 'Tiada Berita Menunggu' 
+                : 'Tiada Berita Selesai'}
             </h3>
-            <p className="text-gray-500 text-xs max-w-xs">
-              {activeTab === 'UPCOMING' 
+            <p className="text-gray-400 text-xs max-w-md leading-relaxed mb-4">
+              {activeTab === 'TODAY' 
+                ? 'Pasaran XAUUSD dijangka tenang & bergerak mengikut struktur teknikal utama (SBR/RBS, Order Block, FVG, Zon Kebenaran).' 
+                : activeTab === 'UPCOMING'
                 ? 'Tiada jadual news berimpak tinggi dalam senarai. Klik "Auto-Sync AI" untuk cari news terkini.' 
                 : 'Belum ada news yang telah disemak keputusannya.'}
             </p>
+            {onAutoSyncNews && (
+              <button
+                onClick={handleSync}
+                disabled={isSyncing}
+                className="bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-600/50 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-[#ffcc00] ${isSyncing ? 'animate-spin' : ''}`} />
+                Imbas Jadual News Terkini via Auto-Sync AI
+              </button>
+            )}
           </div>
         ) : (
           currentDisplayList.map((item) => {

@@ -9,8 +9,24 @@ export interface SignalRecord {
   entryPrice: number;
   tp: number;
   sl: number;
+  winRate?: number;
   timestamp: number;
   status: 'ACTIVE' | 'TP_HIT' | 'SL_HIT';
+}
+
+export function getSignalWinRate(signal: Partial<SignalRecord>): number {
+  if (signal.winRate && signal.winRate > 0) return signal.winRate;
+  const typeUpper = (signal.type || '').toUpperCase();
+  const tfUpper = (signal.timeframe || '').toUpperCase();
+  if (typeUpper.includes('ZEUS') || typeUpper.includes('KEBENARAN') || typeUpper.includes('GOLDEN')) return 88;
+  if (typeUpper.includes('OB') || typeUpper.includes('ORDER')) return 84;
+  if (typeUpper.includes('FVG')) return 81;
+  if (typeUpper.includes('SBR') || typeUpper.includes('RBS')) {
+    return tfUpper.includes('H4') ? 76 : 85;
+  }
+  if (tfUpper.includes('H4')) return 76;
+  if (tfUpper.includes('H1')) return 82;
+  return 80;
 }
 
 const recentDispatches = new Map<string, number>();

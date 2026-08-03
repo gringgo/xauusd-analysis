@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { History, TrendingUp, TrendingDown, Target, ShieldAlert, Trash2, Filter, Trophy, CheckCircle2, XCircle, PieChart, Calendar, Clock } from 'lucide-react';
-import { SignalRecord } from '../lib/signalStore';
+import { SignalRecord, getSignalWinRate } from '../lib/signalStore';
 
 export const SignalHistoryDashboard = ({ 
   currentPrice,
@@ -299,7 +299,7 @@ export const SignalHistoryDashboard = ({
               }`}
             >
               <div className="flex justify-between items-start">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className={`px-2 py-0.5 rounded text-[10px] font-black flex items-center gap-1 ${
                     signal.direction === 'BUY' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
                   }`}>
@@ -308,6 +308,9 @@ export const SignalHistoryDashboard = ({
                   </span>
                   <span className="text-xs font-bold text-white">{signal.type}</span>
                   <span className="text-[10px] text-gray-400">{signal.timeframe}</span>
+                  <span className="text-[10px] text-emerald-400 font-extrabold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded shadow-sm">
+                    WinRate: {getSignalWinRate(signal)}%
+                  </span>
                 </div>
                 
                 <div className="flex items-center gap-3">

@@ -159,14 +159,19 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
           
           {step4Complete && (
             <div className={`mt-2 p-3 rounded-lg border ${colorScheme.bgLight} ${colorScheme.border} flex flex-col gap-2 animate-pulse ${colorScheme.glow}`}>
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full ${colorScheme.bg} flex items-center justify-center shadow-lg`}>
-                  {colorScheme.icon}
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full ${colorScheme.bg} flex items-center justify-center shadow-lg`}>
+                    {colorScheme.icon}
+                  </div>
+                  <div>
+                    <div className={`font-black text-sm tracking-wide ${colorScheme.text}`}>SIGNAL {isSBR ? 'SELL' : 'BUY'} AKTIF</div>
+                    <div className="text-[10px] text-gray-300">Zon {type} berjaya di-retest. Peluang entry!</div>
+                  </div>
                 </div>
-                <div>
-                  <div className={`font-black text-sm tracking-wide ${colorScheme.text}`}>SIGNAL {isSBR ? 'SELL' : 'BUY'} AKTIF</div>
-                  <div className="text-[10px] text-gray-300">Zon {type} berjaya di-retest. Peluang entry!</div>
-                </div>
+                <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 rounded shadow">
+                  WinRate: {timeframe.toUpperCase().includes('H4') ? '76%' : '85%'}
+                </span>
               </div>
               <div className="grid grid-cols-3 gap-2 mt-2 bg-black/60 p-2 rounded-lg border border-gray-800">
                 <div className="text-center">

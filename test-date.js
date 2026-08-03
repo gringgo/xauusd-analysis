@@ -3,38 +3,36 @@ const parseMalayDate = (dateStr) => {
     try {
       const cleaned = dateStr.replace(/\(MYT\)/g, '').trim();
       const parts = cleaned.split('|');
-      if (parts.length < 2) {
-        const ms = new Date(dateStr).getTime();
-        return isNaN(ms) ? 0 : ms;
-      }
-      
-      let [datePart, timePart] = parts;
-      datePart = datePart.trim();
-      timePart = timePart.trim();
+      let datePart = (parts[0] || '').trim();
+      let timePart = (parts[1] || '12:00 PM').trim();
+
+      datePart = datePart.replace(/^[a-zA-Z]+,\s*/, '');
 
       const months = {
         'Januari': 'Jan', 'Februari': 'Feb', 'Mac': 'Mar', 'Mei': 'May',
-        'Julai': 'Jul', 'Ogos': 'Aug', 'Ogo': 'Aug', 'Oktober': 'Oct', 'Okt': 'Oct',
-        'Disember': 'Dec', 'Dis': 'Dec'
+        'Jun': 'Jun', 'Julai': 'Jul', 'Ogos': 'Aug', 'Ogo': 'Aug', 'September': 'Sep',
+        'Oktober': 'Oct', 'Okt': 'Oct', 'November': 'Nov', 'Disember': 'Dec', 'Dis': 'Dec'
       };
 
       let englishDatePart = datePart;
-      for (const [my, en] of Object.entries(months)) {
-        if (datePart.includes(my)) {
-          englishDatePart = datePart.replace(my, en);
+      for (const [ms, en] of Object.entries(months)) {
+        if (englishDatePart.includes(ms)) {
+          englishDatePart = englishDatePart.replace(ms, en);
           break;
         }
       }
 
-      const finalDateStr = `${englishDatePart} ${timePart}`;
+      if (!/\d{4}/.test(englishDatePart)) {
+        const currentYear = new Date().getFullYear();
+        englishDatePart += ` ${currentYear}`;
+      }
+
+      const finalDateStr = `${englishDatePart} ${timePart} GMT+0800`;
       const ms = new Date(finalDateStr).getTime();
       return isNaN(ms) ? 0 : ms;
     } catch (e) {
       return 0;
     }
-  };
-
-console.log("30 Jul 2026 | 02:00 AM (MYT) ->", parseMalayDate("30 Jul 2026 | 02:00 AM (MYT)"));
-console.log("03 Ogos 2026 | 10:00 PM (MYT) ->", parseMalayDate("03 Ogos 2026 | 10:00 PM (MYT)"));
-console.log("28 Jul 2026 | 02:00 PM ->", parseMalayDate("28 Jul 2026 | 02:00 PM"));
-
+}
+console.log(parseMalayDate("Isnin, 03 Ogo 2026 | 08:30 PM (MYT)"));
+console.log(new Date(parseMalayDate("Isnin, 03 Ogo 2026 | 08:30 PM (MYT)")).toString());
