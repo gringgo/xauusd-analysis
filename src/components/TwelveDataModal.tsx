@@ -24,7 +24,7 @@ export const TwelveDataModal: React.FC<Props> = ({
   isConnected,
   currentPrice,
 }) => {
-  const [activeTab, setActiveTab] = useState<'TWELVEDATA' | 'SWISSQUOTE'>('TWELVEDATA');
+  const [activeTab, setActiveTab] = useState<'TWELVEDATA' | 'SWISSQUOTE'>('SWISSQUOTE');
   const [inputKey, setInputKey] = useState(apiKey);
   const [inputSqUrl, setInputSqUrl] = useState(swissquoteUrl);
   const [savedSuccess, setSavedSuccess] = useState(false);

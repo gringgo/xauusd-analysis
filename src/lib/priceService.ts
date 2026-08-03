@@ -99,7 +99,7 @@ export function useXauUsdLivePrice(initialPrice?: number) {
       }
     }
 
-    // High frequency REST fallback (every 2.5s) checking Swissquote -> Twelve Data -> Gold-API -> KuCoin
+    // High frequency REST polling (every 2.5s) checking Swissquote -> Twelve Data -> Spot Market
     const fetchFallbackPrice = () => {
       let url = '/api/price?';
       const params = new URLSearchParams();
@@ -108,25 +108,33 @@ export function useXauUsdLivePrice(initialPrice?: number) {
       url += params.toString();
 
       fetch(url)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            return res.json().catch(() => ({ price: null, source: 'Swissquote' }));
+          }
+          return res.json();
+        })
         .then(data => {
-          if (data && data.price && isSubscribed) {
+          if (data && typeof data.price === 'number' && !isNaN(data.price) && isSubscribed) {
             setPriceState(prev => {
               // If WS is actively updating, prefer WS unless price hasn't updated
               if (prev.source === 'TwelveData-WS' && prev.isConnected) return prev;
               return {
                 ...prev,
                 price: data.price,
-                source: data.source as any || 'TwelveData-REST'
+                source: (data.source as any) || 'Swissquote',
+                isConnected: true
               };
             });
           }
         })
-        .catch(err => console.error("Error fetching price fallback:", err));
+        .catch(err => {
+          console.warn("Swissquote price fetch retry:", err?.message || err);
+        });
     };
 
     fetchFallbackPrice();
-    fallbackInterval = setInterval(fetchFallbackPrice, 2500);
+    fallbackInterval = setInterval(fetchFallbackPrice, 1000);
 
     return () => {
       isSubscribed = false;
