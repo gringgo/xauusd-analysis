@@ -614,8 +614,24 @@ Kembalikan jawapan dalam format JSON sahaja seperti berikut:
         return;
       }
 
-      // Process max 2 pending items per batch to preserve API quota
-      const itemsToCheck = pendingItems.slice(0, 2);
+      // Filter pending items whose scheduled date has already passed in real time
+      const itemsToCheck = pendingItems.filter((item: any) => {
+        if (!item.date) return false;
+        try {
+          const rawDateStr = item.date.split('|')[0]?.trim();
+          const parsedDate = new Date(rawDateStr);
+          if (!isNaN(parsedDate.getTime())) {
+            return parsedDate.getTime() <= Date.now();
+          }
+        } catch {}
+        return false;
+      }).slice(0, 2);
+
+      if (itemsToCheck.length === 0) {
+        isAutoChecking = false;
+        return;
+      }
+
       const ai = new GoogleGenAI({ apiKey });
 
       for (const item of itemsToCheck) {
@@ -627,11 +643,12 @@ Forecast Sebelumnya: ${item.forecast}
 Previous: ${item.previous}
 Ramalan AI sebelum berita: ${item.prediction}
 
-Sila jana/anggarkan data SEBENAR (Actual Data) yang logik dan realistik jika data sebenar tidak ada dalam memori anda (contoh: simulasi masa hadapan).
+Sila dapatkan atau sahkan data SEBENAR (Actual Data) yang dikeluarkan secara rasmi.
+Jika berita ini BELUM diumumkan, jangan mereka-reka data.
 
-Selepas mendapat/menjana data sebenar:
+Selepas mendapat data sebenar rasmi:
 - Set "actual" kepada nilai data (contoh: 175K, 0.2%, 5.25%)
-- Set "status" kepada "BETUL" atau "SALAH" (Adakah ramalan AI ${item.prediction} tepat?)
+- Set "status" kepada "BETUL" atau "SALAH" (Adakah ramalan AI ${item.prediction} tepat berbanding impak data ke atas XAUUSD?)
 - Set "pipsWon" kepada integer anggaran pips (positif jika BETUL, negatif jika SALAH)
 - Set "analysis" kepada huraian ringkas 2 ayat tentang impak pergerakan XAUUSD.
 
