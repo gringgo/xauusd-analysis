@@ -197,10 +197,13 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
             <Flame className="w-6 h-6 text-[#ffcc00] animate-pulse" />
           </div>
           <div>
-            <h2 className="text-[#ffcc00] font-black text-lg sm:text-xl tracking-wide flex items-center gap-2">
+            <h2 className="text-[#ffcc00] font-black text-lg sm:text-xl tracking-wide flex items-center gap-2 flex-wrap">
               JADUAL & ANALISIS NEWS XAUUSD
               <span className="bg-red-600 text-white font-black text-[10px] px-2 py-0.5 rounded uppercase tracking-widest shadow-sm">
                 LIVE
+              </span>
+              <span className="bg-emerald-950/80 border border-emerald-500/50 text-emerald-400 font-bold text-[10px] px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Auto-Sync AI Automatik
               </span>
             </h2>
             <p className="text-gray-300 text-xs sm:text-sm mt-0.5 font-medium">
@@ -382,7 +385,7 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
               {activeTab === 'TODAY' 
                 ? 'Pasaran XAUUSD dijangka tenang & bergerak mengikut struktur teknikal utama (SBR/RBS, Order Block, FVG, Zon Kebenaran).' 
                 : activeTab === 'UPCOMING'
-                ? 'Tiada jadual news berimpak tinggi dalam senarai. Klik "Auto-Sync AI" untuk cari news terkini.' 
+                ? 'Sistem AI sentiasa dikemaskini secara automatik dari ForexFactory & Gemini AI. Jadual berita baharu dimuatkan secara automatik.' 
                 : 'Belum ada news yang telah disemak keputusannya.'}
             </p>
             {onAutoSyncNews && (

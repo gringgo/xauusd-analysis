@@ -146,8 +146,16 @@ async function startServer() {
   app.use(express.json({ limit: "15mb" }));
   app.use(express.urlencoded({ limit: "15mb", extended: true }));
 
-  // High Impact News History API Routes
-  app.post("/api/auto-sync-news", async (req, res) => {
+  let lastAutoSyncTime = 0;
+  let isAutoSyncing = false;
+
+  async function autoSyncNewsCore() {
+    const now = Date.now();
+    if (isAutoSyncing) return [];
+    isAutoSyncing = true;
+    lastAutoSyncTime = now;
+    const syncedItems: any[] = [];
+
     try {
       let rawNews: any[] = [];
       const apiKey = process.env.GEMINI_API_KEY;
@@ -264,7 +272,6 @@ Hanya pulangkan format JSON sahaja.`;
       }
 
       // 3. Fallback static curated list if both external calendar & AI generator fail
-      
       if (!highImpactUsd || highImpactUsd.length < 10) {
         const todayMsia = new Date().toLocaleDateString('ms-MY', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur' });
         const fallbackList = [
@@ -326,10 +333,6 @@ Hanya pulangkan format JSON sahaja.`;
         }
       }
 
-      const syncedItems: any[] = [];
-
-      // Process items (up to 10)
-      
       // Sort by date ascending to get nearest
       highImpactUsd.sort((a, b) => {
          const da = new Date(a.date).getTime();
@@ -337,7 +340,6 @@ Hanya pulangkan format JSON sahaja.`;
          return (isNaN(da) ? Infinity : da) - (isNaN(db) ? Infinity : db);
       });
       const itemsToProcess = highImpactUsd.slice(0, 10);
-
 
       // Pre-process dates & categories
       const formattedItems = itemsToProcess.map((item: any) => {
@@ -509,9 +511,30 @@ Sila pulangkan JSON array yang mengandungi ramalan & analisis dalam Bahasa Melay
       }
 
       autoCheckPendingNews().catch(err => console.warn("Background news check warning:", err));
-      backgroundWeeklySync().catch(err => console.warn("Background weekly sync warning:", err));
+    } catch (e: any) {
+      console.error("Auto-sync core error:", e);
+    } finally {
+      isAutoSyncing = false;
+    }
+    return syncedItems;
+  }
 
-      res.json(syncedItems);
+  // Periodic automatic news update every 15 minutes
+  setInterval(() => {
+    autoSyncNewsCore().catch(e => console.warn("Periodic news sync warning:", e));
+    autoCheckPendingNews().catch(e => console.warn("Periodic pending check warning:", e));
+  }, 15 * 60 * 1000);
+
+  // Initial news sync on server boot
+  setTimeout(() => {
+    autoSyncNewsCore().catch(e => console.warn("Boot news sync warning:", e));
+  }, 2000);
+
+  // High Impact News History API Routes
+  app.post("/api/auto-sync-news", async (req, res) => {
+    try {
+      const items = await autoSyncNewsCore();
+      res.json(items);
     } catch (e: any) {
       console.error("Auto-sync error:", e);
       res.status(500).json({ error: e.message || "Gagal menjana ramalan automatik." });
@@ -926,22 +949,28 @@ async function backgroundWeeklySync() {
     }
 }
 
-    app.get("/api/news-history", async (req, res) => {
+  app.get("/api/news-history", async (req, res) => {
     try {
       // Background check for pending news to automatically check result
       autoCheckPendingNews().catch(err => console.warn("Background news check warning:", err));
       
+      const now = Date.now();
+      if (now - lastAutoSyncTime > 15 * 60 * 1000) {
+        autoSyncNewsCore().catch(err => console.warn("Background auto sync warning:", err));
+      }
+
       if (db) {
         const entries = await db.select().from(highImpactNews).orderBy(desc(highImpactNews.id));
         if (entries && entries.length > 0) {
           const pendingCount = entries.filter(e => e.status === 'PENDING').length;
-          if (pendingCount < 10) {
+          if (pendingCount < 5) {
              // trigger background sync to populate more
-             fetch("http://127.0.0.1:3000/api/auto-sync-news", { method: "POST" }).catch(e => console.warn(e));
+             autoSyncNewsCore().catch(e => console.warn(e));
           }
           return res.json(entries);
         }
       }
+      autoSyncNewsCore().catch(e => console.warn(e));
       res.json(fallbackNewsHistory);
     } catch (e: any) {
       console.warn("Using fallback news history data:", e.message);

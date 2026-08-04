@@ -1227,12 +1227,30 @@ export default function App() {
   }, [livePriceState.price]);
 
   useEffect(() => {
-    fetch('/api/news-history')
+    const fetchNews = () => {
+      fetch('/api/news-history')
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) setNewsHistoryList(data);
+        })
+        .catch(console.error);
+    };
+
+    fetchNews();
+
+    // Background trigger initial sync
+    fetch('/api/auto-sync-news', { method: 'POST' })
       .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setNewsHistoryList(data);
+      .then(synced => {
+        if (Array.isArray(synced) && synced.length > 0) {
+          fetchNews();
+        }
       })
-      .catch(console.error);
+      .catch(() => {});
+
+    // Periodic auto-refetch every 30 seconds
+    const newsInterval = setInterval(fetchNews, 30000);
+    return () => clearInterval(newsInterval);
   }, []);
 
   const handleAddNews = async (item: Partial<NewsItem>) => {
