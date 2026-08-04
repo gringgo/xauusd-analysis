@@ -168,7 +168,7 @@ export const SignalHistoryDashboard = ({
           </div>
           <div className="flex items-baseline justify-between mt-0.5">
             <span className="text-lg font-black text-emerald-400 font-mono">{wins} <span className="text-xs font-normal text-gray-500">Signal</span></span>
-            <span className="text-[10px] text-gray-500">Hit TP</span>
+            <span className="text-[10px] text-gray-500 font-bold">Hit TP</span>
           </div>
         </div>
 
@@ -184,7 +184,7 @@ export const SignalHistoryDashboard = ({
           </div>
           <div className="flex items-baseline justify-between mt-0.5">
             <span className="text-lg font-black text-rose-400 font-mono">{losses} <span className="text-xs font-normal text-gray-500">Signal</span></span>
-            <span className="text-[10px] text-gray-500">Hit SL</span>
+            <span className="text-[10px] text-gray-500 font-bold">Hit SL</span>
           </div>
         </div>
 
@@ -194,7 +194,7 @@ export const SignalHistoryDashboard = ({
             <span className="text-[10px] font-bold tracking-wider text-yellow-400 uppercase flex items-center gap-1">
               <Trophy className="w-3.5 h-3.5 text-yellow-500" /> KADAR MENANG
             </span>
-            <span className="text-[9px] text-gray-500">Selesai: {completedCount}</span>
+            <span className="text-[9px] text-gray-500 font-mono font-bold">Selesai: {completedCount}</span>
           </div>
           <div className="flex items-baseline justify-between mt-0.5">
             <span className="text-lg font-black text-yellow-400 font-mono">{winRate.toFixed(1)}%</span>
@@ -202,21 +202,25 @@ export const SignalHistoryDashboard = ({
           </div>
         </div>
 
-        {/* Total & Active Stat Card */}
-        <div className="bg-[#141414] border border-gray-800 rounded-lg p-2.5 flex flex-col justify-between">
+        {/* Total Completed Signals Stat Card */}
+        <div className="bg-[#141414] border border-blue-900/40 rounded-lg p-2.5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-gray-400 mb-1">
-            <span className="text-[10px] font-bold tracking-wider text-gray-300 uppercase flex items-center gap-1">
-              <PieChart className="w-3.5 h-3.5 text-blue-400" /> JUMLAH SIGNAL
+            <span className="text-[10px] font-bold tracking-wider text-blue-400 uppercase flex items-center gap-1">
+              <PieChart className="w-3.5 h-3.5 text-blue-400" /> SIGNAL SELESAI
             </span>
-            {activeCount > 0 && (
+            {activeCount > 0 ? (
               <span className="text-[9px] font-bold text-yellow-400 bg-yellow-500/10 px-1.5 py-0.5 rounded animate-pulse">
-                {activeCount} Pending
+                {activeCount} Active
+              </span>
+            ) : (
+              <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                100% Selesai
               </span>
             )}
           </div>
           <div className="flex items-baseline justify-between mt-0.5">
-            <span className="text-lg font-black text-white font-mono">{totalCount} <span className="text-xs font-normal text-gray-500">Rekod</span></span>
-            <span className="text-[10px] text-gray-500">Keseluruhan</span>
+            <span className="text-lg font-black text-white font-mono">{completedCount} <span className="text-xs font-normal text-gray-500">Signal</span></span>
+            <span className="text-[10px] text-blue-400 font-bold">{dateFilter === 'TODAY' ? 'Hari Ini' : 'Keseluruhan'}</span>
           </div>
         </div>
       </div>
