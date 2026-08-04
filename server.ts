@@ -148,6 +148,8 @@ async function startServer() {
 
   let lastAutoSyncTime = 0;
   let isAutoSyncing = false;
+  let cachedCalendarData: any[] = [];
+  let cachedCalendarTime = 0;
 
   async function autoSyncNewsCore() {
     const now = Date.now();
@@ -164,19 +166,28 @@ async function startServer() {
         ai = new GoogleGenAI({ apiKey });
       }
 
-      // 1. Try fetching live news calendar with headers
-      try {
-        const calendarRes = await fetch("https://nfs.faireconomy.media/ff_calendar_thisweek.json", {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/json"
+      // 1. Try fetching live news calendar with headers (cached for 30 mins)
+      if (cachedCalendarData.length > 0 && (now - cachedCalendarTime < 30 * 60 * 1000)) {
+        rawNews = cachedCalendarData;
+      } else {
+        try {
+          const calendarRes = await fetch("https://nfs.faireconomy.media/ff_calendar_thisweek.json", {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              "Accept": "application/json"
+            }
+          });
+          if (calendarRes.ok) {
+            rawNews = await calendarRes.json();
+            cachedCalendarData = rawNews;
+            cachedCalendarTime = now;
+          } else if (cachedCalendarData.length > 0) {
+            rawNews = cachedCalendarData;
           }
-        });
-        if (calendarRes.ok) {
-          rawNews = await calendarRes.json();
+        } catch (err) {
+          console.warn("External economic calendar fetch failed, switching to cached or Gemini AI generator:", err);
+          if (cachedCalendarData.length > 0) rawNews = cachedCalendarData;
         }
-      } catch (err) {
-        console.warn("External economic calendar fetch failed, switching to Gemini AI generator:", err);
       }
 
       // Filter for USD news with High or Medium impact
@@ -193,7 +204,7 @@ async function startServer() {
       });
 
       // 2. If external fetch failed or returned no items, use Gemini AI with Google Search Grounding to check live economic news calendar
-      if (!highImpactUsd || highImpactUsd.length < 10) {
+      if (!highImpactUsd || highImpactUsd.length === 0) {
         if (ai) {
           try {
             const nowStr = new Date().toLocaleDateString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' });
@@ -271,13 +282,12 @@ Hanya pulangkan format JSON sahaja.`;
         }
       }
 
-      // 3. Fallback static curated list if both external calendar & AI generator fail
-      if (!highImpactUsd || highImpactUsd.length < 10) {
-        const todayMsia = new Date().toLocaleDateString('ms-MY', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur' });
+      // 3. Fallback static curated list if both external calendar & AI generator fail completely (0 items)
+      if (!highImpactUsd || highImpactUsd.length === 0) {
         const fallbackList = [
           {
             title: "Non-Farm Employment Change (NFP)",
-            date: `${todayMsia} | 08:30 PM (MYT)`,
+            date: "Jumaat, 07 Ogo 2026 | 08:30 PM (MYT)",
             forecast: "165K",
             previous: "142K",
             actual: "-",
@@ -289,7 +299,7 @@ Hanya pulangkan format JSON sahaja.`;
           },
           {
             title: "Core CPI m/m (Consumer Price Index)",
-            date: `${todayMsia} | 08:30 PM (MYT)`,
+            date: "Rabu, 12 Ogo 2026 | 08:30 PM (MYT)",
             forecast: "0.2%",
             previous: "0.3%",
             actual: "-",
@@ -301,7 +311,7 @@ Hanya pulangkan format JSON sahaja.`;
           },
           {
             title: "FOMC Rate Decision & Press Conference",
-            date: `${todayMsia} | 02:00 AM (MYT)`,
+            date: "Khamis, 20 Ogo 2026 | 02:00 AM (MYT)",
             forecast: "5.25%",
             previous: "5.50%",
             actual: "-",
@@ -310,23 +320,10 @@ Hanya pulangkan format JSON sahaja.`;
             analysis: "Kenyataan dovish daripada Fed mempercepatkan aliran modal masuk ke dalam aset selamat Emas.",
             estimatedPips: 200,
             isAIGenerated: true
-          },
-          {
-            title: "ISM Manufacturing PMI",
-            date: `${todayMsia} | 10:00 PM (MYT)`,
-            forecast: "53.3",
-            previous: "53.8",
-            actual: "-",
-            category: "OTHER",
-            prediction: "BEARISH",
-            analysis: "Data PMI pembuatan yang lebih tinggi daripada jangkaan menunjukkan sektor pembuatan yang kukuh, yang biasanya menyokong USD (mengukuhkan) dan memberi tekanan kepada XAUUSD (menurun).",
-            estimatedPips: 80,
-            isAIGenerated: true
           }
         ];
         
         for (const f of fallbackList) {
-           if (highImpactUsd.length >= 10) break;
            if (!highImpactUsd.find((h: any) => h.title === f.title)) {
                highImpactUsd.push(f);
            }
