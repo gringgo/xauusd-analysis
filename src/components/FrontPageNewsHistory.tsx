@@ -94,8 +94,36 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
     }
   };
 
+  // Deduplicate news list by event title and date
+  const deduplicatedNewsList = React.useMemo(() => {
+    if (!newsList || !Array.isArray(newsList)) return [];
+    const seen = new Set<string>();
+    const result: NewsItem[] = [];
+    for (const item of newsList) {
+      if (!item) continue;
+      const normEvent = (item.event || '')
+        .toLowerCase()
+        .replace(/\(jul\)|\(jun\)|\(q2\)|\(mom\)|\(yoy\)|\(qoq\)|y\/y|m\/m|q\/q/gi, '')
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+      const normDate = (item.date || '')
+        .toLowerCase()
+        .replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu/gi, '')
+        .replace(/juai|julai/gi, 'jul')
+        .replace(/ogos/gi, 'ogo')
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+      const key = `${normEvent}_${normDate}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(item);
+      }
+    }
+    return result;
+  }, [newsList]);
+
   // Filter by category and exclude LOW impact
-  const categoryFiltered = newsList.filter(n => {
+  const categoryFiltered = deduplicatedNewsList.filter(n => {
     const imp = (n.impact || 'HIGH').toUpperCase();
     if (!imp.includes('HIGH') && !imp.includes('MED')) return false;
     if (selectedCategory !== 'ALL' && n.category !== selectedCategory) return false;

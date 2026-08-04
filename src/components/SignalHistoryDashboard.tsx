@@ -19,33 +19,25 @@ export const SignalHistoryDashboard = ({
   clearSignals: () => void;
 }) => {
   const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'COMPLETED' | 'ALL'>('COMPLETED');
-  const [dateFilter, setDateFilter] = useState<'TODAY' | 'ALL'>('TODAY');
   const [activeTab, setActiveTab] = useState<string>('ALL');
 
   if (signals.length === 0) return null;
 
   const uniqueTypes = Array.from(new Set(signals.map(s => s.type)));
 
-  // Filter signals by date filter (TODAY vs ALL)
-  const dateFilteredSignals = dateFilter === 'TODAY'
-    ? signals.filter(s => s.status === 'ACTIVE' || isTodayMYT(s.timestamp))
-    : signals;
-  
   // Filter by status first, then by SOP type
   const statusFiltered = statusFilter === 'ALL' 
-    ? dateFilteredSignals 
+    ? signals 
     : statusFilter === 'ACTIVE' 
-      ? dateFilteredSignals.filter(s => s.status === 'ACTIVE') 
-      : dateFilteredSignals.filter(s => s.status === 'TP_HIT' || s.status === 'SL_HIT');
+      ? signals.filter(s => s.status === 'ACTIVE') 
+      : signals.filter(s => (s.status === 'TP_HIT' || s.status === 'SL_HIT') && isTodayMYT(s.timestamp));
 
   const filteredSignals = activeTab === 'ALL' 
     ? statusFiltered 
     : statusFiltered.filter(s => s.type === activeTab);
 
-  // Statistics calculation for selected date scope
-  const statsScopeSignals = dateFilter === 'TODAY'
-    ? signals.filter(s => isTodayMYT(s.timestamp))
-    : signals;
+  // Statistics calculation for selected date scope (All records)
+  const statsScopeSignals = signals;
 
   const wins = statsScopeSignals.filter(s => s.status === 'TP_HIT').length;
   const losses = statsScopeSignals.filter(s => s.status === 'SL_HIT').length;
@@ -54,7 +46,7 @@ export const SignalHistoryDashboard = ({
 
   const todayCompletedCount = signals.filter(s => (s.status === 'TP_HIT' || s.status === 'SL_HIT') && isTodayMYT(s.timestamp)).length;
   const allCompletedCount = signals.filter(s => s.status === 'TP_HIT' || s.status === 'SL_HIT').length;
-  const totalCount = dateFilteredSignals.length;
+  const totalCount = signals.length;
 
   const winRate = completedCount > 0 ? (wins / completedCount) * 100 : 0;
   const lossRate = completedCount > 0 ? (losses / completedCount) * 100 : 0;
@@ -112,38 +104,13 @@ export const SignalHistoryDashboard = ({
             REKOD SIGNAL AKTIF / LALU
             {completedCount > 0 && (
               <span className="text-[10px] bg-yellow-500/20 text-yellow-400 border border-yellow-500/40 px-2 py-0.5 rounded-full font-mono font-bold">
-                🎯 Win Rate ({dateFilter === 'TODAY' ? 'Hari Ini' : 'Keseluruhan'}): {winRate.toFixed(1)}%
+                🎯 Win Rate (Keseluruhan): {winRate.toFixed(1)}%
               </span>
             )}
           </h2>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* DATE FILTER SWITCHER */}
-          <div className="flex items-center gap-1 bg-black/60 p-1 rounded-lg border border-gray-800">
-            <button
-              onClick={() => setDateFilter('TODAY')}
-              className={`px-2.5 py-1 rounded text-[10px] font-black tracking-wide flex items-center gap-1 transition-all ${
-                dateFilter === 'TODAY'
-                  ? 'bg-emerald-500 text-black font-extrabold shadow'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse inline-block"></span>
-              HARI INI
-            </button>
-            <button
-              onClick={() => setDateFilter('ALL')}
-              className={`px-2.5 py-1 rounded text-[10px] font-black tracking-wide transition-all ${
-                dateFilter === 'ALL'
-                  ? 'bg-yellow-500 text-black font-extrabold shadow'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              SEMUA HISTORIKAL
-            </button>
-          </div>
-
           <button 
             onClick={clearSignals}
             className="text-xs text-gray-500 hover:text-rose-400 flex items-center gap-1 transition-colors"
@@ -220,7 +187,7 @@ export const SignalHistoryDashboard = ({
           </div>
           <div className="flex items-baseline justify-between mt-0.5">
             <span className="text-lg font-black text-white font-mono">{completedCount} <span className="text-xs font-normal text-gray-500">Signal</span></span>
-            <span className="text-[10px] text-blue-400 font-bold">{dateFilter === 'TODAY' ? 'Hari Ini' : 'Keseluruhan'}</span>
+            <span className="text-[10px] text-blue-400 font-bold">Keseluruhan</span>
           </div>
         </div>
       </div>
@@ -276,11 +243,11 @@ export const SignalHistoryDashboard = ({
             }`}
           >
             <History className="w-3.5 h-3.5 text-emerald-400" />
-            REKOD LALU (SELESAI {dateFilter === 'TODAY' ? 'HARI INI' : 'LEPAS'})
+            REKOD LALU (SELESAI HARI INI)
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
               statusFilter === 'COMPLETED' ? 'bg-emerald-500/30 text-emerald-300' : 'bg-gray-800 text-gray-400'
             }`}>
-              {completedCount}
+              {todayCompletedCount}
             </span>
           </button>
 

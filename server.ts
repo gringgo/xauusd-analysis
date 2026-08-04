@@ -139,6 +139,37 @@ let fallbackNewsHistory = [
   }
 ];
 
+function normalizeNewsKey(eventStr: string, dateStr: string): string {
+  const normEvent = (eventStr || '')
+    .toLowerCase()
+    .replace(/\(jul\)|\(jun\)|\(q2\)|\(mom\)|\(yoy\)|\(qoq\)|y\/y|m\/m|q\/q/gi, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+  const normDate = (dateStr || '')
+    .toLowerCase()
+    .replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu/gi, '')
+    .replace(/juai|julai/gi, 'jul')
+    .replace(/ogos/gi, 'ogo')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+  return `${normEvent}_${normDate}`;
+}
+
+function dedupeNewsEntries(entries: any[]) {
+  if (!entries || !Array.isArray(entries)) return [];
+  const seen = new Set<string>();
+  const result: any[] = [];
+  for (const item of entries) {
+    if (!item) continue;
+    const key = normalizeNewsKey(item.event || item.title || '', item.date || item.dateStr || '');
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(item);
+    }
+  }
+  return result;
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -981,14 +1012,14 @@ async function backgroundWeeklySync() {
              // trigger background sync to populate more
              autoSyncNewsCore().catch(e => console.warn(e));
           }
-          return res.json(entries);
+          return res.json(dedupeNewsEntries(entries));
         }
       }
       autoSyncNewsCore().catch(e => console.warn(e));
-      res.json(fallbackNewsHistory);
+      res.json(dedupeNewsEntries(fallbackNewsHistory));
     } catch (e: any) {
       console.warn("Using fallback news history data:", e.message);
-      res.json(fallbackNewsHistory);
+      res.json(dedupeNewsEntries(fallbackNewsHistory));
     }
   });
 
@@ -1435,7 +1466,7 @@ async function backgroundWeeklySync() {
   app.get("/api/signals", async (req, res) => {
     try {
       if (!db) return res.status(503).json({ error: "DB not connected" });
-      const rows = await db.select().from(signals).orderBy(desc(signals.createdAt)).limit(50);
+      const rows = await db.select().from(signals).orderBy(desc(signals.createdAt)).limit(500);
       res.json(rows);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
