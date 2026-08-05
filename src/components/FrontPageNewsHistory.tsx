@@ -115,6 +115,7 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
         .replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu/gi, '')
         .replace(/juai|julai/gi, 'jul')
         .replace(/ogos/gi, 'ogo')
+        .replace(/\b0(\d)\b/g, '$1')
         .replace(/[^a-z0-9]/g, '')
         .trim();
       const key = `${normEvent}_${normDate}`;

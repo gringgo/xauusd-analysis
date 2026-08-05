@@ -154,6 +154,7 @@ function normalizeNewsKey(eventStr: string, dateStr: string): string {
     .replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu/gi, '')
     .replace(/juai|julai/gi, 'jul')
     .replace(/ogos/gi, 'ogo')
+    .replace(/\b0(\d)\b/g, '$1')
     .replace(/[^a-z0-9]/g, '')
     .trim();
   return `${normEvent}_${normDate}`;
@@ -172,6 +173,14 @@ function dedupeNewsEntries(entries: any[]) {
     }
   }
   return result;
+}
+
+function getFriendlyErrorMessage(e: any): string {
+  const msg = e.message || String(e) || "";
+  if (msg.includes("429") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED")) {
+    return "Had Kuota API Gemini telah dicapai (Free Tier). Sila cuba lagi selepas 1 minit.";
+  }
+  return msg;
 }
 
 async function startServer() {
@@ -569,7 +578,7 @@ Sila pulangkan JSON array yang mengandungi ramalan & analisis dalam Bahasa Melay
       res.json(items);
     } catch (e: any) {
       console.error("Auto-sync error:", e);
-      res.status(500).json({ error: e.message || "Gagal menjana ramalan automatik." });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) || "Gagal menjana ramalan automatik." });
     }
   });
 
@@ -616,7 +625,7 @@ Kembalikan jawapan dalam format JSON sahaja seperti berikut:
       res.status(500).json({ error: "Gagal menjana ramalan AI." });
     } catch (e: any) {
       console.error("AI Generation error:", e);
-      res.status(500).json({ error: e.message || "Ralat semasa menjana ramalan AI." });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) || "Ralat semasa menjana ramalan AI." });
     }
   });
 
@@ -874,7 +883,7 @@ Pulangkan JSON sahaja dengan format ini:
       if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota')) {
         return res.status(429).json({ error: "Limit kuota API Gemini percuma telah dicapai sementara. Sila cuba lagi selepas 1-2 minit." });
       }
-      res.status(500).json({ error: e.message || "Ralat semasa menyemak result AI." });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) || "Ralat semasa menyemak result AI." });
     }
   });
 
@@ -975,7 +984,7 @@ WAJIB memulangkan jawapan dalam format JSON SAHAJA mengikut skema berikut:
       if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota')) {
         return res.status(429).json({ error: "Limit kuota API Gemini percuma telah dicapai sementara. Sila cuba lagi selepas 1 minit." });
       }
-      res.status(500).json({ error: e.message || "Ralat semasa menganalisis gambar carta." });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) || "Ralat semasa menganalisis gambar carta." });
     }
   });
 
@@ -1058,7 +1067,7 @@ async function backgroundWeeklySync() {
       fallbackNewsHistory.unshift(newItem);
       res.json(newItem);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
 
@@ -1084,7 +1093,7 @@ async function backgroundWeeklySync() {
       }
       res.status(404).json({ error: "Item not found" });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
 
@@ -1101,7 +1110,7 @@ async function backgroundWeeklySync() {
       fallbackNewsHistory = fallbackNewsHistory.filter(n => n.id !== id);
       res.json({ success: true });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
 
@@ -1112,7 +1121,7 @@ async function backgroundWeeklySync() {
       res.json(entries);
     } catch (e: any) {
       console.error(e);
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
 
@@ -1131,7 +1140,7 @@ async function backgroundWeeklySync() {
       res.json(result[0]);
     } catch (e: any) {
       console.error(e);
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
 
@@ -1150,7 +1159,7 @@ async function backgroundWeeklySync() {
       res.json(result[0]);
     } catch (e: any) {
       console.error(e);
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
 
@@ -1161,7 +1170,7 @@ async function backgroundWeeklySync() {
       res.json({ success: true });
     } catch (e: any) {
       console.error(e);
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
 
@@ -1191,7 +1200,7 @@ async function backgroundWeeklySync() {
       const data = await response.json();
       res.json(data);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
 
@@ -1462,7 +1471,7 @@ async function backgroundWeeklySync() {
       // Return empty if no data found
       res.json([]);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
 
@@ -1473,9 +1482,45 @@ async function backgroundWeeklySync() {
       const rows = await db.select().from(signals).orderBy(desc(signals.createdAt)).limit(500);
       res.json(rows);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
+
+  async function sendWhatsAppAlert(signal: any) {
+    const apiUrl = process.env.EVOLUTION_API_URL;
+    const apiKey = process.env.EVOLUTION_API_KEY;
+    const instanceName = process.env.EVOLUTION_INSTANCE_NAME;
+    const toNumber = process.env.WHATSAPP_TO_NUMBER;
+
+    if (!apiUrl || !apiKey || !instanceName || !toNumber) return;
+
+    const emoji = signal.direction === 'BUY' ? '🟢' : '🔴';
+    let message = `*XAUUSD SIGNAL GENERATED* 🚨\n\n`;
+    message += `*Mode:* ${signal.type} (${signal.timeframe})\n`;
+    message += `*Action:* ${emoji} ${signal.direction}\n`;
+    message += `*Entry:* ${signal.entryRange}\n`;
+    message += `*SL:* ${signal.sl}\n`;
+    message += `*TP:* ${signal.tp}\n\n`;
+    message += `_Auto-generated by XAUUSD Hub_`;
+
+    try {
+      const url = `${apiUrl.replace(/\/$/, '')}/message/sendText/${instanceName}`;
+      await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': apiKey
+        },
+        body: JSON.stringify({
+          number: toNumber,
+          text: message
+        })
+      });
+      console.log("WhatsApp signal sent successfully to", toNumber);
+    } catch (error) {
+      console.error("WhatsApp Error:", error);
+    }
+  }
 
   app.post("/api/signals", async (req, res) => {
     try {
@@ -1513,9 +1558,13 @@ async function backgroundWeeklySync() {
         status: newSignal.status || 'ACTIVE',
         signalTimestamp: new Date(newSignal.timestamp),
       }).returning();
+      
+      // Send whatsapp alert
+      await sendWhatsAppAlert(inserted[0]);
+
       res.json(inserted[0]);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
 
@@ -1530,7 +1579,7 @@ async function backgroundWeeklySync() {
         .returning();
       res.json(updated[0]);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
 
@@ -1540,7 +1589,7 @@ async function backgroundWeeklySync() {
       await db.delete(signals);
       res.json({ success: true });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
 
@@ -1573,7 +1622,7 @@ async function backgroundWeeklySync() {
 
       res.json({ success: true });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
 
@@ -1616,7 +1665,7 @@ Tulis terus dalam nada profesional, tegas, padat dan mudah dibaca.`;
       res.json({ text: response.text });
     } catch (e: any) {
       console.error(e);
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }
   });
 
