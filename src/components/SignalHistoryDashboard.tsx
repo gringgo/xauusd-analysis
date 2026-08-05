@@ -27,10 +27,10 @@ export const SignalHistoryDashboard = ({
 
   // Filter by status first, then by SOP type
   const statusFiltered = statusFilter === 'ALL' 
-    ? signals 
+    ? signals.filter(s => s.status === 'TP_HIT' || s.status === 'SL_HIT') // ALL COMPLETED
     : statusFilter === 'ACTIVE' 
       ? signals.filter(s => s.status === 'ACTIVE') 
-      : signals.filter(s => (s.status === 'TP_HIT' || s.status === 'SL_HIT') && isTodayMYT(s.timestamp));
+      : signals.filter(s => (s.status === 'TP_HIT' || s.status === 'SL_HIT') && isTodayMYT(s.timestamp)); // COMPLETED TODAY
 
   const filteredSignals = activeTab === 'ALL' 
     ? statusFiltered 
@@ -263,7 +263,7 @@ export const SignalHistoryDashboard = ({
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
               statusFilter === 'ALL' ? 'bg-black/30 text-black' : 'bg-gray-800 text-gray-400'
             }`}>
-              {totalCount}
+              {allCompletedCount}
             </span>
           </button>
         </div>
@@ -307,21 +307,12 @@ export const SignalHistoryDashboard = ({
         {filteredSignals.length === 0 ? (
           <div className="p-6 text-center text-gray-400 text-xs flex flex-col items-center justify-center gap-2">
             <p>
-              {dateFilter === 'TODAY' && statusFilter === 'COMPLETED'
+              {statusFilter === 'COMPLETED'
                 ? 'Tiada rekod signal yang selesai (Hit TP/SL) untuk Hari Ini.'
-                : dateFilter === 'TODAY' && statusFilter === 'ACTIVE'
-                ? 'Tiada signal aktif yang pending untuk Hari Ini.'
+                : statusFilter === 'ACTIVE'
+                ? 'Tiada signal aktif yang pending.'
                 : 'Tiada rekod signal ditemui untuk tapisan ini.'}
             </p>
-            {dateFilter === 'TODAY' && allCompletedCount > 0 && (
-              <button
-                onClick={() => setDateFilter('ALL')}
-                className="mt-1 px-3 py-1.5 bg-yellow-500/20 text-yellow-400 border border-yellow-500/40 rounded-lg font-bold text-xs hover:bg-yellow-500/30 transition-all flex items-center gap-1.5"
-              >
-                <History className="w-3.5 h-3.5 text-yellow-400" />
-                Papar Semua Rekod Selesai Historikal ({allCompletedCount})
-              </button>
-            )}
           </div>
         ) : (
           filteredSignals.map((signal: SignalRecord) => (

@@ -112,8 +112,40 @@ export const HighImpactNewsModal: React.FC<HighImpactNewsModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Deduplicate news list
+  const deduplicatedNewsList = React.useMemo(() => {
+    if (!newsList || !Array.isArray(newsList)) return [];
+    const seen = new Set<string>();
+    const result: NewsItem[] = [];
+    for (const item of newsList) {
+      if (!item) continue;
+      const normEvent = (item.event || '')
+        .toLowerCase()
+        .replace(/\(usd\)/gi, '')
+        .replace(/non-farm|nonfarm/gi, '')
+        .replace(/flash|final|services/gi, '')
+        .replace(/\(.*?\)/g, '')
+        .replace(/y\/y|m\/m|q\/q/gi, '')
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+      const normDate = (item.date || '')
+        .toLowerCase()
+        .replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu/gi, '')
+        .replace(/juai|julai/gi, 'jul')
+        .replace(/ogos/gi, 'ogo')
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+      const key = `${normEvent}_${normDate}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(item);
+      }
+    }
+    return result;
+  }, [newsList]);
+
   // Filter list by impact (strictly MEDIUM & HIGH ONLY) and time
-  const timeFilteredList = newsList.filter(n => {
+  const timeFilteredList = deduplicatedNewsList.filter(n => {
     const imp = (n.impact || 'HIGH').toUpperCase();
     const isMedOrHigh = imp.includes('HIGH') || imp.includes('MED');
     // Exclude LOW impact items

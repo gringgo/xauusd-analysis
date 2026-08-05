@@ -103,7 +103,11 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
       if (!item) continue;
       const normEvent = (item.event || '')
         .toLowerCase()
-        .replace(/\(jul\)|\(jun\)|\(q2\)|\(mom\)|\(yoy\)|\(qoq\)|y\/y|m\/m|q\/q/gi, '')
+        .replace(/\(usd\)/gi, '')
+        .replace(/non-farm|nonfarm/gi, '')
+        .replace(/flash|final|services/gi, '')
+        .replace(/\(.*?\)/g, '')
+        .replace(/y\/y|m\/m|q\/q/gi, '')
         .replace(/[^a-z0-9]/g, '')
         .trim();
       const normDate = (item.date || '')
