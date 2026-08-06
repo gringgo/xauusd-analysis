@@ -7,7 +7,7 @@ import {
   Layers, 
   Ruler, 
   Droplets, 
-  History, 
+  HistoryIcon, 
   AlertTriangle, 
   Menu, 
   X, 
@@ -97,7 +97,7 @@ export const NAV_SECTIONS: NavSection[] = [
     id: 'sec-signal-history',
     label: 'Rekod Signal Aktif & Lalu',
     category: 'SIGNAL TRACKING',
-    icon: <History className="w-4.5 h-4.5 text-green-400" />,
+    icon: <HistoryIcon className="w-4.5 h-4.5 text-green-400" />,
     badge: 'SIGNALS',
     badgeColor: 'bg-green-500/20 text-green-400 border-green-500/30'
   },
@@ -105,7 +105,7 @@ export const NAV_SECTIONS: NavSection[] = [
     id: 'sec-news-history',
     label: 'Rekod Impak News Past',
     category: 'LOG HISTORIKAL',
-    icon: <History className="w-4.5 h-4.5 text-rose-400" />,
+    icon: <HistoryIcon className="w-4.5 h-4.5 text-rose-400" />,
     badge: 'LOG',
     badgeColor: 'bg-rose-500/20 text-rose-400 border-rose-500/30'
   },

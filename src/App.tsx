@@ -32,7 +32,7 @@ import {
   Smartphone,
   Copy,
   Activity,
-  History,
+  HistoryIcon,
   Download
 } from 'lucide-react';
 import { getLiveAnalysis, getNewsTradeSuggestion } from './liveData';
@@ -1766,7 +1766,7 @@ export default function App() {
                       }} 
                       className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 bg-[#1e1b10] text-[#ffcc00] border border-[#ffcc00]/60 px-3.5 py-2 rounded-lg font-bold text-xs hover:bg-[#ffcc00]/20 transition-all shadow-md hover:scale-105"
                     >
-                      <History className="w-4 h-4 text-[#ffcc00]" />
+                      <HistoryIcon className="w-4 h-4 text-[#ffcc00]" />
                       REKOD SIGNAL ({signals.length})
                     </button>
 

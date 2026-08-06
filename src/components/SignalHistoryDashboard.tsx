@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { History, TrendingUp, TrendingDown, Target, ShieldAlert, Trash2, Filter, Trophy, CheckCircle2, XCircle, PieChart, Calendar, Clock } from 'lucide-react';
+import { HistoryIcon, TrendingUp, TrendingDown, Target, ShieldAlert, Trash2, Filter, Trophy, CheckCircle2, XCircle, PieChart, Calendar, Clock } from 'lucide-react';
 import { SignalRecord, getSignalWinRate } from '../lib/signalStore';
 
 const isTodayMYT = (timestamp: number) => {
@@ -99,7 +99,7 @@ export const SignalHistoryDashboard = ({
     <div className="mt-6 border border-gray-800 rounded-xl bg-[#0a0a0a] shadow-xl overflow-hidden">
       <div className="border-b border-gray-800 bg-gradient-to-r from-[#111] via-[#1a1a1a] to-[#111] px-4 py-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <History className="w-5 h-5 text-gray-400" />
+          <HistoryIcon className="w-5 h-5 text-gray-400" />
           <h2 className="text-sm font-black text-white tracking-wide flex items-center gap-2 flex-wrap">
             REKOD SIGNAL AKTIF / LALU
             {completedCount > 0 && (
@@ -258,7 +258,7 @@ export const SignalHistoryDashboard = ({
                 : 'bg-[#1a1a1a] text-gray-400 border border-gray-800 hover:text-white hover:bg-gray-800'
             }`}
           >
-            <History className="w-3.5 h-3.5 text-emerald-400" />
+            <HistoryIcon className="w-3.5 h-3.5 text-emerald-400" />
             SEMUA SELESAI
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
               statusFilter === 'COMPLETED' ? 'bg-emerald-500/30 text-emerald-300' : 'bg-gray-800 text-gray-400'
@@ -323,7 +323,7 @@ export const SignalHistoryDashboard = ({
       <div>
         {filteredSignals.length === 0 ? (
           <div className="p-8 text-center text-gray-400 text-xs flex flex-col items-center justify-center gap-2 bg-[#0a0a0a]">
-            <History className="w-8 h-8 text-gray-600 opacity-60 mb-1" />
+            <HistoryIcon className="w-8 h-8 text-gray-600 opacity-60 mb-1" />
             <p className="font-bold text-gray-300">
               {statusFilter === 'COMPLETED'
                 ? 'Tiada rekod signal yang selesai (Hit TP/SL).'

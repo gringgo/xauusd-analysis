@@ -1494,6 +1494,11 @@ async function backgroundWeeklySync() {
 
     if (!apiUrl || !apiKey || !instanceName || !toNumber) return;
 
+    if (!apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
+      console.error("WhatsApp Error: EVOLUTION_API_URL is invalid. It must start with http:// or https://. Current value:", apiUrl);
+      return;
+    }
+
     const emoji = signal.direction === 'BUY' ? '🟢' : '🔴';
     const entryPriceVal = signal.entryPrice ? Number(signal.entryPrice).toFixed(2) : '-';
     const patternVal = signal.candlePattern || (signal.direction === 'BUY' ? 'Bullish Engulfing & Rejection Wick (M5-M15)' : 'Bearish Engulfing & Rejection Wick (M5-M15)');
