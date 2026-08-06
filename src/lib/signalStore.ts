@@ -10,6 +10,7 @@ export interface SignalRecord {
   tp: number;
   sl: number;
   winRate?: number;
+  candlePattern?: string;
   timestamp: number;
   status: 'ACTIVE' | 'TP_HIT' | 'SL_HIT';
 }
@@ -83,11 +84,13 @@ export function useSignals(currentPrice: number) {
       if (isDuplicate) return;
 
       try {
+        const calculatedWinRate = newSignal.winRate || getSignalWinRate(newSignal);
         const response = await fetch('/api/signals', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...newSignal,
+            winRate: calculatedWinRate,
             timestamp: now,
             status: 'ACTIVE'
           })

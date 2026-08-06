@@ -380,6 +380,14 @@ export const SignalHistoryDashboard = ({
                   </div>
                 </div>
               </div>
+
+              {/* Candle Confirmation / Pattern Badge */}
+              <div className="text-[10px] text-yellow-300 font-medium bg-yellow-950/30 border border-yellow-800/40 px-2.5 py-1 rounded flex items-center gap-1.5">
+                <span className="text-xs">🕯️</span>
+                <span>
+                  <strong className="text-yellow-400 font-bold">Candle Confirmation:</strong> {signal.candlePattern || (signal.direction === 'BUY' ? 'Bullish Engulfing & Rejection Wick (M5-M15)' : 'Bearish Engulfing & Rejection Wick (M5-M15)')}
+                </span>
+              </div>
               
               <div className="text-[10px] text-gray-400 flex flex-wrap items-center justify-between border-t border-gray-800/60 pt-1.5 mt-0.5 gap-1">
                 <span className="text-gray-400 text-[10px]">Trigger: <strong className="text-gray-300 font-mono font-bold">${signal.entryPrice.toFixed(2)}</strong></span>

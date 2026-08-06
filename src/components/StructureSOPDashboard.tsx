@@ -34,6 +34,7 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
               direction: isSBR ? 'SELL' : 'BUY',
               entryRange: setup.price,
               entryPrice: currentPrice,
+              candlePattern: isSBR ? 'Bearish Rejection Wick & SBR Breakout Retest' : 'Bullish Rejection Wick & RBS Breakout Retest',
               tp: isSBR ? setupPrice - 5 : setupPrice + 5,
               sl: isSBR ? setupPrice + 5 : setupPrice - 5
             });

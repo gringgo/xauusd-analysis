@@ -9,6 +9,7 @@ export const signals = pgTable("signals", {
   entryPrice: real("entry_price").notNull(),
   tp: real("tp").notNull(),
   sl: real("sl").notNull(),
+  candlePattern: varchar("candle_pattern", { length: 100 }),
   status: varchar("status", { length: 50 }).notNull().default('ACTIVE'), // ACTIVE, TP_HIT, SL_HIT
   signalTimestamp: timestamp("signal_timestamp").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

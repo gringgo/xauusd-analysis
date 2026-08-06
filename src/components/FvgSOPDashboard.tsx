@@ -30,6 +30,7 @@ export const FvgSOPDashboard = ({ fvgData, currentPrice }: { fvgData: any, curre
             direction: isBuy ? 'BUY' : 'SELL',
             entryRange: setup.range,
             entryPrice: currentPrice,
+            candlePattern: isBuy ? 'Bullish Rejection Wick & Imbalance Fill (M5-M15)' : 'Bearish Rejection Wick & Imbalance Fill (M5-M15)',
             tp: isBuy ? topPrice + 5 : bottomPrice - 5,
             sl: isBuy ? bottomPrice - 5 : topPrice + 5
           });

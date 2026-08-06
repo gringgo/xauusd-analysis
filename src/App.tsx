@@ -1363,45 +1363,19 @@ export default function App() {
     if (!data || !data.currentPrice) return;
     
     const p = data.currentPrice;
-    const checkZone = async (zoneData: any, name: string) => {
+    const checkZone = (zoneData: any, name: string) => {
       if (!zoneData) return;
       const margin = 2; // threshold
       
-      const { top, bottom, direction, winRate } = zoneData;
+      const { top, bottom } = zoneData;
       if (p >= bottom - margin && p <= top + margin) {
          if (!notifiedZones.has(name)) {
-            const isBuy = direction === "BULLISH";
-            const trigger = isBuy ? "BUY 🟢" : "SELL 🔴";
-            const sl = isBuy ? (bottom - 5) : (top + 5);
-            const tp = isBuy ? (top + 10) : (bottom - 10);
-            
-            let messageStr = `🚨 <b>Amaran Harga XAUUSD</b> 🚨\n\n`;
-            messageStr += `🔹 <b>Jenis Signal:</b> ${name}\n`;
-            messageStr += `🔹 <b>Trigger:</b> ${trigger}\n`;
-            messageStr += `🔹 <b>Entry Zone:</b> ${bottom.toFixed(2)} - ${top.toFixed(2)}\n`;
-            messageStr += `🔹 <b>TP:</b> ${tp.toFixed(2)}\n`;
-            messageStr += `🔹 <b>SL:</b> ${sl.toFixed(2)}\n`;
-            messageStr += `🔹 <b>Winrate:</b> ${winRate || '80'}%\n\n`;
-            messageStr += `<i>Harga semasa (${p.toFixed(2)}) hampir masuk ke zon!</i>`;
-            
-            // Browser Notification
+            // Browser Local Notification only (if granted)
             if ("Notification" in window && Notification.permission === "granted") {
-              new Notification(`Amaran Harga XAUUSD`, {
-                 body: `Harga semasa (${p.toFixed(2)}) hampir masuk ke zon ${name}`,
+              new Notification(`Zon ${name}`, {
+                 body: `Harga semasa (${p.toFixed(2)}) berada di zon ${name} (${bottom.toFixed(2)} - ${top.toFixed(2)})`,
               });
             }
-
-            // Telegram Notification
-            try {
-              await fetch('/api/telegram-alert', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: messageStr })
-              });
-            } catch (err) {
-              console.error("Failed to send telegram alert", err);
-            }
-
             setNotifiedZones(prev => new Set(prev).add(name));
          }
       }
