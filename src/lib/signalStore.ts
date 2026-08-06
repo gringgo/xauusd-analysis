@@ -109,16 +109,18 @@ export function useSignals(currentPrice: number) {
       const newSignal = customEvent.detail;
       
       const now = Date.now();
+      const todayDateStr = new Date(now).toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
       
-      // Prevent duplicates: Only block if an ACTIVE signal already exists for this zone
-      const activeZoneSignals = signals.filter(s => 
-        s.status === 'ACTIVE' &&
-        s.type === newSignal.type && 
-        s.direction === newSignal.direction &&
-        s.entryRange === newSignal.entryRange
-      );
+      // Prevent duplicates: Only 1 signal per day for the same zone (regardless of status)
+      const duplicateTodaySignals = signals.filter(s => {
+        const signalDateStr = new Date(s.timestamp || now).toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+        return signalDateStr === todayDateStr &&
+               s.type === newSignal.type && 
+               s.direction === newSignal.direction &&
+               s.entryRange === newSignal.entryRange;
+      });
       
-      if (activeZoneSignals.length >= 1) return;
+      if (duplicateTodaySignals.length >= 1) return;
 
       try {
         const calculatedWinRate = newSignal.winRate || getSignalWinRate(newSignal);
