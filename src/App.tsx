@@ -31,12 +31,13 @@ import {
   X,
   Smartphone,
   Copy,
-  Activity
+  Activity,
+  History,
+  Download
 } from 'lucide-react';
 import { getLiveAnalysis, getNewsTradeSuggestion } from './liveData';
 import { LightweightChart } from "./components/LightweightChart";
 import * as htmlToImage from 'html-to-image';
-import { Download } from 'lucide-react';
 
 
 
@@ -1754,6 +1755,21 @@ export default function App() {
                   </div>
                   
                   <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                    <button 
+                      onClick={() => { 
+                        setActiveSection('sec-signal-history'); 
+                        setViewMode('ALL'); 
+                        setTimeout(() => {
+                          const el = document.getElementById('sec-signal-history'); 
+                          if (el) el.scrollIntoView({ behavior: 'smooth' }); 
+                        }, 50);
+                      }} 
+                      className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 bg-[#1e1b10] text-[#ffcc00] border border-[#ffcc00]/60 px-3.5 py-2 rounded-lg font-bold text-xs hover:bg-[#ffcc00]/20 transition-all shadow-md hover:scale-105"
+                    >
+                      <History className="w-4 h-4 text-[#ffcc00]" />
+                      REKOD SIGNAL ({signals.length})
+                    </button>
+
                     <button onClick={() => setShowJournal(true)} className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 bg-[#111] text-[#ffcc00] border border-[#b49a45]/50 px-4 py-2 rounded-lg font-bold text-xs hover:bg-[#b49a45]/20 transition-all">
                       <BookOpen className="w-4 h-4" />
                       JURNAL

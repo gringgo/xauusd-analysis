@@ -18,19 +18,19 @@ export const SignalHistoryDashboard = ({
   signals: SignalRecord[];
   clearSignals: () => void;
 }) => {
-  const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'COMPLETED' | 'ALL'>('COMPLETED');
+  const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'COMPLETED' | 'TODAY' | 'ALL'>('ALL');
   const [activeTab, setActiveTab] = useState<string>('ALL');
-
-  if (signals.length === 0) return null;
 
   const uniqueTypes = Array.from(new Set(signals.map(s => s.type)));
 
   // Filter by status first, then by SOP type
   const statusFiltered = statusFilter === 'ALL' 
-    ? signals.filter(s => s.status === 'TP_HIT' || s.status === 'SL_HIT') // ALL COMPLETED
+    ? signals
     : statusFilter === 'ACTIVE' 
       ? signals.filter(s => s.status === 'ACTIVE') 
-      : signals.filter(s => (s.status === 'TP_HIT' || s.status === 'SL_HIT') && isTodayMYT(s.timestamp)); // COMPLETED TODAY
+      : statusFilter === 'COMPLETED'
+        ? signals.filter(s => s.status === 'TP_HIT' || s.status === 'SL_HIT')
+        : signals.filter(s => (s.status === 'TP_HIT' || s.status === 'SL_HIT') && isTodayMYT(s.timestamp));
 
   const filteredSignals = activeTab === 'ALL' 
     ? statusFiltered 
@@ -215,11 +215,27 @@ export const SignalHistoryDashboard = ({
       )}
 
       {/* MAIN STATUS CATEGORY TABS */}
-      <div className="bg-[#121212] border-b border-gray-800 p-2 flex items-center justify-between gap-2 overflow-x-auto custom-scrollbar">
-        <div className="flex items-center gap-1.5 w-full">
+      <div className="bg-[#121212] border-b border-gray-800 p-2 flex items-center justify-between gap-1.5 overflow-x-auto custom-scrollbar">
+        <div className="flex items-center gap-1.5 w-full min-w-[500px]">
+          <button
+            onClick={() => setStatusFilter('ALL')}
+            className={`py-2 px-3 rounded-lg text-xs font-black flex items-center justify-center gap-1.5 transition-all whitespace-nowrap ${
+              statusFilter === 'ALL'
+                ? 'bg-[#ffcc00] text-black border border-[#ffcc00] shadow-md'
+                : 'bg-[#1a1a1a] text-gray-400 border border-gray-800 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            SEMUA REKOD
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+              statusFilter === 'ALL' ? 'bg-black/30 text-black' : 'bg-gray-800 text-gray-400'
+            }`}>
+              {totalCount}
+            </span>
+          </button>
+
           <button
             onClick={() => setStatusFilter('ACTIVE')}
-            className={`flex-1 py-2 px-3 rounded-lg text-xs font-black flex items-center justify-center gap-2 transition-all ${
+            className={`py-2 px-3 rounded-lg text-xs font-black flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
               statusFilter === 'ACTIVE'
                 ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 shadow-md'
                 : 'bg-[#1a1a1a] text-gray-400 border border-gray-800 hover:text-white hover:bg-gray-800'
@@ -236,34 +252,35 @@ export const SignalHistoryDashboard = ({
 
           <button
             onClick={() => setStatusFilter('COMPLETED')}
-            className={`flex-1 py-2 px-3 rounded-lg text-xs font-black flex items-center justify-center gap-2 transition-all ${
+            className={`py-2 px-3 rounded-lg text-xs font-black flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
               statusFilter === 'COMPLETED'
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 shadow-md'
                 : 'bg-[#1a1a1a] text-gray-400 border border-gray-800 hover:text-white hover:bg-gray-800'
             }`}
           >
             <History className="w-3.5 h-3.5 text-emerald-400" />
-            REKOD LALU (SELESAI HARI INI)
+            SEMUA SELESAI
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
               statusFilter === 'COMPLETED' ? 'bg-emerald-500/30 text-emerald-300' : 'bg-gray-800 text-gray-400'
             }`}>
-              {todayCompletedCount}
+              {allCompletedCount}
             </span>
           </button>
 
           <button
-            onClick={() => setStatusFilter('ALL')}
-            className={`py-2 px-3 rounded-lg text-xs font-black flex items-center justify-center gap-1.5 transition-all ${
-              statusFilter === 'ALL'
-                ? 'bg-[#ffcc00] text-black border border-[#ffcc00] shadow-md'
+            onClick={() => setStatusFilter('TODAY')}
+            className={`py-2 px-3 rounded-lg text-xs font-black flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
+              statusFilter === 'TODAY'
+                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50 shadow-md'
                 : 'bg-[#1a1a1a] text-gray-400 border border-gray-800 hover:text-white hover:bg-gray-800'
             }`}
           >
-            SEMUA REKOD
+            <Calendar className="w-3.5 h-3.5 text-blue-400" />
+            SELESAI HARI INI
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
-              statusFilter === 'ALL' ? 'bg-black/30 text-black' : 'bg-gray-800 text-gray-400'
+              statusFilter === 'TODAY' ? 'bg-blue-500/30 text-blue-300' : 'bg-gray-800 text-gray-400'
             }`}>
-              {allCompletedCount}
+              {todayCompletedCount}
             </span>
           </button>
         </div>
@@ -305,13 +322,19 @@ export const SignalHistoryDashboard = ({
 
       <div>
         {filteredSignals.length === 0 ? (
-          <div className="p-6 text-center text-gray-400 text-xs flex flex-col items-center justify-center gap-2">
-            <p>
+          <div className="p-8 text-center text-gray-400 text-xs flex flex-col items-center justify-center gap-2 bg-[#0a0a0a]">
+            <History className="w-8 h-8 text-gray-600 opacity-60 mb-1" />
+            <p className="font-bold text-gray-300">
               {statusFilter === 'COMPLETED'
-                ? 'Tiada rekod signal yang selesai (Hit TP/SL) untuk Hari Ini.'
+                ? 'Tiada rekod signal yang selesai (Hit TP/SL).'
+                : statusFilter === 'TODAY'
+                ? 'Tiada rekod signal yang selesai untuk Hari Ini.'
                 : statusFilter === 'ACTIVE'
-                ? 'Tiada signal aktif yang pending.'
-                : 'Tiada rekod signal ditemui untuk tapisan ini.'}
+                ? 'Tiada signal aktif yang pending buat masa ini.'
+                : 'Tiada sebarang rekod signal lagi.'}
+            </p>
+            <p className="text-[11px] text-gray-500 max-w-sm">
+              Signal baru akan dijana dan direkodkan secara automatik sebaik sahaja harga semasa melepasi syarat SOP (Order Block, FVG, Zon Kebenaran Zeus, Structure).
             </p>
           </div>
         ) : (

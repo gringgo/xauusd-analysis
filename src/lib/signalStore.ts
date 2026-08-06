@@ -46,23 +46,62 @@ export const dispatchNewSignal = (signal: Omit<SignalRecord, 'id' | 'timestamp' 
 };
 
 export function useSignals(currentPrice: number) {
-  const [signals, setSignals] = useState<SignalRecord[]>([]);
+  const [signals, setSignals] = useState<SignalRecord[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem('xauusd_signal_history_backup');
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {
+        console.error("Failed to load local signals", e);
+      }
+    }
+    return [];
+  });
 
-  // Fetch initial signals
+  // Fetch initial signals from backend and merge with local storage
   useEffect(() => {
     fetch('/api/signals')
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setSignals(data.map((d: any) => ({
+          const serverSignals = data.map((d: any) => ({
             ...d,
             timeframe: (d.timeframe || '').includes('undefined') ? 'CONFLUENCE TIMEFRAME' : d.timeframe,
             timestamp: new Date(d.signalTimestamp).getTime()
-          })));
+          }));
+
+          setSignals(prev => {
+            const map = new Map<string, SignalRecord>();
+            // Add server signals
+            serverSignals.forEach(s => map.set(String(s.id), s));
+            // Add local signals if not in server
+            prev.forEach(s => {
+              if (!map.has(String(s.id))) {
+                map.set(String(s.id), s);
+              }
+            });
+            const merged = Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp);
+            try {
+              localStorage.setItem('xauusd_signal_history_backup', JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
         }
       })
       .catch(console.error);
   }, []);
+
+  // Sync to local storage whenever signals change
+  useEffect(() => {
+    if (signals.length > 0 && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('xauusd_signal_history_backup', JSON.stringify(signals));
+      } catch (e) {}
+    }
+  }, [signals]);
 
   useEffect(() => {
     const handleNewSignal = async (e: Event) => {
@@ -70,18 +109,16 @@ export function useSignals(currentPrice: number) {
       const newSignal = customEvent.detail;
       
       const now = Date.now();
-      const fourHours = 4 * 60 * 60 * 1000;
       
-      // Prevent duplicates: Maximum 1 signal per zone
-      const sameZoneSignals = signals.filter(s => 
+      // Prevent duplicates: Only block if an ACTIVE signal already exists for this zone
+      const activeZoneSignals = signals.filter(s => 
+        s.status === 'ACTIVE' &&
         s.type === newSignal.type && 
         s.direction === newSignal.direction &&
         s.entryRange === newSignal.entryRange
       );
       
-      const isDuplicate = sameZoneSignals.length >= 1;
-
-      if (isDuplicate) return;
+      if (activeZoneSignals.length >= 1) return;
 
       try {
         const calculatedWinRate = newSignal.winRate || getSignalWinRate(newSignal);
@@ -100,11 +137,15 @@ export function useSignals(currentPrice: number) {
           const inserted = await response.json();
           setSignals(prev => {
             if (prev.some(p => p.id === inserted.id)) return prev;
-            return [{
+            const updated = [{
               ...inserted,
               timeframe: (inserted.timeframe || '').includes('undefined') ? 'CONFLUENCE TIMEFRAME' : inserted.timeframe,
               timestamp: new Date(inserted.signalTimestamp).getTime()
             }, ...prev];
+            try {
+              localStorage.setItem('xauusd_signal_history_backup', JSON.stringify(updated));
+            } catch (e) {}
+            return updated;
           });
         }
       } catch (err) {
@@ -156,6 +197,9 @@ export function useSignals(currentPrice: number) {
     try {
       await fetch('/api/signals', { method: 'DELETE' });
       setSignals([]);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('xauusd_signal_history_backup');
+      }
     } catch (err) {
       console.error(err);
     }
