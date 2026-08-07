@@ -1178,27 +1178,35 @@ async function backgroundWeeklySync() {
   app.get("/api/klines", async (req, res) => {
     try {
       const interval = req.query.interval || "1d";
-      const endAt = req.query.endAt;
-      const startAt = req.query.startAt;
-      // We will map interval to kucoin type
-      // Binance intervals: 1d, 4h, 1h
-      // Kucoin types: 1day, 4hour, 1hour
-      let type = "1day";
-      if (interval === "4h") type = "4hour";
-      if (interval === "1h") type = "1hour";
-      if (interval === "5m") type = "5min";
-      if (interval === "15m") type = "15min";
+      const binanceInterval = interval;
+      const endAtSec = req.query.endAt ? parseInt(req.query.endAt as string) : null;
+      const startAtSec = req.query.startAt ? parseInt(req.query.startAt as string) : null;
       
-      let url = `https://api.kucoin.com/api/v1/market/candles?type=${type}&symbol=PAXG-USDT`;
-      if (startAt) url += `&startAt=${startAt}`;
-      if (endAt) url += `&endAt=${endAt}`;
+      let url = `https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval=${binanceInterval}&limit=500`;
+      if (startAtSec) url += `&startTime=${startAtSec * 1000}`;
+      if (endAtSec) url += `&endTime=${endAtSec * 1000}`;
+      
       console.log("Fetching URL:", url);
       const response = await fetch(url);
       if (!response.ok) {
-        return res.status(response.status).json({ error: "Failed to fetch from KuCoin" });
+        return res.status(response.status).json({ error: "Failed to fetch from Binance" });
       }
-      const data = await response.json();
-      res.json(data);
+      
+      const binanceData = await response.json();
+      
+      // Convert Binance to Kucoin expected format: [timeInSec, open, close, high, low, volume, turnover]
+      // Kucoin returns newest first, so reverse the Binance array.
+      const kucoinFormatData = binanceData.map((d: any) => [
+        (Math.floor(d[0] / 1000)).toString(),
+        d[1],
+        d[4],
+        d[2],
+        d[3],
+        d[5],
+        "0"
+      ]).reverse();
+      
+      res.json({ code: "200000", data: kucoinFormatData });
     } catch (e: any) {
       res.status(500).json({ error: getFriendlyErrorMessage(e) });
     }

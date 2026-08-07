@@ -207,13 +207,13 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
       {/* Sidebar Container (Desktop Sticky Sidebar + Mobile Drawer) */}
       <aside
         className={`
-          fixed lg:sticky top-0 lg:top-4 left-0 z-50 lg:z-10 h-screen lg:h-[calc(100vh-2rem)]
+          fixed lg:static top-0 lg:top-0 left-0 z-50 lg:z-10 h-screen lg:h-auto
           bg-[#080808] border-r lg:border border-[#b49a45]/30 lg:rounded-2xl
-          flex flex-col justify-between shadow-[0_0_30px_rgba(0,0,0,0.8)]
+          flex flex-col shadow-[0_0_30px_rgba(0,0,0,0.8)]
           transition-all duration-300 ease-in-out
           ${mobileMenuOpen ? 'translate-x-0 w-80' : '-translate-x-full lg:translate-x-0'}
           ${isCollapsed ? 'lg:w-20' : 'lg:w-72 xl:w-80'}
-          shrink-0 overflow-hidden
+          shrink-0 overflow-hidden lg:overflow-visible
         `}
       >
         {/* Sidebar Header */}
@@ -317,7 +317,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
         )}
 
         {/* Navigation Section Links */}
-        <div className="flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-2.5 py-1.5 space-y-1">
+        <div className="flex-1 overflow-y-auto lg:overflow-visible [scrollbar-width:none] [-ms-overflow-style:none] [flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-2.5 py-1.5 space-y-1::-webkit-scrollbar]:hidden px-2.5 py-1.5 space-y-1">
           {NAV_SECTIONS.map((sec) => {
             const isActive = activeSection === sec.id;
 
