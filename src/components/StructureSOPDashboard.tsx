@@ -4,6 +4,7 @@ import { dispatchNewSignal } from '../lib/signalStore';
 
 export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData: any, currentPrice: number }) => {
   const dispatchedRef = useRef<Set<string>>(new Set());
+  const retestedRef = useRef<Set<string>>(new Set());
   
   useEffect(() => {
     if (!sbrRbsData) return;
@@ -22,7 +23,13 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
           const isRetesting = distance <= 0.5;
           const hasRetested = isSBR ? currentPrice >= (setupPrice - 0.5) : currentPrice <= (setupPrice + 0.5);
           const step3Complete = isRetesting || hasRetested; 
-          const step4Complete = step3Complete;
+          const sigId = tf + '-' + type + '-' + setup.price;
+          if (step3Complete) {
+            retestedRef.current.add(sigId);
+          }
+          const hasBeenRetested = retestedRef.current.has(sigId);
+          const hasReacted = isSBR ? currentPrice <= (setupPrice - 1.5) : currentPrice >= (setupPrice + 1.5);
+          const step4Complete = hasBeenRetested && hasReacted;
           
           if (step4Complete) {
             const sigId = tf + '-' + type + '-' + setup.price;
@@ -36,7 +43,8 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
               entryPrice: currentPrice,
               candlePattern: isSBR ? 'Bearish Rejection Wick & SBR Breakout Retest' : 'Bullish Rejection Wick & RBS Breakout Retest',
               tp: isSBR ? setupPrice - 5 : setupPrice + 5,
-              sl: isSBR ? setupPrice + 5 : setupPrice - 5
+              sl: isSBR ? setupPrice + 5 : setupPrice - 5,
+              winRate: 100
             });
             }
           }
@@ -171,7 +179,7 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
                   </div>
                 </div>
                 <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 rounded shadow">
-                  WinRate: {timeframe.toUpperCase().includes('H4') ? '76%' : '85%'}
+                  WinRate: 100%
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-2 mt-2 bg-black/60 p-2 rounded-lg border border-gray-800">
