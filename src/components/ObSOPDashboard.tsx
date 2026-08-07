@@ -15,8 +15,9 @@ export const ObSOPDashboard = ({ orderBlockData, currentPrice }: { orderBlockDat
         const topPrice = parseFloat(setup.top);
         const bottomPrice = parseFloat(setup.bottom);
         
-        const isInsideZone = currentPrice <= topPrice && currentPrice >= bottomPrice;
-        const hasRetested = isBuy ? currentPrice <= topPrice : currentPrice >= bottomPrice;
+        const optimalEntry = isBuy ? bottomPrice : topPrice;
+        const isInsideZone = Math.abs(currentPrice - optimalEntry) <= 1.0;
+        const hasRetested = isBuy ? currentPrice <= (optimalEntry + 0.5) : currentPrice >= (optimalEntry - 0.5);
         const step2Complete = isInsideZone || hasRetested;
         const step3Complete = step2Complete;
         
@@ -53,8 +54,9 @@ export const ObSOPDashboard = ({ orderBlockData, currentPrice }: { orderBlockDat
     const step1Complete = true; 
 
     // Step 2: Harga Masuk Zon OB (Retest)
-    const isInsideZone = currentPrice <= topPrice && currentPrice >= bottomPrice;
-    const hasRetested = isBuy ? currentPrice <= topPrice : currentPrice >= bottomPrice; // Once it touches
+    const optimalEntry = isBuy ? bottomPrice : topPrice;
+        const isInsideZone = Math.abs(currentPrice - optimalEntry) <= 1.0;
+    const hasRetested = isBuy ? currentPrice <= (optimalEntry + 0.5) : currentPrice >= (optimalEntry - 0.5); // Once it touches
     const step2Complete = isInsideZone || hasRetested;
     
     // Step 3: Confirmation (Signal)

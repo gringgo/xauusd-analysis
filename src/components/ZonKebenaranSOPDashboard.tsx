@@ -13,8 +13,9 @@ export const ZonKebenaranSOPDashboard = ({ zones, currentPrice }: { zones: any[]
       const topPrice = parseFloat(setup.top);
       const bottomPrice = parseFloat(setup.bottom);
       
-      const isInsideZone = currentPrice <= topPrice && currentPrice >= bottomPrice;
-      const hasRetested = isBuy ? currentPrice <= topPrice : currentPrice >= bottomPrice;
+      const optimalEntry = isBuy ? bottomPrice : topPrice;
+        const isInsideZone = Math.abs(currentPrice - optimalEntry) <= 1.0;
+      const hasRetested = isBuy ? currentPrice <= (optimalEntry + 0.5) : currentPrice >= (optimalEntry - 0.5);
       const step2Complete = isInsideZone || hasRetested;
       const step3Complete = step2Complete;
       
@@ -30,7 +31,7 @@ export const ZonKebenaranSOPDashboard = ({ zones, currentPrice }: { zones: any[]
           entryRange: setup.price,
           entryPrice: currentPrice,
           candlePattern: isBuy ? 'Bullish Pinbar Rejection & Confluence (M5-M15)' : 'Bearish Pinbar Rejection & Confluence (M5-M15)',
-          tp: isBuy ? topPrice + 7 : bottomPrice - 7,
+          tp: isBuy ? topPrice + 5 : bottomPrice - 5,
           sl: isBuy ? bottomPrice - 5 : topPrice + 5
         });
           }
@@ -49,8 +50,9 @@ export const ZonKebenaranSOPDashboard = ({ zones, currentPrice }: { zones: any[]
     const step1Complete = true; 
 
     // Step 2: Harga Masuk Zon Kebenaran (Retest)
-    const isInsideZone = currentPrice <= topPrice && currentPrice >= bottomPrice;
-    const hasRetested = isBuy ? currentPrice <= topPrice : currentPrice >= bottomPrice;
+    const optimalEntry = isBuy ? bottomPrice : topPrice;
+        const isInsideZone = Math.abs(currentPrice - optimalEntry) <= 1.0;
+    const hasRetested = isBuy ? currentPrice <= (optimalEntry + 0.5) : currentPrice >= (optimalEntry - 0.5);
     const step2Complete = isInsideZone || hasRetested;
     
     // Step 3: Confirmation (Signal)

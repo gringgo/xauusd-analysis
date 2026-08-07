@@ -1,5 +1,6 @@
 import { SbrRbsVisualDiagram } from './components/SbrRbsVisualDiagram';
 import { StructureSOPDashboard } from './components/StructureSOPDashboard';
+import { SnrBrnSetupModule } from './components/SnrBrnSetupModule';
 import { ObSOPDashboard } from './components/ObSOPDashboard';
 import { FvgSOPDashboard } from './components/FvgSOPDashboard';
 import { ZonKebenaranSOPDashboard } from './components/ZonKebenaranSOPDashboard';
@@ -1906,7 +1907,7 @@ export default function App() {
           </div>
 
           {/* RIGHT COLUMN (Analysis Panels) */}
-          <div className={`${viewMode === 'FOCUS' && !['sec-bias-plan', 'sec-ob-fvg', 'sec-sbr-rbs', 'sec-liquidity', 'sec-liquidity-bos'].includes(activeSection) ? 'hidden' : viewMode === 'FOCUS' ? 'col-span-12 flex flex-col gap-3 lg:gap-4' : 'lg:col-span-5 xl:col-span-4 flex flex-col gap-3 lg:gap-4'}`}>
+          <div className={`${viewMode === 'FOCUS' && !['sec-bias-plan', 'sec-snr-brn-setup', 'sec-ob-fvg', 'sec-sbr-rbs', 'sec-liquidity', 'sec-liquidity-bos'].includes(activeSection) ? 'hidden' : viewMode === 'FOCUS' ? 'col-span-12 flex flex-col gap-3 lg:gap-4' : 'lg:col-span-5 xl:col-span-4 flex flex-col gap-3 lg:gap-4'}`}>
             {(viewMode === 'ALL' || activeSection === 'sec-bias-plan') && (
               <div id="sec-bias-plan" className="scroll-mt-6 flex flex-col gap-3 lg:gap-4">
                 <SessionWarning />
@@ -2006,6 +2007,67 @@ export default function App() {
                     </div>
 
                     {/* H4 SBR */}
+                    {/* H8 SBR */}
+                    {data.sbr_rbs?.h8?.sbr ? (
+                      <div className="bg-gradient-to-r from-red-950/40 via-black to-[#0a0a0a] border border-red-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
+                        <div className="flex justify-between items-center flex-wrap gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-black bg-red-600 text-white px-2 py-0.5 rounded shadow">
+                              SELL
+                            </span>
+                            <span className="text-xs font-bold text-red-300">
+                              DBD / SBR (H8)
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
+                            WinRate: {data.sbr_rbs.h8.sbr.winRate}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-1">
+                          <span className="text-[11px] text-gray-400">Paras Entry SBR:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-extrabold text-sm text-white bg-black px-2 py-0.5 rounded border border-red-900/60">
+                              {data.sbr_rbs.h8.sbr.price}
+                            </span>
+                            <QuickCopyBtn text={data.sbr_rbs.h8.sbr.price} />
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-gray-400 italic">
+                          {data.sbr_rbs.h8.sbr.description || 'Support H8 tembus → bertukar jadi Resistance. Cari Rejection Sell.'}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {/* H8 RBS */}
+                    {data.sbr_rbs?.h8?.rbs ? (
+                      <div className="bg-gradient-to-r from-emerald-950/40 via-black to-[#0a0a0a] border border-emerald-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
+                        <div className="flex justify-between items-center flex-wrap gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-black bg-emerald-600 text-white px-2 py-0.5 rounded shadow">
+                              BUY
+                            </span>
+                            <span className="text-xs font-bold text-emerald-300">
+                              RBR / RBS (H8)
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
+                            WinRate: {data.sbr_rbs.h8.rbs.winRate}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-1">
+                          <span className="text-[11px] text-gray-400">Paras Entry RBS:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-extrabold text-sm text-white bg-black px-2 py-0.5 rounded border border-emerald-900/60">
+                              {data.sbr_rbs.h8.rbs.price}
+                            </span>
+                            <QuickCopyBtn text={data.sbr_rbs.h8.rbs.price} />
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-gray-400 italic">
+                          {data.sbr_rbs.h8.rbs.description || 'Resistance H8 tembus → bertukar jadi Support. Cari Rejection Buy.'}
+                        </p>
+                      </div>
+                    ) : null}
                     {data.sbr_rbs?.h4?.sbr ? (
                       <div className="bg-gradient-to-r from-red-950/40 via-black to-[#0a0a0a] border border-red-900/50 rounded-lg p-2.5 space-y-1.5 shadow-sm">
                         <div className="flex justify-between items-center flex-wrap gap-1">
@@ -2190,6 +2252,12 @@ export default function App() {
                 </div>
 
 
+              </div>
+            )}
+
+            {(viewMode === 'ALL' || activeSection === 'sec-snr-brn-setup') && (
+              <div id="sec-snr-brn-setup" className="scroll-mt-6 flex flex-col gap-3 lg:gap-4">
+                <SnrBrnSetupModule sbrRbsData={data.sbr_rbs} currentPrice={data.currentPrice} />
               </div>
             )}
 

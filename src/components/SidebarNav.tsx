@@ -17,7 +17,8 @@ import {
   Flame,
   CheckCircle2,
   Sparkles,
-  Camera
+  Camera,
+  ClipboardList
 } from 'lucide-react';
 
 export interface NavSection {
@@ -68,6 +69,14 @@ export const NAV_SECTIONS: NavSection[] = [
     icon: <Target className="w-4.5 h-4.5 text-emerald-400" />,
     badge: 'ENTRY',
     badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+  },
+  {
+    id: 'sec-snr-brn-setup',
+    label: 'Setup Trade SNR/BRN',
+    category: 'JURNAL SETUP',
+    icon: <ClipboardList className="w-4.5 h-4.5 text-orange-400" />,
+    badge: 'NEW',
+    badgeColor: 'bg-orange-500/20 text-orange-400 border-orange-500/30'
   },
   {
     id: 'sec-ob-fvg',

@@ -362,18 +362,23 @@ export const getWinRate = (price: number) => {
 };
 
 function findSBR_RBS(candles: any[], currentPrice: number) {
+  if (!candles || candles.length === 0) {
+    return { sbr: null, rbs: null };
+  }
+
   const swings: any[] = [];
-  for (let i = 2; i < candles.length - 2; i++) {
+  for (let i = 1; i < candles.length - 1; i++) {
     const c = candles[i];
-    const isHigh = c.high > candles[i-1].high && c.high > candles[i-2].high && c.high > candles[i+1].high && c.high > candles[i+2].high;
-    const isLow = c.low < candles[i-1].low && c.low < candles[i-2].low && c.low < candles[i+1].low && c.low < candles[i+2].low;
+    const isHigh = c.high >= candles[i-1].high && c.high >= candles[i+1].high;
+    const isLow = c.low <= candles[i-1].low && c.low <= candles[i+1].low;
     if (isHigh) swings.push({ type: 'HIGH', val: c.high, index: i });
     if (isLow) swings.push({ type: 'LOW', val: c.low, index: i });
   }
 
-  let sbr = null;
-  let rbs = null;
+  let sbrVal: number | null = null;
+  let rbsVal: number | null = null;
 
+  // Find SBR (Resistance / Sell zone): broken low or nearest high/resistance level
   const brokenLows = swings.filter(s => s.type === 'LOW').reverse();
   for (const low of brokenLows) {
     let broken = false;
@@ -383,12 +388,23 @@ function findSBR_RBS(candles: any[], currentPrice: number) {
         break;
       }
     }
-    if (broken && currentPrice <= low.val) {
-      sbr = low.val;
-      break;
+    if (broken) {
+      if (sbrVal === null || Math.abs(currentPrice - low.val) < Math.abs(currentPrice - sbrVal)) {
+        sbrVal = low.val;
+      }
     }
   }
 
+  if (!sbrVal) {
+    const highs = swings.filter(s => s.type === 'HIGH').map(s => s.val);
+    if (highs.length > 0) {
+      sbrVal = Math.max(...highs);
+    } else {
+      sbrVal = Math.max(...candles.map(c => c.high));
+    }
+  }
+
+  // Find RBS (Support / Buy zone): broken high or nearest low/support level
   const brokenHighs = swings.filter(s => s.type === 'HIGH').reverse();
   for (const high of brokenHighs) {
     let broken = false;
@@ -398,28 +414,38 @@ function findSBR_RBS(candles: any[], currentPrice: number) {
         break;
       }
     }
-    if (broken && currentPrice >= high.val) {
-      rbs = high.val;
-      break;
+    if (broken) {
+      if (rbsVal === null || Math.abs(currentPrice - high.val) < Math.abs(currentPrice - rbsVal)) {
+        rbsVal = high.val;
+      }
+    }
+  }
+
+  if (!rbsVal) {
+    const lows = swings.filter(s => s.type === 'LOW').map(s => s.val);
+    if (lows.length > 0) {
+      rbsVal = Math.min(...lows);
+    } else {
+      rbsVal = Math.min(...candles.map(c => c.low));
     }
   }
 
   return {
-    sbr: sbr ? { 
-      price: sbr.toFixed(2), 
-      winRate: getWinRate(sbr),
+    sbr: sbrVal ? { 
+      price: sbrVal.toFixed(2), 
+      winRate: getWinRate(sbrVal),
       type: 'DBD / SBR',
       pattern: 'Drop-Base-Drop (SBR)',
       signal: 'SELL',
-      description: 'Support lama tembus (Breakout Low) → Bertukar menjadi Resistance. ZON REFRESH SELL.'
+      description: 'Support/High tembus → Bertukar menjadi Resistance (Sell Zone).'
     } : null,
-    rbs: rbs ? { 
-      price: rbs.toFixed(2), 
-      winRate: getWinRate(rbs),
+    rbs: rbsVal ? { 
+      price: rbsVal.toFixed(2), 
+      winRate: getWinRate(rbsVal),
       type: 'RBR / RBS',
       pattern: 'Rally-Base-Rally (RBS)',
       signal: 'BUY',
-      description: 'Resistance lama tembus (Breakout High) → Bertukar menjadi Support. ZON REFRESH BUY.'
+      description: 'Resistance/Low tembus → Bertukar menjadi Support (Buy Zone).'
     } : null
   };
 }
@@ -616,11 +642,13 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
   const allM5 = parseCandles(m5RawData.reverse());
   const allH1 = parseCandles(h1RawData.reverse());
   const allH4 = aggregateCandles(allH1, 4, 22);
+  const allH8 = aggregateCandles(allH1, 8, 22);
   const allD1 = aggregateCandles(allH1, 24, 22);
 
   const m5 = allM5.slice(-100);
   const h1 = allH1.slice(-100);
   const h4 = allH4.slice(-100);
+  const h8 = allH8.slice(-100);
   const d1 = allD1.slice(-100);
 
   
@@ -813,6 +841,7 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
       ]
     };
     const computedSbrRbs = {
+      h8: findSBR_RBS(h8, currentPrice),
       h4: findSBR_RBS(h4, currentPrice),
       h1: findSBR_RBS(h1, currentPrice)
     };

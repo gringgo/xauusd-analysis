@@ -15,8 +15,9 @@ export const FvgSOPDashboard = ({ fvgData, currentPrice }: { fvgData: any, curre
         const topPrice = parseFloat(setup.top);
         const bottomPrice = parseFloat(setup.bottom);
         
-        const isInsideZone = currentPrice <= topPrice && currentPrice >= bottomPrice;
-        const hasRetested = isBuy ? currentPrice <= topPrice : currentPrice >= bottomPrice;
+        const optimalEntry = isBuy ? bottomPrice : topPrice;
+        const isInsideZone = Math.abs(currentPrice - optimalEntry) <= 1.0;
+        const hasRetested = isBuy ? currentPrice <= (optimalEntry + 0.5) : currentPrice >= (optimalEntry - 0.5);
         const step2Complete = isInsideZone || hasRetested;
         const step3Complete = step2Complete;
         
@@ -53,8 +54,9 @@ export const FvgSOPDashboard = ({ fvgData, currentPrice }: { fvgData: any, curre
     const step1Complete = true; 
 
     // Step 2: Harga Masuk Zon FVG (Fill Imbalance)
-    const isInsideZone = currentPrice <= topPrice && currentPrice >= bottomPrice;
-    const hasRetested = isBuy ? currentPrice <= topPrice : currentPrice >= bottomPrice; // Touched
+    const optimalEntry = isBuy ? bottomPrice : topPrice;
+        const isInsideZone = Math.abs(currentPrice - optimalEntry) <= 1.0;
+    const hasRetested = isBuy ? currentPrice <= (optimalEntry + 0.5) : currentPrice >= (optimalEntry - 0.5); // Touched
     const step2Complete = isInsideZone || hasRetested;
     
     // Step 3: Confirmation (Signal)

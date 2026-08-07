@@ -19,7 +19,7 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
           const isSBR = type === 'sbr';
           
           const distance = Math.abs(currentPrice - setupPrice);
-          const isRetesting = distance <= 2.5;
+          const isRetesting = distance <= 0.5;
           const hasRetested = isSBR ? currentPrice >= (setupPrice - 0.5) : currentPrice <= (setupPrice + 0.5);
           const step3Complete = isRetesting || hasRetested; 
           const step4Complete = step3Complete;
@@ -64,7 +64,7 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
     // Step 3: Retest
     // We consider retest complete if current price is within 2 points (20 pips) of the setup price, or if it has touched/crossed it slightly
     const distance = Math.abs(currentPrice - setupPrice);
-    const isRetesting = distance <= 2.5; 
+    const isRetesting = distance <= 0.5; 
     const hasRetested = isSBR ? currentPrice >= (setupPrice - 0.5) : currentPrice <= (setupPrice + 0.5);
     const step3Complete = isRetesting || hasRetested;
     
