@@ -8,8 +8,10 @@ interface ManualSetup {
   highPrice: number;
   direction: 'BUY' | 'SELL';
   strategy: 'REJECTION' | 'PULLBACK';
-  status: 'WAITING' | 'MONITORING' | 'TRIGGERED';
+  status: 'WAITING' | 'MONITORING' | 'REJECTION_DETECTED' | 'TRIGGERED';
   monitorStartTime?: number;
+  rejectionTime?: number;
+  rejectionCandleCloseTime?: number;
   extremePrice?: number;
   createdAt: number;
 }
@@ -70,35 +72,63 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
         
         let updatedSetup = { ...setup, extremePrice: newExtreme };
 
-        // Monitor for M1 or M5 candle rejection (at least 60 seconds)
-        if (setup.monitorStartTime && now - setup.monitorStartTime >= 60000) {
-          // Check for rejection: price bounced back from its extreme point by at least 0.5 points
-          const hasRejected = isBuy
-            ? currentPrice >= newExtreme + 0.5 // Rebound up from lowest point
-            : currentPrice <= newExtreme - 0.5; // Rebound down from highest point
+        // Check for rejection: price bounced back from its extreme point by at least 0.5 points
+        const hasRejected = isBuy
+          ? currentPrice >= newExtreme + 0.5 // Rebound up from lowest point
+          : currentPrice <= newExtreme - 0.5; // Rebound down from highest point
 
-          if (hasRejected) {
-            updated = true;
-            
-            // Dispatch signal
-            dispatchNewSignal({
-              type: `MANUAL ${setup.strategy}`,
-              timeframe: `M1/M5 (Candle Close)`,
-              direction: setup.direction,
-              entryRange: `${setup.lowPrice.toFixed(2)} - ${setup.highPrice.toFixed(2)}`,
-              entryPrice: isBuy ? setup.lowPrice : setup.highPrice,
-              triggerPrice: currentPrice,
-              tp: isBuy ? Number((setup.highPrice + 4.0).toFixed(2)) : Number((setup.lowPrice - 4.0).toFixed(2)),
-              sl: isBuy ? Number((setup.lowPrice - 5.0).toFixed(2)) : Number((setup.highPrice + 5.0).toFixed(2)),
-            });
-
-            return { ...updatedSetup, status: 'TRIGGERED' as const };
-          }
+        if (hasRejected) {
+          updated = true;
+          // Calculate when the current minute candle will close
+          const nextMinuteTop = Math.ceil(now / 60000) * 60000;
+          return { 
+            ...updatedSetup, 
+            status: 'REJECTION_DETECTED' as const, 
+            rejectionTime: now,
+            rejectionCandleCloseTime: nextMinuteTop
+          };
         }
         
         if (newExtreme !== setup.extremePrice) {
           updated = true;
           return updatedSetup;
+        }
+      } else if (setup.status === 'REJECTION_DETECTED') {
+        const currentExtreme = setup.extremePrice ?? currentPrice;
+        
+        // If price breaks the extreme, the rejection is invalidated
+        const invalidated = isBuy
+          ? currentPrice < currentExtreme
+          : currentPrice > currentExtreme;
+          
+        if (invalidated) {
+          updated = true;
+          return {
+            ...setup,
+            status: 'MONITORING' as const,
+            extremePrice: currentPrice,
+            rejectionTime: undefined,
+            rejectionCandleCloseTime: undefined
+          };
+        }
+        
+        // If we reached the candle close time, dispatch signal
+        if (setup.rejectionCandleCloseTime && now >= setup.rejectionCandleCloseTime) {
+          updated = true;
+          
+          // Dispatch signal
+          dispatchNewSignal({
+            type: `MANUAL ${setup.strategy}`,
+            timeframe: `M1/M5 (Candle Close)`,
+            direction: setup.direction,
+            entryRange: `${setup.lowPrice.toFixed(2)} - ${setup.highPrice.toFixed(2)}`,
+            entryPrice: isBuy ? setup.lowPrice : setup.highPrice,
+            triggerPrice: currentPrice,
+            tp: isBuy ? Number((setup.highPrice + 4.0).toFixed(2)) : Number((setup.lowPrice - 4.0).toFixed(2)),
+            sl: isBuy ? Number((setup.lowPrice - 5.0).toFixed(2)) : Number((setup.highPrice + 5.0).toFixed(2)),
+          });
+
+          return { ...setup, status: 'TRIGGERED' as const };
         }
       }
       return setup;
@@ -265,6 +295,11 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
                         )}
                         {setup.status === 'MONITORING' && (
                           <span className="text-[10px] font-bold text-blue-400 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center gap-1 animate-pulse">
+                            <Activity className="w-3 h-3" /> PANTAU REJECTION
+                          </span>
+                        )}
+                        {setup.status === 'REJECTION_DETECTED' && (
+                          <span className="text-[10px] font-bold text-amber-400 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center gap-1 animate-pulse">
                             <Activity className="w-3 h-3" /> TUNGGU CANDLE CLOSE
                           </span>
                         )}
