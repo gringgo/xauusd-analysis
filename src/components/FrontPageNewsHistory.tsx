@@ -97,40 +97,61 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
   // Deduplicate news list by event title and date
   const deduplicatedNewsList = React.useMemo(() => {
     if (!newsList || !Array.isArray(newsList)) return [];
-    const seen = new Set<string>();
-    const result: NewsItem[] = [];
+    const map = new Map<string, NewsItem>();
     for (const item of newsList) {
       if (!item) continue;
-      const normEvent = (item.event || '')
-        .toLowerCase()
-        .replace(/\(usd\)/gi, '')
-        .replace(/non-farm|nonfarm/gi, '')
-        .replace(/flash|final|services/gi, '')
-        .replace(/\(.*?\)/g, '')
-        .replace(/y\/y|m\/m|q\/q/gi, '')
-        .replace(/[^a-z0-9]/g, '')
-        .trim();
-      const normDate = (item.date || '')
-        .toLowerCase()
-        .replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu/gi, '')
-        .replace(/juai|julai/gi, 'jul')
-        .replace(/ogos/gi, 'ogo')
-        .replace(/\b0(\d)\b/g, '$1')
-        .replace(/[^a-z0-9]/g, '')
-        .trim();
-      const key = `${normEvent}_${normDate}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        result.push(item);
+      
+      let e = (item.event || '').toLowerCase();
+      e = e.replace(/^usd\s*-\s*/g, '').replace(/\(usd\)/g, '');
+      
+      if (e.includes('non-farm') || e.includes('nonfarm') || e.includes('nfp') || e.includes('employment change')) {
+        e = 'nfp';
+      } else if (e.includes('cpi') || e.includes('consumer price')) {
+        e = 'cpi';
+      } else if (e.includes('fomc') || e.includes('federal funds') || e.includes('fed interest') || e.includes('fomc statement')) {
+        e = 'fomc';
+      } else if (e.includes('ppi') || e.includes('producer price')) {
+        e = 'ppi';
+      } else if (e.includes('retail sales')) {
+        e = 'retailsales';
+      } else if (e.includes('unemployment rate')) {
+        e = 'unemploymentrate';
+      } else if (e.includes('gdp') || e.includes('gross domestic')) {
+        e = 'gdp';
+      } else {
+        e = e.replace(/\(.*?\)/g, '')
+             .replace(/flash|final|services|y\/y|m\/m|q\/q/gi, '')
+             .replace(/[^a-z0-9]/g, '')
+             .trim();
+      }
+
+      let d = (item.date || '').toLowerCase();
+      d = d.replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu/gi, '');
+      d = d.replace(/januari/g, 'jan').replace(/februari/g, 'feb').replace(/mac/g, 'mar')
+           .replace(/april/g, 'apr').replace(/mei/g, 'may').replace(/juni/g, 'jun')
+           .replace(/julai|juai/g, 'jul').replace(/ogos|ogo/g, 'aug').replace(/september/g, 'sep')
+           .replace(/oktober|okt/g, 'oct').replace(/november/g, 'nov').replace(/disember|dis/g, 'dec');
+      
+      const tokens = d.replace(/\(myt\)/g, '').replace(/[^a-z0-9]/g, ' ').trim().split(/\s+/).filter(Boolean);
+      const cleanDateKey = tokens.join('');
+      const key = `${e}_${cleanDateKey}`;
+
+      if (!map.has(key)) {
+        map.set(key, item);
+      } else {
+        const existing = map.get(key)!;
+        if (existing.status === 'PENDING' && (item.status === 'BETUL' || item.status === 'SALAH' || (item.actual && item.actual !== '-'))) {
+          map.set(key, item);
+        }
       }
     }
-    return result;
+    return Array.from(map.values());
   }, [newsList]);
 
-  // Filter by category and exclude LOW impact
+  // Filter by category and strictly HIGH impact only
   const categoryFiltered = deduplicatedNewsList.filter(n => {
     const imp = (n.impact || 'HIGH').toUpperCase();
-    if (!imp.includes('HIGH') && !imp.includes('MED')) return false;
+    if (!imp.includes('HIGH')) return false;
     if (selectedCategory !== 'ALL' && n.category !== selectedCategory) return false;
     
     return true;

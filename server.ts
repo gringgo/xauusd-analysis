@@ -4,7 +4,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { db } from "./src/db/index";
 import { journalEntries, highImpactNews, signals } from "./src/db/schema";
-import { desc, eq, and } from "drizzle-orm";
+import { desc, eq, and, inArray } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 import { XMLParser } from "fast-xml-parser";
 
@@ -140,39 +140,84 @@ let fallbackNewsHistory = [
 ];
 
 function normalizeNewsKey(eventStr: string, dateStr: string): string {
-  const normEvent = (eventStr || '')
-    .toLowerCase()
-    .replace(/\(usd\)/gi, '')
-    .replace(/non-farm|nonfarm/gi, '')
-    .replace(/flash|final|services/gi, '')
-    .replace(/\(.*?\)/g, '')
-    .replace(/y\/y|m\/m|q\/q/gi, '')
-    .replace(/[^a-z0-9]/g, '')
-    .trim();
-  const normDate = (dateStr || '')
-    .toLowerCase()
-    .replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu/gi, '')
-    .replace(/juai|julai/gi, 'jul')
-    .replace(/ogos/gi, 'ogo')
-    .replace(/\b0(\d)\b/g, '$1')
-    .replace(/[^a-z0-9]/g, '')
-    .trim();
-  return `${normEvent}_${normDate}`;
+  let e = (eventStr || '').toLowerCase();
+  e = e.replace(/^usd\s*-\s*/g, '').replace(/\(usd\)/g, '');
+  
+  if (e.includes('non-farm') || e.includes('nonfarm') || e.includes('nfp') || e.includes('employment change')) {
+    e = 'nfp';
+  } else if (e.includes('cpi') || e.includes('consumer price')) {
+    e = 'cpi';
+  } else if (e.includes('fomc') || e.includes('federal funds') || e.includes('fed interest') || e.includes('fomc statement')) {
+    e = 'fomc';
+  } else if (e.includes('ppi') || e.includes('producer price')) {
+    e = 'ppi';
+  } else if (e.includes('retail sales')) {
+    e = 'retailsales';
+  } else if (e.includes('unemployment rate')) {
+    e = 'unemploymentrate';
+  } else if (e.includes('gdp') || e.includes('gross domestic')) {
+    e = 'gdp';
+  } else {
+    e = e.replace(/\(.*?\)/g, '')
+         .replace(/flash|final|services|y\/y|m\/m|q\/q/gi, '')
+         .replace(/[^a-z0-9]/g, '')
+         .trim();
+  }
+
+  let d = (dateStr || '').toLowerCase();
+  d = d.replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu/gi, '');
+  d = d.replace(/januari/g, 'jan').replace(/februari/g, 'feb').replace(/mac/g, 'mar')
+       .replace(/april/g, 'apr').replace(/mei/g, 'may').replace(/juni/g, 'jun')
+       .replace(/julai|juai/g, 'jul').replace(/ogos|ogo/g, 'aug').replace(/september/g, 'sep')
+       .replace(/oktober|okt/g, 'oct').replace(/november/g, 'nov').replace(/disember|dis/g, 'dec');
+  
+  const tokens = d.replace(/\(myt\)/g, '').replace(/[^a-z0-9]/g, ' ').trim().split(/\s+/).filter(Boolean);
+  const cleanDateKey = tokens.join('');
+
+  return `${e}_${cleanDateKey}`;
 }
 
 function dedupeNewsEntries(entries: any[]) {
   if (!entries || !Array.isArray(entries)) return [];
-  const seen = new Set<string>();
-  const result: any[] = [];
-  for (const item of entries) {
+  
+  // Filter OUT any non-HIGH impact news items
+  const highOnly = entries.filter(item => {
+    if (!item) return false;
+    const imp = (item.impact || 'HIGH').toUpperCase();
+    return imp.includes('HIGH');
+  });
+
+  const map = new Map<string, any>();
+  const duplicateIdsToDelete: number[] = [];
+
+  for (const item of highOnly) {
     if (!item) continue;
     const key = normalizeNewsKey(item.event || item.title || '', item.date || item.dateStr || '');
-    if (!seen.has(key)) {
-      seen.add(key);
-      result.push(item);
+    if (!map.has(key)) {
+      map.set(key, item);
+    } else {
+      const existing = map.get(key);
+      if ((existing.status === 'PENDING' || !existing.actual || existing.actual === '-') && 
+          (item.status !== 'PENDING' || (item.actual && item.actual !== '-'))) {
+        if (existing.id && typeof existing.id === 'number') {
+          duplicateIdsToDelete.push(existing.id);
+        }
+        map.set(key, item);
+      } else {
+        if (item.id && typeof item.id === 'number') {
+          duplicateIdsToDelete.push(item.id);
+        }
+      }
     }
   }
-  return result;
+
+  if (db && duplicateIdsToDelete.length > 0) {
+    db.delete(highImpactNews)
+      .where(inArray(highImpactNews.id, duplicateIdsToDelete))
+      .catch(err => console.warn("Failed to delete duplicate news rows from DB:", err));
+  }
+
+  return Array.from(map.values());
 }
 
 function getFriendlyErrorMessage(e: any): string {
@@ -491,27 +536,26 @@ Sila pulangkan JSON array yang mengandungi ramalan & analisis dalam Bahasa Melay
       }
 
       // Save to DB and return
+      let existingDbItems: any[] = [];
+      if (db) {
+        try {
+          existingDbItems = await db.select().from(highImpactNews);
+        } catch (dbErr) {
+          console.warn("Error fetching existing news for duplicate check:", dbErr);
+        }
+      }
+
       for (const item of formattedItems) {
+        const itemImpact = (item.impact || 'HIGH').toUpperCase();
+        if (!itemImpact.includes('HIGH')) continue; // Skip non-HIGH impact news
+
+        const newKey = normalizeNewsKey(item.title || '', item.dateStr || '');
         let isDuplicate = false;
+
         if (db) {
-          try {
-            const existing = await db.select().from(highImpactNews).where(
-              and(
-                eq(highImpactNews.event, item.title),
-                eq(highImpactNews.date, item.dateStr)
-              )
-            );
-            if (existing && existing.length > 0) {
-              isDuplicate = true;
-            }
-          } catch (dbErr) {
-            console.warn("Error checking for duplicate:", dbErr);
-          }
+          isDuplicate = existingDbItems.some(existing => normalizeNewsKey(existing.event || '', existing.date || '') === newKey);
         } else {
-          const existing = fallbackNewsHistory.find(
-            n => n.event === item.title && n.date === item.dateStr
-          );
-          if (existing) isDuplicate = true;
+          isDuplicate = fallbackNewsHistory.some(existing => normalizeNewsKey(existing.event || '', existing.date || '') === newKey);
         }
 
         if (isDuplicate) {

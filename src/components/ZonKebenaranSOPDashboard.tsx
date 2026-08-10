@@ -46,7 +46,7 @@ export const ZonKebenaranSOPDashboard = ({ zones, currentPrice }: { zones: any[]
           timeframe: tf.toUpperCase() + (tf.toUpperCase().includes('TIMEFRAME') ? '' : ' TIMEFRAME'),
           direction: isBuy ? 'BUY' : 'SELL',
           entryRange: setup.price,
-          entryPrice: currentPrice,
+          entryPrice: optimalEntry,
           candlePattern: isBuy ? 'Bullish Pinbar Rejection & Confluence (M5-M15)' : 'Bearish Pinbar Rejection & Confluence (M5-M15)',
           tp: isBuy ? topPrice + 5 : bottomPrice - 5,
           sl: isBuy ? bottomPrice - 5 : topPrice + 5,

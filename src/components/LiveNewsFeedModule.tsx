@@ -23,13 +23,50 @@ export interface LiveNewsFeedModuleProps {
   onTriggerSync?: () => Promise<void>;
 }
 
+const normalizeNewsKey = (eventStr: string, dateStr: string): string => {
+  let e = (eventStr || '').toLowerCase();
+  e = e.replace(/^usd\s*-\s*/g, '').replace(/\(usd\)/g, '');
+  
+  if (e.includes('non-farm') || e.includes('nonfarm') || e.includes('nfp') || e.includes('employment change')) {
+    e = 'nfp';
+  } else if (e.includes('cpi') || e.includes('consumer price')) {
+    e = 'cpi';
+  } else if (e.includes('fomc') || e.includes('federal funds') || e.includes('fed interest') || e.includes('fomc statement')) {
+    e = 'fomc';
+  } else if (e.includes('ppi') || e.includes('producer price')) {
+    e = 'ppi';
+  } else if (e.includes('retail sales')) {
+    e = 'retailsales';
+  } else if (e.includes('unemployment rate')) {
+    e = 'unemploymentrate';
+  } else if (e.includes('gdp') || e.includes('gross domestic')) {
+    e = 'gdp';
+  } else {
+    e = e.replace(/\(.*?\)/g, '')
+         .replace(/flash|final|services|y\/y|m\/m|q\/q/gi, '')
+         .replace(/[^a-z0-9]/g, '')
+         .trim();
+  }
+
+  let d = (dateStr || '').toLowerCase();
+  d = d.replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu/gi, '');
+  d = d.replace(/januari/g, 'jan').replace(/februari/g, 'feb').replace(/mac/g, 'mar')
+       .replace(/april/g, 'apr').replace(/mei/g, 'may').replace(/juni/g, 'jun')
+       .replace(/julai|juai/g, 'jul').replace(/ogos|ogo/g, 'aug').replace(/september/g, 'sep')
+       .replace(/oktober|okt/g, 'oct').replace(/november/g, 'nov').replace(/disember|dis/g, 'dec');
+  
+  const tokens = d.replace(/\(myt\)/g, '').replace(/[^a-z0-9]/g, ' ').trim().split(/\s+/).filter(Boolean);
+  const cleanDateKey = tokens.join('');
+
+  return `${e}_${cleanDateKey}`;
+};
+
 export const LiveNewsFeedModule: React.FC<LiveNewsFeedModuleProps> = ({
   news = [],
   newsHistoryList = [],
   onOpenNewsModal,
   onTriggerSync
 }) => {
-  const [filterImpact, setFilterImpact] = useState<'HIGH' | 'ALL' | 'MED'>('HIGH');
   const [isSyncing, setIsSyncing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | number | null>(null);
 
@@ -48,23 +85,23 @@ export const LiveNewsFeedModule: React.FC<LiveNewsFeedModuleProps> = ({
     }
   };
 
-  // Combine news items from props and history list to ensure live feed is full & accurate
+  // Combine news items from props and history list to ensure live feed is full & accurate without duplicates
   const combinedNews = React.useMemo(() => {
     const itemsMap = new Map();
 
     // First add live items from props
     (news || []).forEach((item: any, idx: number) => {
       const imp = (item.impact || 'HIGH').toUpperCase();
-      if (!imp.includes('HIGH') && filterImpact === 'HIGH') return;
+      if (!imp.includes('HIGH')) return; // Strictly ignore non-HIGH impact
 
-      const key = `${item.event || item.title}_${item.time || item.date}`;
+      const key = normalizeNewsKey(item.event || item.title || '', item.time || item.dateText || item.date || '');
       itemsMap.set(key, {
         id: item.id || `live_${idx}`,
         time: item.time || '-',
         dateText: item.dateText || item.date || '',
         dateISO: item.dateISO || '',
         event: item.event || item.title || 'USD News Event',
-        impact: imp,
+        impact: 'HIGH',
         forecast: item.forecast || '-',
         previous: item.previous || '-',
         actual: item.actual || '-',
@@ -77,14 +114,14 @@ export const LiveNewsFeedModule: React.FC<LiveNewsFeedModuleProps> = ({
     });
 
     // Add items from newsHistoryList if not already added
-    (newsHistoryList || []).slice(0, 20).forEach((item: any) => {
+    (newsHistoryList || []).slice(0, 30).forEach((item: any) => {
       const imp = (item.impact || 'HIGH').toUpperCase();
-      if (!imp.includes('HIGH') && filterImpact === 'HIGH') return;
+      if (!imp.includes('HIGH')) return; // Strictly ignore non-HIGH impact
 
       const parts = (item.date || '').split('|');
       const displayTime = parts.length > 1 ? parts[1].replace('(MYT)', '').trim() : item.date;
       const dateText = parts.length > 0 ? parts[0].trim() : '';
-      const key = `${item.event}_${displayTime}`;
+      const key = normalizeNewsKey(item.event || '', item.date || '');
 
       if (!itemsMap.has(key)) {
         itemsMap.set(key, {
@@ -93,7 +130,7 @@ export const LiveNewsFeedModule: React.FC<LiveNewsFeedModuleProps> = ({
           dateText: dateText,
           dateISO: item.createdAt || '',
           event: item.event,
-          impact: imp,
+          impact: 'HIGH',
           forecast: item.forecast || '-',
           previous: item.previous || '-',
           actual: item.actual || '-',
@@ -115,14 +152,9 @@ export const LiveNewsFeedModule: React.FC<LiveNewsFeedModuleProps> = ({
     });
 
     return Array.from(itemsMap.values());
-  }, [news, newsHistoryList, filterImpact]);
+  }, [news, newsHistoryList]);
 
-  // Filter based on impact tab
-  const filteredNews = combinedNews.filter((item: any) => {
-    if (filterImpact === 'HIGH') return item.impact.includes('HIGH');
-    if (filterImpact === 'MED') return item.impact.includes('MED');
-    return true;
-  });
+  const filteredNews = combinedNews;
 
   // Calculate countdown minutes left
   const myt = toZonedTime(new Date(), 'Asia/Kuala_Lumpur');
@@ -165,26 +197,10 @@ export const LiveNewsFeedModule: React.FC<LiveNewsFeedModuleProps> = ({
 
         {/* Action Controls */}
         <div className="flex items-center gap-2">
-          {/* Impact Filter Tabs */}
-          <div className="flex items-center bg-black/60 border border-gray-800 rounded-lg p-0.5 text-[10px] font-bold">
-            <button
-              onClick={() => setFilterImpact('ALL')}
-              className={`px-2.5 py-1 rounded-md transition-all ${filterImpact === 'ALL' ? 'bg-[#b49a45] text-black font-black' : 'text-gray-400 hover:text-white'}`}
-            >
-              SEMUA ({combinedNews.length})
-            </button>
-            <button
-              onClick={() => setFilterImpact('HIGH')}
-              className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 ${filterImpact === 'HIGH' ? 'bg-red-600 text-white font-black' : 'text-gray-400 hover:text-red-400'}`}
-            >
-              🔴 HIGH
-            </button>
-            <button
-              onClick={() => setFilterImpact('MED')}
-              className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 ${filterImpact === 'MED' ? 'bg-amber-600 text-white font-black' : 'text-gray-400 hover:text-amber-400'}`}
-            >
-              🟠 MED
-            </button>
+          {/* Impact Filter Badge */}
+          <div className="flex items-center bg-red-950/80 border border-red-800/80 rounded-lg px-2.5 py-1 text-[10px] font-black text-red-400 gap-1.5 shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+            <span>🔴 HIGH IMPACT ONLY ({combinedNews.length})</span>
           </div>
 
           {/* Sync Button */}

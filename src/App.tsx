@@ -1049,8 +1049,7 @@ const HighImpactNewsBanner = ({ news, targetDate }: { news: any[], targetDate: D
   const isToday = targetDate.toDateString() === new Date().toDateString();
   if (!isToday || !news || news.length === 0) return null;
 
-  const highNews = news.filter((n: any) => n.impact === "HIGH");
-  const medNews = news.filter((n: any) => n.impact === "MED" || n.impact === "MEDIUM");
+  const highNews = news.filter((n: any) => (n.impact || 'HIGH').toUpperCase().includes('HIGH'));
 
   const getUpcomingItem = (newsList: any[]) => {
     let upcoming = null;
@@ -1069,11 +1068,10 @@ const HighImpactNewsBanner = ({ news, targetDate }: { news: any[], targetDate: D
   };
 
   const upcomingHigh = getUpcomingItem(highNews);
-  const upcomingMed = getUpcomingItem(medNews);
 
-  if (!upcomingHigh && !upcomingMed) return null;
+  if (!upcomingHigh) return null;
 
-  const renderBannerCard = (itemData: { news: any; minutesLeft: number }, isHigh: boolean) => {
+  const renderBannerCard = (itemData: { news: any; minutesLeft: number }) => {
     const item = itemData.news;
     const sugg = item.suggestion ? {
       action: item.action,
@@ -1083,39 +1081,27 @@ const HighImpactNewsBanner = ({ news, targetDate }: { news: any[], targetDate: D
     } : getNewsTradeSuggestion(item.event, item.forecast, item.previous);
 
     return (
-      <div className={`w-full overflow-hidden rounded-xl border ${
-        isHigh ? 'border-red-500/60 bg-gradient-to-r from-red-950/90 via-red-900/60 to-black shadow-[0_0_25px_rgba(239,68,68,0.25)]' : 'border-amber-500/60 bg-gradient-to-r from-amber-950/90 via-amber-900/60 to-black shadow-[0_0_25px_rgba(245,158,11,0.25)]'
-      } relative ${!upcomingMed || !upcomingHigh ? 'md:col-span-2' : ''}`}>
-        <div className={`absolute top-0 left-0 w-full h-1 animate-pulse ${isHigh ? 'bg-red-500' : 'bg-amber-500'}`}></div>
+      <div className="w-full overflow-hidden rounded-xl border border-red-500/60 bg-gradient-to-r from-red-950/90 via-red-900/60 to-black shadow-[0_0_25px_rgba(239,68,68,0.25)] relative">
+        <div className="absolute top-0 left-0 w-full h-1 animate-pulse bg-red-500"></div>
         <div className="p-3.5 sm:p-4 flex flex-col gap-3">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className={`p-2 sm:p-2.5 rounded-full border animate-pulse shrink-0 ${
-                isHigh ? 'bg-red-500/20 border-red-500/50' : 'bg-amber-500/20 border-amber-500/50'
-              }`}>
-                {isHigh ? <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-red-500" /> : <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400" />}
+              <div className="p-2 sm:p-2.5 rounded-full border animate-pulse shrink-0 bg-red-500/20 border-red-500/50">
+                <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-red-500" />
               </div>
               <div>
-                <div className={`font-black text-[10px] sm:text-[11px] tracking-widest flex items-center gap-1.5 mb-0.5 ${
-                  isHigh ? 'text-red-400' : 'text-amber-400'
-                }`}>
-                  <span>{isHigh ? '🔴 HIGH IMPACT NEWS' : '🟡 MEDIUM IMPACT NEWS'}</span>
-                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
-                    isHigh ? 'bg-red-500 text-white' : 'bg-amber-500 text-black'
-                  }`}>KIRAAN DETIK</span>
+                <div className="font-black text-[10px] sm:text-[11px] tracking-widest flex items-center gap-1.5 mb-0.5 text-red-400">
+                  <span>🔴 HIGH IMPACT NEWS</span>
+                  <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-red-500 text-white">KIRAAN DETIK</span>
                 </div>
                 <div className="text-sm sm:text-lg font-black text-white line-clamp-1">{item.event}</div>
               </div>
             </div>
 
-            <div className={`flex flex-col items-center sm:items-end bg-black/80 p-2 sm:p-2.5 rounded-lg border min-w-[150px] shrink-0 ${
-              isHigh ? 'border-red-900/60' : 'border-amber-900/60'
-            }`}>
+            <div className="flex flex-col items-center sm:items-end bg-black/80 p-2 sm:p-2.5 rounded-lg border min-w-[150px] shrink-0 border-red-900/60">
               <div className="text-gray-400 text-[9px] sm:text-[10px] font-bold mb-0.5">MASA TINGGAL</div>
               {itemData.minutesLeft <= 0 && itemData.minutesLeft >= -15 ? (
-                <div className={`text-xs sm:text-sm font-black animate-pulse px-2 py-1 rounded border ${
-                  isHigh ? 'text-red-400 bg-red-950/80 border-red-700' : 'text-amber-400 bg-amber-950/80 border-amber-700'
-                }`}>
+                <div className="text-xs sm:text-sm font-black animate-pulse px-2 py-1 rounded border text-red-400 bg-red-950/80 border-red-700">
                   🔥 SEDANG BERLAKU / LIVE
                 </div>
               ) : (
@@ -1130,7 +1116,7 @@ const HighImpactNewsBanner = ({ news, targetDate }: { news: any[], targetDate: D
                   <div className="text-[10px] text-gray-300 font-bold">MIN</div>
                 </div>
               )}
-              <div className={`text-[9px] font-bold mt-1 tracking-wider ${isHigh ? 'text-red-400' : 'text-amber-400'}`}>
+              <div className="text-[9px] font-bold mt-1 tracking-wider text-red-400">
                 {item?.dateText && `${item.dateText} | `}{item?.time}
               </div>
             </div>
@@ -1171,9 +1157,8 @@ const HighImpactNewsBanner = ({ news, targetDate }: { news: any[], targetDate: D
   };
 
   return (
-    <div className="w-full mb-6 grid grid-cols-1 md:grid-cols-2 gap-3.5">
-      {upcomingHigh && renderBannerCard(upcomingHigh, true)}
-      {upcomingMed && renderBannerCard(upcomingMed, false)}
+    <div className="w-full mb-6">
+      {upcomingHigh && renderBannerCard(upcomingHigh)}
     </div>
   );
 };

@@ -46,7 +46,7 @@ export const FvgSOPDashboard = ({ fvgData, currentPrice }: { fvgData: any, curre
             timeframe: tf.toUpperCase() + ' TIMEFRAME',
             direction: isBuy ? 'BUY' : 'SELL',
             entryRange: setup.range,
-            entryPrice: currentPrice,
+            entryPrice: optimalEntry,
             candlePattern: isBuy ? 'Bullish Rejection Wick & Imbalance Fill (M5-M15)' : 'Bearish Rejection Wick & Imbalance Fill (M5-M15)',
             tp: isBuy ? topPrice + 5 : bottomPrice - 5,
             sl: isBuy ? bottomPrice - 5 : topPrice + 5,

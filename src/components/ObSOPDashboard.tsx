@@ -46,7 +46,7 @@ export const ObSOPDashboard = ({ orderBlockData, currentPrice }: { orderBlockDat
             timeframe: tf.toUpperCase() + ' TIMEFRAME',
             direction: isBuy ? 'BUY' : 'SELL',
             entryRange: setup.range,
-            entryPrice: currentPrice,
+            entryPrice: optimalEntry,
             candlePattern: isBuy ? 'Bullish Engulfing & Rejection Wick (M5-M15)' : 'Bearish Engulfing & Rejection Wick (M5-M15)',
             tp: isBuy ? topPrice + 5 : bottomPrice - 5,
             sl: isBuy ? bottomPrice - 5 : topPrice + 5,
