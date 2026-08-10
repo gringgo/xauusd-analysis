@@ -8,6 +8,7 @@ import { SignalHistoryDashboard } from './components/SignalHistoryDashboard';
 import { useSignals } from './lib/signalStore';
 import { HighImpactNewsModal, NewsItem } from './components/HighImpactNewsModal';
 import { FrontPageNewsHistory } from './components/FrontPageNewsHistory';
+import { LiveNewsFeedModule } from './components/LiveNewsFeedModule';
 import { SidebarNav, NAV_SECTIONS } from './components/SidebarNav';
 import { useXauUsdLivePrice } from './lib/priceService';
 import { TwelveDataModal } from './components/TwelveDataModal';
@@ -1755,27 +1756,7 @@ export default function App() {
                     </div>
                   </div>
                   
-                  <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-                    <button 
-                      onClick={() => { 
-                        setActiveSection('sec-signal-history'); 
-                        setViewMode('ALL'); 
-                        setTimeout(() => {
-                          const el = document.getElementById('sec-signal-history'); 
-                          if (el) el.scrollIntoView({ behavior: 'smooth' }); 
-                        }, 50);
-                      }} 
-                      className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 bg-[#1e1b10] text-[#ffcc00] border border-[#ffcc00]/60 px-3.5 py-2 rounded-lg font-bold text-xs hover:bg-[#ffcc00]/20 transition-all shadow-md hover:scale-105"
-                    >
-                      <HistoryIcon className="w-4 h-4 text-[#ffcc00]" />
-                      REKOD SIGNAL ({signals.length})
-                    </button>
-
-                    <button onClick={() => setShowJournal(true)} className="flex-1 xl:flex-none flex items-center justify-center gap-1.5 bg-[#111] text-[#ffcc00] border border-[#b49a45]/50 px-4 py-2 rounded-lg font-bold text-xs hover:bg-[#b49a45]/20 transition-all">
-                      <BookOpen className="w-4 h-4" />
-                      JURNAL
-                    </button>
-                    
+                  <div className="flex items-center gap-3 w-full xl:w-auto justify-end">
                     <div className="hidden sm:flex text-xl sm:text-2xl font-display font-medium text-[#ffcc00]/80 tracking-wide italic ml-auto xl:ml-4" >
                       BY {data.author}
                     </div>
@@ -1795,113 +1776,12 @@ export default function App() {
             {/* Fundamentals & Impact Row - Full Width */}
             {(viewMode === 'ALL' || activeSection === 'sec-news-feed') && (
               <div id="sec-news-feed" className="scroll-mt-6 w-full">
-                
-                {/* Fundamentals */}
-                <div className="border border-[#b49a45]/30 rounded-xl bg-[#0a0a0a] shadow-[0_0_15px_rgba(0,0,0,0.5)] flex flex-col w-full overflow-hidden">
-                  <div className="bg-[#1e3a8a] px-4 py-3 flex items-center justify-between border-b border-[#b49a45]/30">
-                    <div className="flex items-center gap-2">
-                      <img src="https://flagcdn.com/w20/us.png" alt="US" className="w-5 h-auto rounded-sm" />
-                      <span className="text-white font-black text-xs sm:text-sm tracking-wide">LIVE NEWS FEED (USD) - KALENDAR & IMPAK EKONOMI</span>
-                    </div>
-                    <button 
-                      onClick={() => setShowNewsModal(true)}
-                      className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white text-[10px] sm:text-xs font-black px-3 py-1 rounded-md shadow transition-all hover:scale-105"
-                    >
-                      <Flame className="w-3.5 h-3.5 text-[#ffcc00]" />
-                      ANALISIS & HISTORY NEWS
-                    </button>
-                  </div>
-                  <div className="w-full overflow-x-auto">
-                    <table className="w-full text-xs text-left text-gray-200 min-w-[800px]">
-                      <thead className="text-gray-400 border-b border-gray-700 bg-black/60 font-bold uppercase tracking-wider text-[11px]">
-                        <tr>
-                          <th className="px-4 py-2.5 text-center w-36">DATE & TIME</th>
-                          <th className="px-4 py-2.5">PERISTIWA / NEWS</th>
-                          <th className="px-3 py-2.5 text-center w-20">FCST</th>
-                          <th className="px-3 py-2.5 text-center w-20">PREV</th>
-                          <th className="px-4 py-2.5 text-center">CADANGAN AI</th>
-                          <th className="px-4 py-2.5 text-center w-36">ANGGARAN PIPS</th>
-                          <th className="px-3 py-2.5 text-center w-20">IMPACT</th>
-                          <th className="px-4 py-2.5 text-center w-32">COUNTDOWN</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800/80">
-                        {(() => {
-                          const medHighNews = data.news?.filter((item: any) => item.impact === 'HIGH') || [];
-                          if (medHighNews.length === 0) {
-                            return (
-                              <tr>
-                                <td colSpan={8} className="px-4 py-4 text-center text-gray-400 italic">
-                                  Tiada news HIGH impak USD hari ini
-                                </td>
-                              </tr>
-                            );
-                          }
-
-                          const myt = toZonedTime(new Date(), 'Asia/Kuala_Lumpur');
-                          const curH = myt.getHours();
-                          const curM = myt.getMinutes();
-
-                          return medHighNews.map((item: any, i: number) => {
-                            const minsLeft = calculateNewsMinutesLeft(item?.time, curH, curM, item.dateISO);
-                            const sugg = item.suggestion ? {
-                              action: item.action,
-                              suggestion: item.suggestion,
-                              estimatedPips: item.estimatedPips,
-                              reason: item.reason
-                            } : getNewsTradeSuggestion(item.event, item.forecast, item.previous);
-
-                            return (
-                              <tr key={i} className="hover:bg-white/5 transition-colors">
-                                <td className="px-4 py-2.5 text-center">
-                                  {item?.dateText && <div className="text-[10px] text-gray-400 font-bold whitespace-nowrap mb-0.5">{item.dateText}</div>}
-                                  <div className="font-mono font-black text-white">{item?.time}</div>
-                                </td>
-                                <td className="px-4 py-2.5 font-bold text-gray-100">{item.event}</td>
-                                <td className="px-3 py-2.5 text-center text-gray-400 font-mono">{item.forecast}</td>
-                                <td className="px-3 py-2.5 text-center text-gray-400 font-mono">{item.previous}</td>
-                                <td className="px-4 py-2.5 text-center font-bold">
-                                  <span className={`px-2.5 py-1 rounded text-xs font-black tracking-wide shadow ${
-                                    sugg.action === 'BUY' 
-                                      ? 'text-emerald-300 bg-emerald-950/80 border border-emerald-700/60' 
-                                      : sugg.action === 'SELL' 
-                                      ? 'text-rose-300 bg-rose-950/80 border border-rose-700/60' 
-                                      : 'text-amber-300 bg-amber-950/80 border border-amber-700/60'
-                                  }`}>
-                                    {sugg.suggestion || 'BUY XAUUSD'}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-2.5 text-center font-mono text-[#ffcc00] font-black">
-                                  ⚡ ~{sugg.estimatedPips || '150-300 PIPS'}
-                                </td>
-                                <td className={`px-3 py-2.5 font-black text-center ${item.impact === 'HIGH' ? 'text-[#ef4444]' : 'text-[#eab308]'}`}>
-                                  {item.impact}
-                                </td>
-                                <td className="px-4 py-2.5 text-center">
-                                  {minsLeft === null ? (
-                                    <span className="text-gray-500">-</span>
-                                  ) : minsLeft < -15 ? (
-                                    <span className="text-gray-500 font-semibold text-xs inline-flex items-center gap-1 bg-gray-900/60 px-2 py-0.5 rounded border border-gray-800">
-                                      <CheckCircle2 className="w-3 h-3 text-gray-500" /> Selesai
-                                    </span>
-                                  ) : minsLeft >= -15 && minsLeft <= 15 ? (
-                                    <span className="text-red-400 font-black text-xs bg-red-950/90 border border-red-800 px-2.5 py-0.5 rounded animate-pulse inline-flex items-center gap-1 shadow">
-                                      🔥 LIVE
-                                    </span>
-                                  ) : (
-                                    <span className="font-mono font-extrabold text-xs text-[#ffcc00] bg-amber-950/50 border border-amber-800/60 px-2.5 py-0.5 rounded inline-flex items-center gap-1 shadow-sm">
-                                      ⏳ {Math.floor(minsLeft / 60) > 0 ? `${Math.floor(minsLeft / 60)}j ` : ''}{minsLeft % 60}m
-                                    </span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          });
-                        })()}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <LiveNewsFeedModule
+                  news={data.news}
+                  newsHistoryList={newsHistoryList}
+                  onOpenNewsModal={() => setShowNewsModal(true)}
+                  onTriggerSync={handleAutoSyncNews}
+                />
               </div>
             )}
           </div>

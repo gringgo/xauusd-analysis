@@ -590,8 +590,8 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
       const allNews = await newsRes.json();
       
       if (Array.isArray(allNews)) {
-         // Filter pending only
-         const pendingNews = allNews.filter(n => n.status === 'PENDING');
+         // Filter pending & HIGH impact only
+         const pendingNews = allNews.filter(n => n.status === 'PENDING' && (n.impact || 'HIGH').toUpperCase().includes('HIGH'));
          
          // Sort by nearest upcoming
          const now = Date.now();
