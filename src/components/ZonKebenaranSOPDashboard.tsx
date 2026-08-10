@@ -47,6 +47,7 @@ export const ZonKebenaranSOPDashboard = ({ zones, currentPrice }: { zones: any[]
           direction: isBuy ? 'BUY' : 'SELL',
           entryRange: setup.price,
           entryPrice: optimalEntry,
+          triggerPrice: currentPrice,
           candlePattern: isBuy ? 'Bullish Pinbar Rejection & Confluence (M5-M15)' : 'Bearish Pinbar Rejection & Confluence (M5-M15)',
           tp: isBuy ? Number((optimalEntry + 4.0).toFixed(2)) : Number((optimalEntry - 4.0).toFixed(2)),
           sl: isBuy ? Number((optimalEntry - 5.0).toFixed(2)) : Number((optimalEntry + 5.0).toFixed(2)),

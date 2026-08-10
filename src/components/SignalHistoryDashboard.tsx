@@ -515,7 +515,7 @@ export const SignalHistoryDashboard = ({
               </div>
               
               <div className="text-[10px] text-gray-400 flex flex-wrap items-center justify-between border-t border-gray-800/60 pt-1.5 mt-0.5 gap-1">
-                <span className="text-gray-400 text-[10px]">Trigger: <strong className="text-gray-300 font-mono font-bold">${getRealEntryPrice(signal).toFixed(2)}</strong></span>
+                <span className="text-gray-400 text-[10px]">Harga Signal Keluar: <strong className="text-gray-300 font-mono font-bold">${(signal.triggerPrice || getRealEntryPrice(signal)).toFixed(2)}</strong></span>
                 <div className="flex items-center gap-2 font-mono text-[10px]">
                   <span className="flex items-center gap-1 text-gray-300 bg-gray-800/60 px-1.5 py-0.5 rounded">
                     <Calendar className="w-3 h-3 text-yellow-500" />

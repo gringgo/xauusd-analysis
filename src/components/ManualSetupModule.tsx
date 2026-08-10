@@ -87,6 +87,7 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
               direction: setup.direction,
               entryRange: `${setup.lowPrice.toFixed(2)} - ${setup.highPrice.toFixed(2)}`,
               entryPrice: isBuy ? setup.lowPrice : setup.highPrice,
+              triggerPrice: currentPrice,
               tp: isBuy ? Number((setup.highPrice + 4.0).toFixed(2)) : Number((setup.lowPrice - 4.0).toFixed(2)),
               sl: isBuy ? Number((setup.lowPrice - 5.0).toFixed(2)) : Number((setup.highPrice + 5.0).toFixed(2)),
             });

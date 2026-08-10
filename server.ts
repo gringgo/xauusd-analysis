@@ -1835,6 +1835,7 @@ async function backgroundWeeklySync() {
         direction: newSignal.direction,
         entryRange: newSignal.entryRange,
         entryPrice: newSignal.entryPrice,
+        triggerPrice: newSignal.triggerPrice,
         tp: newSignal.tp,
         sl: newSignal.sl,
         candlePattern: newSignal.candlePattern || (newSignal.direction === 'BUY' ? 'Bullish Engulfing / Rejection Wick' : 'Bearish Engulfing / Rejection Wick'),

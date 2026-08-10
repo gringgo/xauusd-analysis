@@ -7,6 +7,7 @@ export const signals = pgTable("signals", {
   direction: varchar("direction", { length: 50 }).notNull(),
   entryRange: varchar("entry_range", { length: 100 }).notNull(),
   entryPrice: real("entry_price").notNull(),
+  triggerPrice: real("trigger_price"),
   tp: real("tp").notNull(),
   sl: real("sl").notNull(),
   candlePattern: varchar("candle_pattern", { length: 100 }),

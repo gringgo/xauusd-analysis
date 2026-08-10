@@ -47,6 +47,7 @@ export const FvgSOPDashboard = ({ fvgData, currentPrice }: { fvgData: any, curre
             direction: isBuy ? 'BUY' : 'SELL',
             entryRange: setup.range,
             entryPrice: optimalEntry,
+            triggerPrice: currentPrice,
             candlePattern: isBuy ? 'Bullish Rejection Wick & Imbalance Fill (M5-M15)' : 'Bearish Rejection Wick & Imbalance Fill (M5-M15)',
             tp: isBuy ? Number((optimalEntry + 4.0).toFixed(2)) : Number((optimalEntry - 4.0).toFixed(2)),
             sl: isBuy ? Number((optimalEntry - 5.0).toFixed(2)) : Number((optimalEntry + 5.0).toFixed(2)),

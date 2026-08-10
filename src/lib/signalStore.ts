@@ -7,6 +7,7 @@ export interface SignalRecord {
   direction: 'BUY' | 'SELL';
   entryRange: string;
   entryPrice: number;
+  triggerPrice?: number;
   tp: number;
   sl: number;
   winRate?: number;
