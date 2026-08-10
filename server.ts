@@ -139,23 +139,34 @@ let fallbackNewsHistory = [
   }
 ];
 
+function isWeekendNews(dateStr: string): boolean {
+  if (!dateStr) return false;
+  const dLower = dateStr.toLowerCase();
+  if (dLower.includes('sabtu') || dLower.includes('saturday') || dLower.includes('ahad') || dLower.includes('sunday') || dLower.includes('01 ogos') || dLower.includes('1 ogos') || dLower.includes('8 ogos') || dLower.includes('08 ogos')) {
+    return true;
+  }
+  return false;
+}
+
 function normalizeNewsKey(eventStr: string, dateStr: string): string {
   let e = (eventStr || '').toLowerCase();
   e = e.replace(/^usd\s*-\s*/g, '').replace(/\(usd\)/g, '');
   
-  if (e.includes('non-farm') || e.includes('nonfarm') || e.includes('nfp') || e.includes('employment change')) {
+  if (e.includes('non-farm') || e.includes('nonfarm') || e.includes('nfp') || e.includes('pekerjaan bukan ladang') || e.includes('employment change')) {
     e = 'nfp';
-  } else if (e.includes('cpi') || e.includes('consumer price')) {
+  } else if (e.includes('cpi') || e.includes('consumer price') || e.includes('indeks harga pengguna')) {
     e = 'cpi';
-  } else if (e.includes('fomc') || e.includes('federal funds') || e.includes('fed interest') || e.includes('fomc statement')) {
+  } else if (e.includes('fomc') || e.includes('federal funds') || e.includes('fed interest') || e.includes('fomc statement') || e.includes('mesyuarat fomc')) {
     e = 'fomc';
   } else if (e.includes('ppi') || e.includes('producer price')) {
     e = 'ppi';
-  } else if (e.includes('retail sales')) {
+  } else if (e.includes('retail') || e.includes('jualan runcit')) {
     e = 'retailsales';
-  } else if (e.includes('unemployment rate')) {
+  } else if (e.includes('unemployment') || e.includes('pengangguran')) {
     e = 'unemploymentrate';
-  } else if (e.includes('gdp') || e.includes('gross domestic')) {
+  } else if (e.includes('hourly earnings') || e.includes('pendapatan setiap jam')) {
+    e = 'hourlyearnings';
+  } else if (e.includes('gdp') || e.includes('kdnk')) {
     e = 'gdp';
   } else {
     e = e.replace(/\(.*?\)/g, '')
@@ -165,32 +176,39 @@ function normalizeNewsKey(eventStr: string, dateStr: string): string {
   }
 
   let d = (dateStr || '').toLowerCase();
-  d = d.replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu/gi, '');
+  d = d.replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu|monday|tuesday|wednesday|thursday|friday|saturday|sunday/gi, '');
   d = d.replace(/januari/g, 'jan').replace(/februari/g, 'feb').replace(/mac/g, 'mar')
        .replace(/april/g, 'apr').replace(/mei/g, 'may').replace(/juni/g, 'jun')
        .replace(/julai|juai/g, 'jul').replace(/ogos|ogo/g, 'aug').replace(/september/g, 'sep')
        .replace(/oktober|okt/g, 'oct').replace(/november/g, 'nov').replace(/disember|dis/g, 'dec');
   
-  const tokens = d.replace(/\(myt\)/g, '').replace(/[^a-z0-9]/g, ' ').trim().split(/\s+/).filter(Boolean);
-  const cleanDateKey = tokens.join('');
+  const numMatch = d.match(/(\d{1,2})/);
+  const dayNum = numMatch ? parseInt(numMatch[1], 10) : 0;
+  
+  let month = '';
+  ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].forEach(m => {
+    if (d.includes(m)) month = m;
+  });
 
-  return `${e}_${cleanDateKey}`;
+  return `${e}_${dayNum}_${month}`;
 }
 
 function dedupeNewsEntries(entries: any[]) {
   if (!entries || !Array.isArray(entries)) return [];
   
-  // Filter OUT any non-HIGH impact news items
-  const highOnly = entries.filter(item => {
+  // Filter OUT any non-HIGH impact AND weekend news items
+  const validEntries = entries.filter(item => {
     if (!item) return false;
     const imp = (item.impact || 'HIGH').toUpperCase();
-    return imp.includes('HIGH');
+    if (!imp.includes('HIGH')) return false;
+    if (isWeekendNews(item.date || item.dateStr || '')) return false;
+    return true;
   });
 
   const map = new Map<string, any>();
   const duplicateIdsToDelete: number[] = [];
 
-  for (const item of highOnly) {
+  for (const item of validEntries) {
     if (!item) continue;
     const key = normalizeNewsKey(item.event || item.title || '', item.date || item.dateStr || '');
     if (!map.has(key)) {
@@ -304,8 +322,8 @@ Jika HARI INI atau minggu ini TIADA berita berimpak tinggi/sederhana USD, pulang
 Jika ada berita sebenar, pulangkan JSON array mengikut format berikut:
 [
   {
-    "title": "Nama Berita Rasmi",
-    "date": "Rabu, 29 Julai 2026 | 08:30 PM (MYT)",
+    "title": "Official Event Title in ENGLISH (e.g. Non-Farm Employment Change (NFP), Core CPI m/m, FOMC Statement)",
+    "date": "Wednesday, 29 Jul 2026 | 08:30 PM (MYT)",
     "forecast": "165K",
     "previous": "142K",
     "actual": "-",
@@ -376,7 +394,7 @@ Hanya pulangkan format JSON sahaja.`;
         const fallbackList = [
           {
             title: "Non-Farm Employment Change (NFP)",
-            date: "Jumaat, 07 Ogo 2026 | 08:30 PM (MYT)",
+            date: "Friday, 07 Aug 2026 | 08:30 PM (MYT)",
             forecast: "165K",
             previous: "142K",
             actual: "114K",
@@ -388,7 +406,7 @@ Hanya pulangkan format JSON sahaja.`;
           },
           {
             title: "Core CPI m/m (Consumer Price Index)",
-            date: "Rabu, 12 Ogo 2026 | 08:30 PM (MYT)",
+            date: "Wednesday, 12 Aug 2026 | 08:30 PM (MYT)",
             forecast: "0.2%",
             previous: "0.3%",
             actual: "-",
@@ -400,7 +418,7 @@ Hanya pulangkan format JSON sahaja.`;
           },
           {
             title: "FOMC Rate Decision & Press Conference",
-            date: "Khamis, 20 Ogo 2026 | 02:00 AM (MYT)",
+            date: "Thursday, 20 Aug 2026 | 02:00 AM (MYT)",
             forecast: "5.25%",
             previous: "5.50%",
             actual: "-",
@@ -548,6 +566,7 @@ Sila pulangkan JSON array yang mengandungi ramalan & analisis dalam Bahasa Melay
       for (const item of formattedItems) {
         const itemImpact = (item.impact || 'HIGH').toUpperCase();
         if (!itemImpact.includes('HIGH')) continue; // Skip non-HIGH impact news
+        if (isWeekendNews(item.dateStr || '')) continue; // Skip weekend news
 
         const newKey = normalizeNewsKey(item.title || '', item.dateStr || '');
         let isDuplicate = false;

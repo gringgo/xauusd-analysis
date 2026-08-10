@@ -65,16 +65,47 @@ export const SignalHistoryDashboard = ({
     };
   };
 
+  const getRealEntryPrice = (signal: SignalRecord): number => {
+    const minBound = Math.min(signal.tp, signal.sl);
+    const maxBound = Math.max(signal.tp, signal.sl);
+    
+    if (signal.entryPrice && signal.entryPrice >= minBound && signal.entryPrice <= maxBound) {
+      return signal.entryPrice;
+    }
+
+    if (signal.entryRange) {
+      const matches = signal.entryRange.match(/(\d+\.?\d*)/g);
+      if (matches && matches.length > 0) {
+        const nums = matches.map(Number).filter(n => !isNaN(n) && n > 1000);
+        if (nums.length === 1 && nums[0] >= minBound && nums[0] <= maxBound) {
+          return nums[0];
+        } else if (nums.length >= 2) {
+          const mid = (nums[0] + nums[1]) / 2;
+          if (mid >= minBound && mid <= maxBound) return mid;
+        }
+      }
+    }
+
+    return (signal.tp + signal.sl) / 2;
+  };
+
   const renderFloating = (signal: SignalRecord) => {
+    const realEntry = getRealEntryPrice(signal);
     let diff = 0;
     
     if (signal.status === 'ACTIVE') {
       if (!currentPrice) return null;
-      diff = signal.direction === 'BUY' ? currentPrice - signal.entryPrice : signal.entryPrice - currentPrice;
+      diff = signal.direction === 'BUY' ? currentPrice - realEntry : realEntry - currentPrice;
     } else if (signal.status === 'TP_HIT') {
-      diff = signal.direction === 'BUY' ? signal.tp - signal.entryPrice : signal.entryPrice - signal.tp;
+      diff = signal.direction === 'BUY' ? signal.tp - realEntry : realEntry - signal.tp;
+      if (diff <= 0) {
+        diff = Math.abs(signal.tp - signal.sl) / 2;
+      }
     } else if (signal.status === 'SL_HIT') {
-      diff = signal.direction === 'BUY' ? signal.sl - signal.entryPrice : signal.entryPrice - signal.sl;
+      diff = signal.direction === 'BUY' ? signal.sl - realEntry : realEntry - signal.sl;
+      if (diff >= 0) {
+        diff = -Math.abs(signal.tp - signal.sl) / 2;
+      }
     }
     
     const pips = diff * 10;
@@ -426,7 +457,7 @@ export const SignalHistoryDashboard = ({
               </div>
               
               <div className="text-[10px] text-gray-400 flex flex-wrap items-center justify-between border-t border-gray-800/60 pt-1.5 mt-0.5 gap-1">
-                <span className="text-gray-400 text-[10px]">Trigger: <strong className="text-gray-300 font-mono font-bold">${signal.entryPrice.toFixed(2)}</strong></span>
+                <span className="text-gray-400 text-[10px]">Trigger: <strong className="text-gray-300 font-mono font-bold">${getRealEntryPrice(signal).toFixed(2)}</strong></span>
                 <div className="flex items-center gap-2 font-mono text-[10px]">
                   <span className="flex items-center gap-1 text-gray-300 bg-gray-800/60 px-1.5 py-0.5 rounded">
                     <Calendar className="w-3 h-3 text-yellow-500" />

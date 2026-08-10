@@ -37,6 +37,55 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [checkingId, setCheckingId] = useState<number | null>(null);
 
+  const ensureEnglishNewsTitle = (title: string): string => {
+    if (!title) return title;
+    let res = title;
+    res = res.replace(/Perubahan Pekerjaan Bukan Ladang/gi, "Non-Farm Employment Change (NFP)");
+    res = res.replace(/Kadar Pengangguran/gi, "Unemployment Rate");
+    res = res.replace(/Purata Pendapatan Setiap Jam/gi, "Average Hourly Earnings");
+    res = res.replace(/KDNK Tahunan/gi, "Annual GDP");
+    res = res.replace(/Anggaran Kedua/gi, "Second Estimate");
+    res = res.replace(/Indeks Harga PCE Teras/gi, "Core PCE Price Index");
+    res = res.replace(/Indeks Harga Pengguna Teras/gi, "Core CPI");
+    res = res.replace(/Indeks Harga Pengguna/gi, "Consumer Price Index (CPI)");
+    res = res.replace(/Indeks Harga Pengeluar/gi, "Producer Price Index (PPI)");
+    res = res.replace(/Jualan Runcit/gi, "Retail Sales");
+    res = res.replace(/Minit Mesyuarat FOMC/gi, "FOMC Meeting Minutes");
+    res = res.replace(/Minit Mesyuarat/gi, "Meeting Minutes");
+    res = res.replace(/Kenyataan FOMC/gi, "FOMC Statement");
+    res = res.replace(/Tuntutan Pengangguran/gi, "Unemployment Claims");
+    res = res.replace(/Kepercayaan Pengguna/gi, "Consumer Confidence");
+    return res;
+  };
+
+  const ensureEnglishNewsDate = (dateStr: string): string => {
+    if (!dateStr) return dateStr;
+    let res = dateStr;
+    res = res.replace(/\bIsnin\b/gi, "Monday")
+             .replace(/\bSelasa\b/gi, "Tuesday")
+             .replace(/\bRabu\b/gi, "Wednesday")
+             .replace(/\bKhamis\b/gi, "Thursday")
+             .replace(/\bJumaat\b/gi, "Friday")
+             .replace(/\bSabtu\b/gi, "Saturday")
+             .replace(/\bAhad\b/gi, "Sunday");
+
+    res = res.replace(/\bJanuari\b/gi, "Jan")
+             .replace(/\bFebruari\b/gi, "Feb")
+             .replace(/\bMac\b/gi, "Mar")
+             .replace(/\bApril\b/gi, "Apr")
+             .replace(/\bMei\b/gi, "May")
+             .replace(/\bJuni\b/gi, "Jun")
+             .replace(/\bJulai\b|\bJuai\b/gi, "Jul")
+             .replace(/\bOgos\b|\bOgo\b/gi, "Aug")
+             .replace(/\bSeptember\b/gi, "Sep")
+             .replace(/\bOktober\b|\bOkt\b/gi, "Oct")
+             .replace(/\bNovember\b|\bNov\b/gi, "Nov")
+             .replace(/\bDisember\b|\bDis\b/gi, "Dec");
+
+    res = res.replace(/Sepanjang Hari/gi, "All Day");
+    return res;
+  };
+
   const parseMalayDate = (dateStr: string): number => {
     if (!dateStr) return 0;
     try {
@@ -100,23 +149,31 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
     const map = new Map<string, NewsItem>();
     for (const item of newsList) {
       if (!item) continue;
+
+      const dateStr = (item.date || '').toLowerCase();
+      // Skip Saturday (Sabtu) or Sunday (Ahad) news records completely
+      if (dateStr.includes('sabtu') || dateStr.includes('saturday') || dateStr.includes('ahad') || dateStr.includes('sunday') || dateStr.includes('01 ogos') || dateStr.includes('1 ogos') || dateStr.includes('8 ogos') || dateStr.includes('08 ogos')) {
+        continue;
+      }
       
       let e = (item.event || '').toLowerCase();
       e = e.replace(/^usd\s*-\s*/g, '').replace(/\(usd\)/g, '');
       
-      if (e.includes('non-farm') || e.includes('nonfarm') || e.includes('nfp') || e.includes('employment change')) {
+      if (e.includes('non-farm') || e.includes('nonfarm') || e.includes('nfp') || e.includes('pekerjaan bukan ladang') || e.includes('employment change')) {
         e = 'nfp';
-      } else if (e.includes('cpi') || e.includes('consumer price')) {
+      } else if (e.includes('cpi') || e.includes('consumer price') || e.includes('indeks harga pengguna')) {
         e = 'cpi';
-      } else if (e.includes('fomc') || e.includes('federal funds') || e.includes('fed interest') || e.includes('fomc statement')) {
+      } else if (e.includes('fomc') || e.includes('federal funds') || e.includes('fed interest') || e.includes('fomc statement') || e.includes('mesyuarat fomc')) {
         e = 'fomc';
       } else if (e.includes('ppi') || e.includes('producer price')) {
         e = 'ppi';
-      } else if (e.includes('retail sales')) {
+      } else if (e.includes('retail') || e.includes('jualan runcit')) {
         e = 'retailsales';
-      } else if (e.includes('unemployment rate')) {
+      } else if (e.includes('unemployment') || e.includes('pengangguran')) {
         e = 'unemploymentrate';
-      } else if (e.includes('gdp') || e.includes('gross domestic')) {
+      } else if (e.includes('hourly earnings') || e.includes('pendapatan setiap jam')) {
+        e = 'hourlyearnings';
+      } else if (e.includes('gdp') || e.includes('kdnk')) {
         e = 'gdp';
       } else {
         e = e.replace(/\(.*?\)/g, '')
@@ -125,16 +182,22 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
              .trim();
       }
 
-      let d = (item.date || '').toLowerCase();
-      d = d.replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu/gi, '');
+      let d = dateStr;
+      d = d.replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu|monday|tuesday|wednesday|thursday|friday|saturday|sunday/gi, '');
       d = d.replace(/januari/g, 'jan').replace(/februari/g, 'feb').replace(/mac/g, 'mar')
            .replace(/april/g, 'apr').replace(/mei/g, 'may').replace(/juni/g, 'jun')
            .replace(/julai|juai/g, 'jul').replace(/ogos|ogo/g, 'aug').replace(/september/g, 'sep')
            .replace(/oktober|okt/g, 'oct').replace(/november/g, 'nov').replace(/disember|dis/g, 'dec');
       
-      const tokens = d.replace(/\(myt\)/g, '').replace(/[^a-z0-9]/g, ' ').trim().split(/\s+/).filter(Boolean);
-      const cleanDateKey = tokens.join('');
-      const key = `${e}_${cleanDateKey}`;
+      const numMatch = d.match(/(\d{1,2})/);
+      const dayNum = numMatch ? parseInt(numMatch[1], 10) : 0;
+      
+      let month = '';
+      ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].forEach(m => {
+        if (d.includes(m)) month = m;
+      });
+
+      const key = `${e}_${dayNum}_${month}`;
 
       if (!map.has(key)) {
         map.set(key, item);
@@ -473,8 +536,8 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
                   <div className="flex items-start gap-3.5 w-full sm:w-auto">
                     {/* Date Block */}
                     <div className="flex flex-col items-center justify-center bg-black border border-gray-800 rounded-lg p-2 min-w-[70px] shrink-0">
-                      <span className="text-[10px] text-gray-500 font-bold uppercase">{item.date.split('|')[0]}</span>
-                      <span className="text-white font-black text-sm">{item.date.split('|')[1]?.trim() || '-'}</span>
+                      <span className="text-[10px] text-gray-500 font-bold uppercase">{ensureEnglishNewsDate(item.date).split('|')[0]}</span>
+                      <span className="text-white font-black text-sm">{ensureEnglishNewsDate(item.date).split('|')[1]?.trim() || '-'}</span>
                     </div>
 
                     <div>
@@ -487,7 +550,7 @@ export const FrontPageNewsHistory: React.FC<FrontPageNewsHistoryProps> = ({
                         )}
                       </div>
                       <h3 className="text-white font-bold text-sm sm:text-base leading-tight group-hover:text-[#ffcc00] transition-colors">
-                        {item.event}
+                        {ensureEnglishNewsTitle(item.event)}
                       </h3>
                     </div>
                   </div>
