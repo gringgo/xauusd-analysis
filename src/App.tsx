@@ -1,6 +1,5 @@
 import { SbrRbsVisualDiagram } from './components/SbrRbsVisualDiagram';
 import { StructureSOPDashboard } from './components/StructureSOPDashboard';
-import { SnrBrnSetupModule } from './components/SnrBrnSetupModule';
 import { ObSOPDashboard } from './components/ObSOPDashboard';
 import { FvgSOPDashboard } from './components/FvgSOPDashboard';
 import { ZonKebenaranSOPDashboard } from './components/ZonKebenaranSOPDashboard';
@@ -1774,7 +1773,7 @@ export default function App() {
           </div>
 
           {/* RIGHT COLUMN (Analysis Panels) */}
-          <div className={`${viewMode === 'FOCUS' && !['sec-bias-plan', 'sec-snr-brn-setup', 'sec-ob-fvg', 'sec-sbr-rbs', 'sec-liquidity', 'sec-liquidity-bos'].includes(activeSection) ? 'hidden' : viewMode === 'FOCUS' ? 'col-span-12 flex flex-col gap-3 lg:gap-4' : 'lg:col-span-5 xl:col-span-4 flex flex-col gap-3 lg:gap-4'}`}>
+          <div className={`${viewMode === 'FOCUS' && !['sec-bias-plan', 'sec-ob-fvg', 'sec-sbr-rbs', 'sec-liquidity', 'sec-liquidity-bos'].includes(activeSection) ? 'hidden' : viewMode === 'FOCUS' ? 'col-span-12 flex flex-col gap-3 lg:gap-4' : 'lg:col-span-5 xl:col-span-4 flex flex-col gap-3 lg:gap-4'}`}>
             {(viewMode === 'ALL' || activeSection === 'sec-bias-plan') && (
               <div id="sec-bias-plan" className="scroll-mt-6 flex flex-col gap-3 lg:gap-4">
                 <SessionWarning />
@@ -2119,12 +2118,6 @@ export default function App() {
                 </div>
 
 
-              </div>
-            )}
-
-            {(viewMode === 'ALL' || activeSection === 'sec-snr-brn-setup') && (
-              <div id="sec-snr-brn-setup" className="scroll-mt-6 flex flex-col gap-3 lg:gap-4">
-                <SnrBrnSetupModule sbrRbsData={data.sbr_rbs} currentPrice={data.currentPrice} />
               </div>
             )}
 
