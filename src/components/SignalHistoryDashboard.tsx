@@ -121,6 +121,19 @@ export const SignalHistoryDashboard = ({
         </div>
       </div>
 
+      {/* OPERATING RULES BANNER */}
+      <div className="bg-amber-950/30 border-b border-amber-500/20 px-4 py-2 flex flex-wrap items-center justify-between text-[11px] text-amber-300/90 gap-2 font-medium">
+        <div className="flex items-center gap-2">
+          <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded text-[10px] font-bold">
+            SOP ISYARAT
+          </span>
+          <span>🕒 Waktu Aktif: <b>06:00 AM - 04:00 AM (MYT)</b></span>
+        </div>
+        <div className="flex items-center gap-1 text-gray-400">
+          <span>🛑 <b>Had Sehari:</b> Maksimum 1 isyarat sahaja bagi setiap zon (supaya isyarat sentiasa segar & berkualiti).</span>
+        </div>
+      </div>
+
       {/* STATS SUMMARY BOX */}
       <div className="p-3 bg-[#0d0d0d] border-b border-gray-800 grid grid-cols-2 sm:grid-cols-4 gap-2">
         {/* Win Stat Card */}

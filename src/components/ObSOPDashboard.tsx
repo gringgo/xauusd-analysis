@@ -17,16 +17,25 @@ export const ObSOPDashboard = ({ orderBlockData, currentPrice }: { orderBlockDat
         const bottomPrice = parseFloat(setup.bottom);
         
         const optimalEntry = isBuy ? bottomPrice : topPrice;
-        const isInsideZone = Math.abs(currentPrice - optimalEntry) <= 1.0;
+        const isInsideZone = Math.abs(currentPrice - optimalEntry) <= 1.2;
         const hasRetested = isBuy ? currentPrice <= (optimalEntry + 0.5) : currentPrice >= (optimalEntry - 0.5);
         const step2Complete = isInsideZone || hasRetested;
         const sigId = tf + '-' + setup.direction + '-' + setup.range;
+        // Invalidation: if price pierces zone by > 25 pips (2.5)
+
+                const isInvalidated = isBuy ? currentPrice < (optimalEntry - 2.5) : currentPrice > (optimalEntry + 2.5);
+
+                if (isInvalidated) {
+
+                  retestedRef.current.delete(sigId);
+
+                }
         if (step2Complete) {
           retestedRef.current.add(sigId);
         }
         
         const hasBeenRetested = retestedRef.current.has(sigId);
-        const hasReacted = isBuy ? currentPrice >= (optimalEntry + 1.5) : currentPrice <= (optimalEntry - 1.5);
+        const hasReacted = isBuy ? currentPrice >= (optimalEntry + 3.0) : currentPrice <= (optimalEntry - 3.0);
         const step3Complete = hasBeenRetested && hasReacted;
         
         if (step3Complete) {
@@ -63,15 +72,20 @@ export const ObSOPDashboard = ({ orderBlockData, currentPrice }: { orderBlockDat
 
     // Step 2: Harga Masuk Zon OB (Retest)
     const optimalEntry = isBuy ? bottomPrice : topPrice;
-        const isInsideZone = Math.abs(currentPrice - optimalEntry) <= 1.0;
+        const isInsideZone = Math.abs(currentPrice - optimalEntry) <= 1.2;
     const hasRetested = isBuy ? currentPrice <= (optimalEntry + 0.5) : currentPrice >= (optimalEntry - 0.5); // Once it touches
     const step2Complete = isInsideZone || hasRetested;
     
     // Step 3: Confirmation (Signal)
     // Simplified: Once it retests, we consider it ready for signal check
     const sigId = (typeof timeframe !== 'undefined' ? timeframe.split(' ')[0].toLowerCase() : '') + '-' + setup.direction + '-' + (setup.range || setup.price);
+    // Invalidation: if price pierces zone by > 25 pips (2.5)
+            const isInvalidated = isBuy ? currentPrice < (optimalEntry - 2.5) : currentPrice > (optimalEntry + 2.5);
+            if (isInvalidated) {
+              retestedRef.current.delete(sigId);
+            }
     const hasBeenRetested = step2Complete || retestedRef.current.has(sigId);
-    const hasReacted = isBuy ? currentPrice >= (optimalEntry + 1.5) : currentPrice <= (optimalEntry - 1.5);
+    const hasReacted = isBuy ? currentPrice >= (optimalEntry + 3.0) : currentPrice <= (optimalEntry - 3.0);
     const step3Complete = hasBeenRetested && hasReacted;
 
     const colorScheme = !isBuy ? {
@@ -178,7 +192,7 @@ export const ObSOPDashboard = ({ orderBlockData, currentPrice }: { orderBlockDat
                   <div className={`font-mono font-black text-[11px] sm:text-xs ${colorScheme.text}`}>{setup.range}</div>
                 </div>
                 <div className="text-center border-l border-gray-800">
-                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">TARGET (TP)</div>
+                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">TARGET (TP 50 PIPS)</div>
                   <div className="font-mono font-black text-[11px] sm:text-xs text-[#ffcc00]">{isBuy ? (topPrice + 5).toFixed(2) : (bottomPrice - 5).toFixed(2)}</div>
                 </div>
                 <div className="text-center border-l border-gray-800">

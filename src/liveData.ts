@@ -913,7 +913,7 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
         ],
         entry: fvg.direction === "BULLISH" ? "BUY" : "SELL",
         entryPrice: ((fvg.top + fvg.bottom) / 2).toFixed(2),
-        sl: fvg.direction === "BULLISH" ? (fvg.bottom - 5).toFixed(2) : (fvg.top + 5).toFixed(2),
+        sl: fvg.direction === "BULLISH" ? (fvg.bottom - 10).toFixed(2) : (fvg.top + 10).toFixed(2),
         tp1: fvg.direction === "BULLISH" ? (res).toFixed(2) : (sup).toFixed(2),
         tp2: fvg.direction === "BULLISH" ? (res + 15).toFixed(2) : (sup - 15).toFixed(2),
         tp3: fvg.direction === "BULLISH" ? (res + 30).toFixed(2) : (sup - 30).toFixed(2)
@@ -928,7 +928,7 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
         ],
         entry: fvg.direction === "BULLISH" ? "SELL" : "BUY",
         entryPrice: fvg.direction === "BULLISH" ? fvg.bottom.toFixed(2) : fvg.top.toFixed(2),
-        sl: fvg.direction === "BULLISH" ? (fvg.bottom + 5).toFixed(2) : (fvg.top - 5).toFixed(2),
+        sl: fvg.direction === "BULLISH" ? (fvg.bottom + 10).toFixed(2) : (fvg.top - 10).toFixed(2),
         tp1: fvg.direction === "BULLISH" ? (sup).toFixed(2) : (res).toFixed(2),
         tp2: fvg.direction === "BULLISH" ? (sup - 15).toFixed(2) : (res + 15).toFixed(2),
         tp3: fvg.direction === "BULLISH" ? (sup - 30).toFixed(2) : (res + 30).toFixed(2)

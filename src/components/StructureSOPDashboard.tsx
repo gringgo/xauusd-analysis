@@ -28,7 +28,7 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
             retestedRef.current.add(sigId);
           }
           const hasBeenRetested = retestedRef.current.has(sigId);
-          const hasReacted = isSBR ? currentPrice <= (setupPrice - 1.5) : currentPrice >= (setupPrice + 1.5);
+          const hasReacted = isSBR ? currentPrice <= (setupPrice - 3.0) : currentPrice >= (setupPrice + 3.0);
           const step4Complete = hasBeenRetested && hasReacted;
           
           if (step4Complete) {
@@ -77,7 +77,11 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
     const step3Complete = isRetesting || hasRetested;
     
     // Step 4: Signal
-    const step4Complete = step3Complete; // Once retested, we look for signal. For this dashboard, we just show it triggers the signal.
+    const tf = (typeof timeframe !== 'undefined' ? timeframe.split(' ')[0].toLowerCase() : '');
+    const sigId = tf + '-' + type + '-' + setup.price;
+    const hasBeenRetested = step3Complete || retestedRef.current.has(sigId);
+    const hasReacted = isSBR ? currentPrice <= (setupPrice - 3.0) : currentPrice >= (setupPrice + 3.0);
+    const step4Complete = hasBeenRetested && hasReacted;
 
     const colorScheme = isSBR ? {
       text: 'text-red-400',
@@ -188,7 +192,7 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
                   <div className={`font-mono font-black text-[11px] sm:text-xs ${colorScheme.text}`}>{setupPrice.toFixed(2)}</div>
                 </div>
                 <div className="text-center border-l border-gray-800">
-                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">TARGET (TP)</div>
+                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">TARGET (TP 50 PIPS)</div>
                   <div className="font-mono font-black text-[11px] sm:text-xs text-[#ffcc00]">{isSBR ? (setupPrice - 5).toFixed(2) : (setupPrice + 5).toFixed(2)}</div>
                 </div>
                 <div className="text-center border-l border-gray-800">

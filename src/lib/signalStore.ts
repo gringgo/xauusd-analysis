@@ -30,17 +30,46 @@ export function getSignalWinRate(signal: Partial<SignalRecord>): number {
   return 80;
 }
 
-const recentDispatches = new Map<string, number>();
+const dispatchedZonesToday = new Map<string, string>();
+
+export function isAllowedSignalHours(date = new Date()): boolean {
+  try {
+    const hourStr = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kuala_Lumpur',
+      hour: 'numeric',
+      hourCycle: 'h23'
+    }).format(date);
+    const hour = parseInt(hourStr, 10);
+    // Active from 06:00 AM to 04:00 AM MYT (i.e. hour >= 6 or hour < 4)
+    // Blocked between 04:00 AM and 05:59 AM MYT
+    return hour >= 6 || hour < 4;
+  } catch (e) {
+    return true;
+  }
+}
+
+export function getTodayDateStrMYT(date = new Date()): string {
+  return date.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+}
 
 export const dispatchNewSignal = (signal: Omit<SignalRecord, 'id' | 'timestamp' | 'status'>) => {
   if (typeof window !== 'undefined') {
-    const key = `${signal.type}-${signal.direction}-${signal.entryRange}`;
-    const now = Date.now();
-    const last = recentDispatches.get(key);
-    if (last && now - last < 15000) {
-      return; // Skip rapid duplicates
+    if (!isAllowedSignalHours()) {
+      console.warn("Signal dispatch blocked: Outside operating hours (06:00 AM - 04:00 AM MYT)");
+      return;
     }
-    recentDispatches.set(key, now);
+
+    const today = getTodayDateStrMYT();
+    const zoneIdentifier = (signal.entryRange || '').trim();
+    const zoneKey = `${zoneIdentifier}`;
+
+    // Max 1 signal per zone per day
+    if (dispatchedZonesToday.get(zoneKey) === today) {
+      console.warn(`Signal dispatch blocked: Zone "${zoneIdentifier}" has already issued 1 signal today (${today})`);
+      return;
+    }
+
+    dispatchedZonesToday.set(zoneKey, today);
     window.dispatchEvent(new CustomEvent('NEW_XAUUSD_SIGNAL', { detail: signal }));
   }
 };
@@ -107,20 +136,32 @@ export function useSignals(currentPrice: number) {
     const handleNewSignal = async (e: Event) => {
       const customEvent = e as CustomEvent<Omit<SignalRecord, 'id' | 'timestamp' | 'status'>>;
       const newSignal = customEvent.detail;
+
+      if (!isAllowedSignalHours()) {
+        console.warn("Signal blocked: Outside operating hours (06:00 AM - 04:00 AM MYT)");
+        return;
+      }
       
       const now = Date.now();
-      const todayDateStr = new Date(now).toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+      const todayDateStr = getTodayDateStrMYT(new Date(now));
       
-      // Prevent duplicates: Only 1 signal per day for the same zone (regardless of status)
+      // Strict Rule: Maksimum 1 signal sahaja untuk 1 zon dalam sehari (MYT)
       const duplicateTodaySignals = signals.filter(s => {
-        const signalDateStr = new Date(s.timestamp || now).toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
-        return signalDateStr === todayDateStr &&
-               s.type === newSignal.type && 
-               s.direction === newSignal.direction &&
-               s.entryRange === newSignal.entryRange;
+        const signalDateStr = getTodayDateStrMYT(new Date(s.timestamp || now));
+        
+        if (signalDateStr !== todayDateStr) return false;
+        
+        // Sama ada range nama sama persis, atau harga entry sangat dekat (dalam 2.5 mata/pip)
+        const isSameRange = (s.entryRange || '').trim() === (newSignal.entryRange || '').trim();
+        const isPriceClose = Math.abs((s.entryPrice || 0) - (newSignal.entryPrice || 0)) <= 2.5;
+        
+        return isSameRange || isPriceClose;
       });
       
-      if (duplicateTodaySignals.length >= 1) return;
+      if (duplicateTodaySignals.length >= 1) {
+        console.warn(`Signal blocked: Zone "${newSignal.entryRange}" has already issued 1 signal today (${todayDateStr})`);
+        return;
+      }
 
       try {
         const calculatedWinRate = newSignal.winRate || getSignalWinRate(newSignal);
