@@ -3,6 +3,7 @@ import { StructureSOPDashboard } from './components/StructureSOPDashboard';
 import { ObSOPDashboard } from './components/ObSOPDashboard';
 import { FvgSOPDashboard } from './components/FvgSOPDashboard';
 import { ZonKebenaranSOPDashboard } from './components/ZonKebenaranSOPDashboard';
+import { ManualSetupModule } from './components/ManualSetupModule';
 import { SignalHistoryDashboard } from './components/SignalHistoryDashboard';
 import { useSignals } from './lib/signalStore';
 import { HighImpactNewsModal, NewsItem } from './components/HighImpactNewsModal';
@@ -1773,7 +1774,7 @@ export default function App() {
           </div>
 
           {/* RIGHT COLUMN (Analysis Panels) */}
-          <div className={`${viewMode === 'FOCUS' && !['sec-bias-plan', 'sec-ob-fvg', 'sec-sbr-rbs', 'sec-liquidity', 'sec-liquidity-bos'].includes(activeSection) ? 'hidden' : viewMode === 'FOCUS' ? 'col-span-12 flex flex-col gap-3 lg:gap-4' : 'lg:col-span-5 xl:col-span-4 flex flex-col gap-3 lg:gap-4'}`}>
+          <div className={`${viewMode === 'FOCUS' && !['sec-bias-plan', 'sec-manual-setup', 'sec-ob-fvg', 'sec-sbr-rbs', 'sec-liquidity', 'sec-liquidity-bos'].includes(activeSection) ? 'hidden' : viewMode === 'FOCUS' ? 'col-span-12 flex flex-col gap-3 lg:gap-4' : 'lg:col-span-5 xl:col-span-4 flex flex-col gap-3 lg:gap-4'}`}>
             {(viewMode === 'ALL' || activeSection === 'sec-bias-plan') && (
               <div id="sec-bias-plan" className="scroll-mt-6 flex flex-col gap-3 lg:gap-4">
                 <SessionWarning />
@@ -2118,6 +2119,13 @@ export default function App() {
                 </div>
 
 
+              </div>
+            )}
+
+            {/* MANUAL SETUP */}
+            {(viewMode === 'ALL' || activeSection === 'sec-manual-setup') && (
+              <div id="sec-manual-setup" className="scroll-mt-6 flex flex-col gap-3 lg:gap-4">
+                <ManualSetupModule currentPrice={data.currentPrice} />
               </div>
             )}
 

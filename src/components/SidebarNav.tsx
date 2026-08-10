@@ -71,6 +71,14 @@ export const NAV_SECTIONS: NavSection[] = [
     badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
   },
   {
+    id: 'sec-manual-setup',
+    label: 'Modul Manual Setup',
+    category: 'JURNAL SETUP',
+    icon: <ClipboardList className="w-4.5 h-4.5 text-blue-400" />,
+    badge: 'MANUAL',
+    badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+  },
+  {
     id: 'sec-ob-fvg',
     label: 'Order Block & FVG Zone',
     category: 'SMART MONEY FLOW',
