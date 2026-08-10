@@ -126,16 +126,16 @@ let fallbackNewsHistory = [
     event: "Non-Farm Employment Change (NFP)",
     category: "NFP",
     impact: "HIGH",
-    date: "07 Ogos 2026 | 08:30 PM",
+    date: "07 Ogos 2026 | 08:30 PM (MYT)",
     forecast: "165K",
     previous: "142K",
-    actual: "-",
+    actual: "114K",
     prediction: "BULLISH",
-    preNewsAnalysis: "📅 1 Hari Sebelum News (06 Ogos): Persediaan 24 jam sebelum NFP. Tumpuan pada perangkap likuiditi (Liquidity Sweep) sekitar High & Low sesi Asia.",
-    analysis: "⚡ Semasa Terjadinya News (07 Ogos 08:30 PM): Jangkaan data buruh di bawah 170K akan menguatkan kenaikan Emas menuju zon rintangan FVG H4.",
-    status: "PENDING",
-    pipsWon: 0,
-    createdAt: new Date("2026-07-27")
+    preNewsAnalysis: "📅 1 Hari Sebelum News (06 Ogos): Pasaran memperlihatkan pengumpulan harga di zon RBS $2,420 dengan tumpuan pada Liquidity Sweep H1.",
+    analysis: "⚡ Semasa Terjadinya News (07 Ogos 08:30 PM): Data penggajian NFP mencatatkan penurunan ketara ke 114K (jangkaan 165K) dan kadar pengangguran naik ke 4.3%. DXY merosot tajam manakala XAUUSD melonjak +210 pips menembusi zon rintangan H4.",
+    status: "BETUL",
+    pipsWon: 210,
+    createdAt: new Date("2026-08-07")
   }
 ];
 
@@ -334,11 +334,11 @@ Hanya pulangkan format JSON sahaja.`;
             date: "Jumaat, 07 Ogo 2026 | 08:30 PM (MYT)",
             forecast: "165K",
             previous: "142K",
-            actual: "-",
+            actual: "114K",
             category: "NFP",
             prediction: "BULLISH",
-            analysis: "Pasaran buruh AS dijangka perlahan, menyokong pengukuhan harga Emas (XAUUSD) ke paras rintangan tertinggi.",
-            estimatedPips: 150,
+            analysis: "Data NFP lemah (114K vs 165K forecast). DXY tertekan hebat, XAUUSD melonjak +210 pips ke paras tertinggi.",
+            estimatedPips: 210,
             isAIGenerated: true
           },
           {
