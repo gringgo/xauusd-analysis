@@ -93,7 +93,7 @@ export function useSignals(currentPrice: number) {
   // Fetch initial signals from backend and merge with local storage
   useEffect(() => {
     fetch('/api/signals')
-      .then(res => res.json())
+      .then(res => res.ok ? res.json() : [])
       .then(data => {
         if (Array.isArray(data)) {
           const serverSignals = data.map((d: any) => ({

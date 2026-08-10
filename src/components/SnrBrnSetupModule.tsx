@@ -110,8 +110,8 @@ export const SnrBrnSetupModule = ({ sbrRbsData, currentPrice }: { sbrRbsData?: a
             entryRange: z.price,
             entryPrice: zonePrice,
             candlePattern: isBuy ? 'Strong Bullish Rejection (30+ pips) di Zon ' + z.name : 'Strong Bearish Rejection (30+ pips) di Zon ' + z.name,
-            tp: isBuy ? zonePrice + 5 : zonePrice - 5,
-            sl: isBuy ? zonePrice - 5 : zonePrice + 5,
+            tp: isBuy ? Number((zonePrice + 4.0).toFixed(2)) : Number((zonePrice - 4.0).toFixed(2)),
+            sl: isBuy ? Number((zonePrice - 5.0).toFixed(2)) : Number((zonePrice + 5.0).toFixed(2)),
             winRate: 92
           });
         }
@@ -135,8 +135,8 @@ export const SnrBrnSetupModule = ({ sbrRbsData, currentPrice }: { sbrRbsData?: a
         entryRange: z.price,
         entryPrice: zonePrice,
         candlePattern: isBuy ? 'Bullish Rejection di Zon ' + z.name : 'Bearish Rejection di Zon ' + z.name,
-        tp: isBuy ? zonePrice + 5 : zonePrice - 5,
-        sl: isBuy ? zonePrice - 5 : zonePrice + 5,
+        tp: isBuy ? Number((zonePrice + 4.0).toFixed(2)) : Number((zonePrice - 4.0).toFixed(2)),
+        sl: isBuy ? Number((zonePrice - 5.0).toFixed(2)) : Number((zonePrice + 5.0).toFixed(2)),
         winRate: 85
       });
     }

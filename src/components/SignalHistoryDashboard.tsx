@@ -99,12 +99,15 @@ export const SignalHistoryDashboard = ({
     } else if (signal.status === 'TP_HIT') {
       diff = signal.direction === 'BUY' ? signal.tp - realEntry : realEntry - signal.tp;
       if (diff <= 0) {
-        diff = Math.abs(signal.tp - signal.sl) / 2;
+        diff = 5.0;
       }
     } else if (signal.status === 'SL_HIT') {
       diff = signal.direction === 'BUY' ? signal.sl - realEntry : realEntry - signal.sl;
       if (diff >= 0) {
-        diff = -Math.abs(signal.tp - signal.sl) / 2;
+        diff = -5.0;
+      }
+      if (diff < -10.0) {
+        diff = -5.0;
       }
     }
     
@@ -427,26 +430,81 @@ export const SignalHistoryDashboard = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 bg-black/40 p-2 rounded border border-gray-800/50">
-                <div>
-                  <div className="text-[9px] text-gray-500 font-bold mb-0.5">ENTRY ZONE</div>
-                  <div className="font-mono text-xs text-white">{signal.entryRange}</div>
-                </div>
-                <div>
-                  <div className="text-[9px] text-gray-500 font-bold mb-0.5">TARGET (TP)</div>
-                  <div className="font-mono text-xs text-[#ffcc00] flex items-center gap-1">
-                    <Target className="w-3 h-3" />
-                    {signal.tp.toFixed(2)}
+              {(() => {
+                const entry = getRealEntryPrice(signal);
+                const isBuy = signal.direction === 'BUY';
+                const slVal = isBuy ? entry - 5.0 : entry + 5.0;
+                const tp1 = isBuy ? entry + 4.0 : entry - 4.0;
+                const tp2 = isBuy ? entry + 5.0 : entry - 5.0;
+                const tp3 = isBuy ? entry + 6.0 : entry - 6.0;
+                const tp4 = isBuy ? entry + 7.0 : entry - 7.0;
+                const tp5 = isBuy ? entry + 8.0 : entry - 8.0;
+                const tp6 = isBuy ? entry + 9.0 : entry - 9.0;
+                const tp7 = isBuy ? entry + 10.0 : entry - 10.0;
+
+                return (
+                  <div className="flex flex-col gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-black/40 p-2.5 rounded border border-gray-800/50">
+                      <div>
+                        <div className="text-[9px] text-gray-500 font-bold mb-0.5">ENTRY ZONE / TRIGGER</div>
+                        <div className="font-mono text-xs text-white font-bold">{signal.entryRange} (${entry.toFixed(2)})</div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] text-gray-400 font-bold mb-0.5">STOP LOSS (50 PIPS)</div>
+                        <div className="font-mono text-xs text-rose-400 font-bold flex items-center gap-1">
+                          <ShieldAlert className="w-3.5 h-3.5" />
+                          ${slVal.toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <div className="text-[9px] text-emerald-400 font-bold mb-0.5">MAIN TARGET (TP1: 40 PIPS)</div>
+                        <div className="font-mono text-xs text-[#ffcc00] font-bold flex items-center gap-1">
+                          <Target className="w-3.5 h-3.5" />
+                          ${tp1.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* TP1 - TP7 Multi-Level Targets Bar */}
+                    <div className="bg-[#111] p-2 rounded border border-gray-800/60 text-[10px]">
+                      <div className="text-[9px] font-extrabold text-yellow-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>🎯 SASARAN TAKE PROFIT (TP1 - TP7):</span>
+                        <span className="text-[9px] text-gray-400 font-mono">SL: -50 Pips</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-1 font-mono text-center">
+                        <div className="bg-emerald-950/40 border border-emerald-800/50 p-1 rounded">
+                          <div className="text-[8px] text-emerald-400 font-bold">TP1 (40p)</div>
+                          <div className="text-white font-bold">${tp1.toFixed(2)}</div>
+                        </div>
+                        <div className="bg-emerald-950/30 border border-emerald-900/40 p-1 rounded">
+                          <div className="text-[8px] text-emerald-400 font-bold">TP2 (50p)</div>
+                          <div className="text-white font-bold">${tp2.toFixed(2)}</div>
+                        </div>
+                        <div className="bg-emerald-950/20 border border-gray-800 p-1 rounded">
+                          <div className="text-[8px] text-emerald-400 font-bold">TP3 (60p)</div>
+                          <div className="text-gray-200 font-bold">${tp3.toFixed(2)}</div>
+                        </div>
+                        <div className="bg-emerald-950/20 border border-gray-800 p-1 rounded">
+                          <div className="text-[8px] text-emerald-400 font-bold">TP4 (70p)</div>
+                          <div className="text-gray-200 font-bold">${tp4.toFixed(2)}</div>
+                        </div>
+                        <div className="bg-emerald-950/20 border border-gray-800 p-1 rounded">
+                          <div className="text-[8px] text-emerald-400 font-bold">TP5 (80p)</div>
+                          <div className="text-gray-200 font-bold">${tp5.toFixed(2)}</div>
+                        </div>
+                        <div className="bg-emerald-950/20 border border-gray-800 p-1 rounded">
+                          <div className="text-[8px] text-emerald-400 font-bold">TP6 (90p)</div>
+                          <div className="text-gray-200 font-bold">${tp6.toFixed(2)}</div>
+                        </div>
+                        <div className="bg-yellow-950/30 border border-yellow-800/50 p-1 rounded">
+                          <div className="text-[8px] text-yellow-400 font-bold">TP7 (100p)</div>
+                          <div className="text-yellow-300 font-bold">${tp7.toFixed(2)}</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="text-[9px] text-gray-500 font-bold mb-0.5">STOP LOSS (SL)</div>
-                  <div className="font-mono text-xs text-rose-400 flex items-center gap-1">
-                    <ShieldAlert className="w-3 h-3" />
-                    {signal.sl.toFixed(2)}
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Candle Confirmation / Pattern Badge */}
               <div className="text-[10px] text-yellow-300 font-medium bg-yellow-950/30 border border-yellow-800/40 px-2.5 py-1 rounded flex items-center gap-1.5">

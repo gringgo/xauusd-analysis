@@ -1217,18 +1217,18 @@ export default function App() {
   useEffect(() => {
     const fetchNews = () => {
       fetch('/api/news-history')
-        .then(res => res.json())
+        .then(res => res.ok ? res.json() : [])
         .then(data => {
           if (Array.isArray(data)) setNewsHistoryList(data);
         })
-        .catch(console.error);
+        .catch(err => console.warn('Fetch news warning:', err?.message || err));
     };
 
     fetchNews();
 
     // Background trigger initial sync
     fetch('/api/auto-sync-news', { method: 'POST' })
-      .then(res => res.json())
+      .then(res => res.ok ? res.json() : [])
       .then(synced => {
         if (Array.isArray(synced) && synced.length > 0) {
           fetchNews();
@@ -1334,9 +1334,11 @@ export default function App() {
 
   useEffect(() => {
     fetch('/api/journal')
-      .then(res => res.json())
-      .then(data => setJournal(data))
-      .catch(console.error);
+      .then(res => res.ok ? res.json() : [])
+      .then(data => {
+        if (Array.isArray(data)) setJournal(data);
+      })
+      .catch(err => console.warn('Fetch journal warning:', err?.message || err));
   }, []);
 
   useEffect(() => {

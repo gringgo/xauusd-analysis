@@ -48,8 +48,8 @@ export const ObSOPDashboard = ({ orderBlockData, currentPrice }: { orderBlockDat
             entryRange: setup.range,
             entryPrice: optimalEntry,
             candlePattern: isBuy ? 'Bullish Engulfing & Rejection Wick (M5-M15)' : 'Bearish Engulfing & Rejection Wick (M5-M15)',
-            tp: isBuy ? topPrice + 5 : bottomPrice - 5,
-            sl: isBuy ? bottomPrice - 5 : topPrice + 5,
+            tp: isBuy ? Number((optimalEntry + 4.0).toFixed(2)) : Number((optimalEntry - 4.0).toFixed(2)),
+            sl: isBuy ? Number((optimalEntry - 5.0).toFixed(2)) : Number((optimalEntry + 5.0).toFixed(2)),
           winRate: 100
           });
           }

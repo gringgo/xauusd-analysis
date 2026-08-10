@@ -42,8 +42,8 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
               entryRange: setup.price,
               entryPrice: currentPrice,
               candlePattern: isSBR ? 'Bearish Rejection Wick & SBR Breakout Retest' : 'Bullish Rejection Wick & RBS Breakout Retest',
-              tp: isSBR ? setupPrice - 5 : setupPrice + 5,
-              sl: isSBR ? setupPrice + 5 : setupPrice - 5,
+              tp: isSBR ? Number((setupPrice - 4.0).toFixed(2)) : Number((setupPrice + 4.0).toFixed(2)),
+              sl: isSBR ? Number((setupPrice + 5.0).toFixed(2)) : Number((setupPrice - 5.0).toFixed(2)),
               winRate: 100
             });
             }
