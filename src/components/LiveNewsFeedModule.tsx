@@ -317,7 +317,7 @@ export const LiveNewsFeedModule: React.FC<LiveNewsFeedModuleProps> = ({
                 <td colSpan={10} className="px-4 py-8 text-center text-gray-400 italic">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Info className="w-6 h-6 text-gray-500" />
-                    <span>Tiada berita {filterImpact !== 'ALL' ? filterImpact : ''} USD dikesan buat masa ini.</span>
+                    <span>Tiada berita High Impact USD dikesan buat masa ini.</span>
                     <button
                       onClick={handleSync}
                       className="mt-2 text-xs text-blue-400 hover:underline flex items-center gap-1 font-bold"

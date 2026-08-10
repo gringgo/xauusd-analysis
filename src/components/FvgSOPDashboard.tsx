@@ -191,12 +191,12 @@ export const FvgSOPDashboard = ({ fvgData, currentPrice }: { fvgData: any, curre
                   <div className={`font-mono font-black text-[11px] sm:text-xs ${colorScheme.text}`}>{setup.range}</div>
                 </div>
                 <div className="text-center border-l border-gray-800">
-                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">TARGET (TP 50 PIPS)</div>
-                  <div className="font-mono font-black text-[11px] sm:text-xs text-[#ffcc00]">{isBuy ? (topPrice + 5).toFixed(2) : (bottomPrice - 5).toFixed(2)}</div>
+                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">TARGET (TP1: 40 PIPS)</div>
+                  <div className="font-mono font-black text-[11px] sm:text-xs text-[#ffcc00]">{isBuy ? (optimalEntry + 4.0).toFixed(2) : (optimalEntry - 4.0).toFixed(2)}</div>
                 </div>
                 <div className="text-center border-l border-gray-800">
-                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">STOP LOSS (SL 50 PIPS)</div>
-                  <div className="font-mono font-black text-[11px] sm:text-xs text-rose-400">{isBuy ? (bottomPrice - 5).toFixed(2) : (topPrice + 5).toFixed(2)}</div>
+                  <div className="text-[9px] text-gray-400 font-bold mb-0.5">STOP LOSS (SL: 50 PIPS)</div>
+                  <div className="font-mono font-black text-[11px] sm:text-xs text-rose-400">{isBuy ? (optimalEntry - 5.0).toFixed(2) : (optimalEntry + 5.0).toFixed(2)}</div>
                 </div>
               </div>
             </div>
