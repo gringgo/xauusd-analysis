@@ -705,6 +705,38 @@ Kembalikan jawapan dalam format JSON sahaja seperti berikut:
     }
   });
 
+  const monthMapMYT: Record<string, string> = {
+    jan: '01', januari: '01', feb: '02', februari: '02', mac: '03', apr: '04', april: '04',
+    mei: '05', may: '05', jun: '06', june: '06', jul: '07', julai: '07', ogo: '08', ogos: '08', aug: '08', august: '08',
+    sep: '09', september: '09', okt: '10', oktober: '10', oct: '10', nov: '11', november: '11',
+    dis: '12', disember: '12', dec: '12', december: '12'
+  };
+
+  function parseNewsDateMYT(dateStr: string): Date | null {
+    if (!dateStr) return null;
+    let testDate = new Date(dateStr);
+    if (!isNaN(testDate.getTime())) return testDate;
+
+    const match = dateStr.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})(?:\s*\|\s*(\d{1,2}):(\d{2})\s*(AM|PM)?)?/i);
+    if (match) {
+      const day = match[1].padStart(2, '0');
+      const monthKey = match[2].toLowerCase();
+      const month = monthMapMYT[monthKey] || '01';
+      const year = match[3];
+      let hour = match[4] ? parseInt(match[4], 10) : 0;
+      const min = match[5] || '00';
+      const ampm = match[6] ? match[6].toUpperCase() : '';
+
+      if (ampm === 'PM' && hour < 12) hour += 12;
+      if (ampm === 'AM' && hour === 12) hour = 0;
+
+      const isoStr = `${year}-${month}-${day}T${hour.toString().padStart(2, '0')}:${min}:00+08:00`;
+      const parsed = new Date(isoStr);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    return null;
+  }
+
   let lastAutoCheckTime = 0;
   let isAutoChecking = false;
 
@@ -738,14 +770,13 @@ Kembalikan jawapan dalam format JSON sahaja seperti berikut:
       const itemsToCheck = pendingItems.filter((item: any) => {
         if (!item.date) return false;
         try {
-          const rawDateStr = item.date.split('|')[0]?.trim();
-          const parsedDate = new Date(rawDateStr);
-          if (!isNaN(parsedDate.getTime())) {
+          const parsedDate = parseNewsDateMYT(item.date);
+          if (parsedDate && !isNaN(parsedDate.getTime())) {
             return parsedDate.getTime() <= Date.now();
           }
         } catch {}
         return false;
-      }).slice(0, 2);
+      }).slice(0, 3);
 
       if (itemsToCheck.length === 0) {
         isAutoChecking = false;
