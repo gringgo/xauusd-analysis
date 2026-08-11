@@ -7,23 +7,23 @@ interface ManualSetup {
   lowPrice: number;
   highPrice: number;
   direction: 'BUY' | 'SELL';
-  strategy: 'REJECTION' | 'PULLBACK';
-  timeframe: 'M1' | 'M5';
+  timeframe?: string;
   status: 'WAITING' | 'MONITORING' | 'REJECTION_DETECTED' | 'TRIGGERED';
   monitorStartTime?: number;
   rejectionTime?: number;
-  rejectionCandleCloseTime?: number;
+  rejectionM1CloseTime?: number;
+  rejectionM5CloseTime?: number;
   extremePrice?: number;
   createdAt: number;
+  name?: string;
 }
 
 export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) => {
   const [setups, setSetups] = useState<ManualSetup[]>([]);
   const [newLowPrice, setNewLowPrice] = useState<string>('');
   const [newHighPrice, setNewHighPrice] = useState<string>('');
+  const [newName, setNewName] = useState<string>('');
   const [newDirection, setNewDirection] = useState<'BUY' | 'SELL'>('BUY');
-  const [newStrategy, setNewStrategy] = useState<'REJECTION' | 'PULLBACK'>('REJECTION');
-  const [newTimeframe, setNewTimeframe] = useState<'M1' | 'M5'>('M5');
 
   // Load from local storage
   useEffect(() => {
@@ -53,37 +53,44 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
     let updated = false;
     const now = Date.now();
     const newSetups = setups.map(setup => {
-      if (setup.status === 'TRIGGERED') return setup;
+      let setupRef = { ...setup };
 
-      const isBuy = setup.direction === 'BUY';
-      const tf = setup.timeframe || 'M5';
-      const candleIntervalMs = tf === 'M1' ? 60000 : 300000;
+      // Backwards compatibility for old setups
+      if ((setupRef as any).rejectionCandleCloseTime) {
+         setupRef.rejectionM5CloseTime = (setupRef as any).rejectionCandleCloseTime;
+         delete (setupRef as any).rejectionCandleCloseTime;
+         updated = true;
+      }
+
+      if (setupRef.status === 'TRIGGERED') return setupRef;
+
+      const isBuy = setupRef.direction === 'BUY';
       
-      if (setup.status === 'WAITING') {
+      if (setupRef.status === 'WAITING') {
         // Price touches or enters the defined setup zone
         const touchesZone = isBuy
-          ? (currentPrice <= setup.highPrice + 0.5 && currentPrice >= setup.lowPrice - 2.0)
-          : (currentPrice >= setup.lowPrice - 0.5 && currentPrice <= setup.highPrice + 2.0);
+          ? (currentPrice <= setupRef.highPrice + 0.5 && currentPrice >= setupRef.lowPrice - 2.0)
+          : (currentPrice >= setupRef.lowPrice - 0.5 && currentPrice <= setupRef.highPrice + 2.0);
 
         if (touchesZone) {
           updated = true;
-          return { ...setup, status: 'MONITORING' as const, monitorStartTime: now, extremePrice: currentPrice };
+          return { ...setupRef, status: 'MONITORING' as const, monitorStartTime: now, extremePrice: currentPrice };
         }
-      } else if (setup.status === 'MONITORING') {
+      } else if (setupRef.status === 'MONITORING') {
         // Track the extreme price reached inside or near the zone
-        const currentExtreme = setup.extremePrice ?? currentPrice;
+        const currentExtreme = setupRef.extremePrice ?? currentPrice;
         const newExtreme = isBuy ? Math.min(currentExtreme, currentPrice) : Math.max(currentExtreme, currentPrice);
         
-        let updatedSetup = { ...setup, extremePrice: newExtreme };
+        let updatedSetup = { ...setupRef, extremePrice: newExtreme };
 
         // If price blows past zone by > 3.0 points (30 pips SL area), reset monitoring
         const zoneBlown = isBuy
-          ? currentPrice < setup.lowPrice - 3.0
-          : currentPrice > setup.highPrice + 3.0;
+          ? currentPrice < setupRef.lowPrice - 3.0
+          : currentPrice > setupRef.highPrice + 3.0;
 
         if (zoneBlown) {
           updated = true;
-          return { ...setup, status: 'WAITING' as const, extremePrice: undefined };
+          return { ...setupRef, status: 'WAITING' as const, extremePrice: undefined };
         }
 
         // Check for rejection: price must bounce back from extreme by at least 0.8 points (8 pips)
@@ -93,12 +100,14 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
         if (hasRejected) {
           updated = true;
           // Calculate when the current candle (M1 or M5) closes
-          const nextCandleClose = Math.ceil(now / candleIntervalMs) * candleIntervalMs;
+          const nextM1Close = Math.ceil(now / 60000) * 60000;
+          const nextM5Close = Math.ceil(now / 300000) * 300000;
           return { 
             ...updatedSetup, 
             status: 'REJECTION_DETECTED' as const, 
             rejectionTime: now,
-            rejectionCandleCloseTime: nextCandleClose
+            rejectionM1CloseTime: nextM1Close,
+            rejectionM5CloseTime: nextM5Close
           };
         }
         
@@ -106,8 +115,8 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
           updated = true;
           return updatedSetup;
         }
-      } else if (setup.status === 'REJECTION_DETECTED') {
-        const currentExtreme = setup.extremePrice ?? currentPrice;
+      } else if (setupRef.status === 'REJECTION_DETECTED') {
+        const currentExtreme = setupRef.extremePrice ?? currentPrice;
         
         // If price breaks extreme (makes a lower low for BUY or higher high for SELL), rejection is broken
         const brokenExtreme = isBuy
@@ -117,49 +126,69 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
         if (brokenExtreme) {
           updated = true;
           return {
-            ...setup,
+            ...setupRef,
             status: 'MONITORING' as const,
             extremePrice: currentPrice,
             rejectionTime: undefined,
-            rejectionCandleCloseTime: undefined
+            rejectionM1CloseTime: undefined,
+            rejectionM5CloseTime: undefined
           };
         }
         
         // When candle close time arrives, verify that the candle actually closed with rejection!
-        if (setup.rejectionCandleCloseTime && now >= setup.rejectionCandleCloseTime) {
+        let triggered = false;
+        let triggeredTf = '';
+
+        if (setupRef.rejectionM1CloseTime && now >= setupRef.rejectionM1CloseTime) {
           const bounceAtClose = isBuy ? (currentPrice - currentExtreme) : (currentExtreme - currentPrice);
-          const candleClosedWithRejection = bounceAtClose >= 0.8;
-
-          if (candleClosedWithRejection) {
-            updated = true;
-            
-            // Dispatch signal ONLY after verified candle close rejection
-            dispatchNewSignal({
-              type: `MANUAL ${setup.strategy}`,
-              timeframe: `${tf} (Candle Close)`,
-              direction: setup.direction,
-              entryRange: `${setup.lowPrice.toFixed(2)} - ${setup.highPrice.toFixed(2)}`,
-              entryPrice: isBuy ? setup.lowPrice : setup.highPrice,
-              triggerPrice: currentPrice,
-              candlePattern: isBuy ? `Bullish Rejection Wick (${tf} Candle Close)` : `Bearish Rejection Wick (${tf} Candle Close)`,
-              tp: isBuy ? Number((setup.highPrice + 4.0).toFixed(2)) : Number((setup.lowPrice - 4.0).toFixed(2)),
-              sl: isBuy ? Number((setup.lowPrice - 5.0).toFixed(2)) : Number((setup.highPrice + 5.0).toFixed(2)),
-            });
-
-            return { ...setup, status: 'TRIGGERED' as const };
+          if (bounceAtClose >= 0.8) {
+            triggered = true;
+            triggeredTf = 'M1';
           } else {
-            // Candle closed without maintaining rejection wick -> Revert to monitoring
             updated = true;
-            return {
-              ...setup,
-              status: 'MONITORING' as const,
-              rejectionTime: undefined,
-              rejectionCandleCloseTime: undefined
-            };
+            setupRef.rejectionM1CloseTime = undefined;
           }
         }
+
+        if (!triggered && setupRef.rejectionM5CloseTime && now >= setupRef.rejectionM5CloseTime) {
+          const bounceAtClose = isBuy ? (currentPrice - currentExtreme) : (currentExtreme - currentPrice);
+          if (bounceAtClose >= 0.8) {
+            triggered = true;
+            triggeredTf = 'M5';
+          } else {
+            updated = true;
+            setupRef.rejectionM5CloseTime = undefined;
+          }
+        }
+
+        if (triggered) {
+          updated = true;
+          dispatchNewSignal({
+            type: `MANUAL SETUP${setupRef.name ? ` (${setupRef.name})` : ''}`,
+            timeframe: `${triggeredTf} (Candle Close)`,
+            direction: setupRef.direction,
+            entryRange: `${setupRef.lowPrice.toFixed(2)} - ${setupRef.highPrice.toFixed(2)}`,
+            entryPrice: isBuy ? setupRef.lowPrice : setupRef.highPrice,
+            triggerPrice: currentPrice,
+            candlePattern: isBuy ? `Bullish Rejection Wick (${triggeredTf} Candle Close)` : `Bearish Rejection Wick (${triggeredTf} Candle Close)`,
+            tp: isBuy ? Number((setupRef.highPrice + 4.0).toFixed(2)) : Number((setupRef.lowPrice - 4.0).toFixed(2)),
+            sl: isBuy ? Number((setupRef.lowPrice - 5.0).toFixed(2)) : Number((setupRef.highPrice + 5.0).toFixed(2)),
+          });
+
+          return { ...setupRef, status: 'TRIGGERED' as const };
+        } else if (!setupRef.rejectionM1CloseTime && !setupRef.rejectionM5CloseTime) {
+          // Both failed, revert to monitoring
+          updated = true;
+          return {
+            ...setupRef,
+            status: 'MONITORING' as const,
+            rejectionTime: undefined,
+            rejectionM1CloseTime: undefined,
+            rejectionM5CloseTime: undefined
+          };
+        }
       }
-      return setup;
+      return setupRef;
     });
 
     if (updated) {
@@ -178,15 +207,16 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
       lowPrice: lowVal,
       highPrice: highVal,
       direction: newDirection,
-      strategy: newStrategy,
-      timeframe: newTimeframe,
+      timeframe: 'M1/M5',
       status: 'WAITING',
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      name: newName.trim() || undefined
     };
 
     setSetups([newSetup, ...setups]);
     setNewLowPrice('');
     setNewHighPrice('');
+    setNewName('');
   };
 
   const removeSetup = (id: string) => {
@@ -225,8 +255,8 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
 
       <div className="p-4 sm:p-5 flex flex-col gap-5">
         {/* Input Form */}
-        <form onSubmit={handleAddSetup} className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col sm:flex-row gap-3 items-end">
-          <div className="flex-1 w-full flex flex-col gap-1.5">
+        <form onSubmit={handleAddSetup} className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50 flex flex-col sm:flex-row gap-3 items-end flex-wrap">
+          <div className="flex-1 min-w-[120px] flex flex-col gap-1.5">
             <label className="text-[10px] font-bold text-gray-400 tracking-wider">ZON BAWAH</label>
             <input
               type="number"
@@ -238,7 +268,7 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
               className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
             />
           </div>
-          <div className="flex-1 w-full flex flex-col gap-1.5">
+          <div className="flex-1 min-w-[120px] flex flex-col gap-1.5">
             <label className="text-[10px] font-bold text-gray-400 tracking-wider">ZON ATAS</label>
             <input
               type="number"
@@ -247,6 +277,16 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
               value={newHighPrice}
               onChange={e => setNewHighPrice(e.target.value)}
               placeholder="Cth: 2452.50"
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+          <div className="flex-1 min-w-[120px] flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-gray-400 tracking-wider">NAMA SIGNAL (PILIHAN)</label>
+            <input
+              type="text"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              placeholder="Cth: Rejection H4"
               className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
             />
           </div>
@@ -259,28 +299,6 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
             >
               <option value="BUY">BUY</option>
               <option value="SELL">SELL</option>
-            </select>
-          </div>
-          <div className="w-full sm:w-36 flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-gray-400 tracking-wider">STRATEGI</label>
-            <select
-              value={newStrategy}
-              onChange={e => setNewStrategy(e.target.value as 'REJECTION' | 'PULLBACK')}
-              className="w-full bg-gray-900 border border-gray-700 text-gray-300 rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500"
-            >
-              <option value="REJECTION">REJECTION</option>
-              <option value="PULLBACK">PULLBACK</option>
-            </select>
-          </div>
-          <div className="w-full sm:w-28 flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-gray-400 tracking-wider">TIMEFRAME</label>
-            <select
-              value={newTimeframe}
-              onChange={e => setNewTimeframe(e.target.value as 'M1' | 'M5')}
-              className="w-full bg-gray-900 border border-gray-700 text-gray-300 rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500"
-            >
-              <option value="M1">M1 (1 Minit)</option>
-              <option value="M5">M5 (5 Minit)</option>
             </select>
           </div>
           <button
@@ -322,14 +340,14 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
+                        {setup.name && (
+                          <span className="text-sm font-bold text-white mr-1">{setup.name}</span>
+                        )}
                         <span className={`text-sm font-black ${isBuy ? 'text-emerald-400' : 'text-rose-400'}`}>
                           {setup.direction}
                         </span>
-                        <span className="text-[10px] font-bold text-gray-400 px-2 py-0.5 rounded-full bg-gray-800 border border-gray-700">
-                          {setup.strategy}
-                        </span>
                         <span className="text-[10px] font-bold text-indigo-400 px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">
-                          {setup.timeframe || 'M5'}
+                          {setup.timeframe || 'M1/M5'}
                         </span>
                         {isTriggered && (
                           <span className="text-[10px] font-bold text-yellow-400 px-2 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center gap-1">
