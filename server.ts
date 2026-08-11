@@ -148,49 +148,100 @@ function isWeekendNews(dateStr: string): boolean {
   return false;
 }
 
-function normalizeNewsKey(eventStr: string, dateStr: string): string {
-  let e = (eventStr || '').toLowerCase();
-  e = e.replace(/^usd\s*-\s*/g, '').replace(/\(usd\)/g, '');
-  
-  if (e.includes('non-farm') || e.includes('nonfarm') || e.includes('nfp') || e.includes('pekerjaan bukan ladang') || e.includes('employment change')) {
-    e = 'nfp';
-  } else if (e.includes('cpi') || e.includes('consumer price') || e.includes('indeks harga pengguna')) {
-    e = 'cpi';
-  } else if (e.includes('fomc') || e.includes('federal funds') || e.includes('fed interest') || e.includes('fomc statement') || e.includes('mesyuarat fomc')) {
-    e = 'fomc';
-  } else if (e.includes('ppi') || e.includes('producer price')) {
-    e = 'ppi';
-  } else if (e.includes('retail') || e.includes('jualan runcit')) {
-    e = 'retailsales';
-  } else if (e.includes('unemployment') || e.includes('pengangguran')) {
-    e = 'unemploymentrate';
-  } else if (e.includes('hourly earnings') || e.includes('pendapatan setiap jam')) {
-    e = 'hourlyearnings';
-  } else if (e.includes('gdp') || e.includes('kdnk')) {
-    e = 'gdp';
-  } else {
-    e = e.replace(/\(.*?\)/g, '')
-         .replace(/flash|final|services|y\/y|m\/m|q\/q/gi, '')
-         .replace(/[^a-z0-9]/g, '')
-         .trim();
+function parseDateParts(dateStr: string): { day: number; month: number; year: number } | null {
+  if (!dateStr) return null;
+  const str = dateStr.trim();
+
+  // 1. Try ISO YYYY-MM-DD
+  const isoMatch = str.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (isoMatch) {
+    return {
+      year: parseInt(isoMatch[1], 10),
+      month: parseInt(isoMatch[2], 10),
+      day: parseInt(isoMatch[3], 10)
+    };
   }
 
-  let d = (dateStr || '').toLowerCase();
-  d = d.replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu|monday|tuesday|wednesday|thursday|friday|saturday|sunday/gi, '');
-  d = d.replace(/januari/g, 'jan').replace(/februari/g, 'feb').replace(/mac/g, 'mar')
-       .replace(/april/g, 'apr').replace(/mei/g, 'may').replace(/juni/g, 'jun')
-       .replace(/julai|juai/g, 'jul').replace(/ogos|ogo/g, 'aug').replace(/september/g, 'sep')
-       .replace(/oktober|okt/g, 'oct').replace(/november/g, 'nov').replace(/disember|dis/g, 'dec');
-  
-  const numMatch = d.match(/(\d{1,2})/);
-  const dayNum = numMatch ? parseInt(numMatch[1], 10) : 0;
-  
-  let month = '';
-  ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].forEach(m => {
-    if (d.includes(m)) month = m;
+  // 2. Try MM-DD-YYYY or MM/DD/YYYY (e.g. 08-12-2026)
+  const mmddyyyyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (mmddyyyyMatch) {
+    return {
+      month: parseInt(mmddyyyyMatch[1], 10),
+      day: parseInt(mmddyyyyMatch[2], 10),
+      year: parseInt(mmddyyyyMatch[3], 10)
+    };
+  }
+
+  // 3. Try "12 Aug 2026" or "Wednesday, 12 Aug 2026" or "12 Ogos 2026"
+  const monthMap: Record<string, number> = {
+    jan: 1, januari: 1, feb: 2, februari: 2, mar: 3, mac: 3,
+    apr: 4, april: 4, may: 5, mei: 5, jun: 6, june: 6,
+    jul: 7, julai: 7, juai: 7, aug: 8, ogos: 8, ogo: 8,
+    sep: 9, september: 9, oct: 10, okt: 10, oktober: 10,
+    nov: 11, november: 11, dec: 12, dis: 12, disember: 12
+  };
+
+  const lower = str.toLowerCase();
+  let foundMonth: number | null = null;
+  Object.keys(monthMap).forEach(m => {
+    if (lower.includes(m)) foundMonth = monthMap[m];
   });
 
-  return `${e}_${dayNum}_${month}`;
+  const dayMatch = str.match(/\b(\d{1,2})\b/);
+  const day = dayMatch ? parseInt(dayMatch[1], 10) : 0;
+
+  const yearMatch = str.match(/\b(20\d{2})\b/);
+  const year = yearMatch ? parseInt(yearMatch[1], 10) : 2026;
+
+  if (foundMonth && day) {
+    return { day, month: foundMonth, year };
+  }
+
+  return null;
+}
+
+function normalizeEventTitle(eventStr: string): string {
+  let e = (eventStr || '').toLowerCase().trim();
+  e = e.replace(/^usd\s*-\s*/g, '').replace(/\(usd\)/g, '');
+
+  if (e.includes('non-farm') || e.includes('nonfarm') || e.includes('nfp') || e.includes('pekerjaan bukan ladang')) {
+    return 'nfp';
+  }
+  if (e.includes('cpi') || e.includes('consumer price') || e.includes('indeks harga pengguna')) {
+    if (e.includes('core') || e.includes('teras')) return 'core_cpi';
+    return 'cpi';
+  }
+  if (e.includes('ppi') || e.includes('producer price')) {
+    if (e.includes('core') || e.includes('teras')) return 'core_ppi';
+    return 'ppi';
+  }
+  if (e.includes('pce') || e.includes('personal consumption')) {
+    if (e.includes('core') || e.includes('teras')) return 'core_pce';
+    return 'pce';
+  }
+  if (e.includes('fomc') || e.includes('federal funds') || e.includes('fed interest')) {
+    return 'fomc';
+  }
+  if (e.includes('retail') || e.includes('jualan runcit')) {
+    return 'retail_sales';
+  }
+  if (e.includes('unemployment') || e.includes('pengangguran')) {
+    return 'unemployment';
+  }
+  if (e.includes('gdp') || e.includes('kdnk')) {
+    return 'gdp';
+  }
+
+  return e.replace(/[^a-z0-9]/g, '');
+}
+
+function normalizeNewsKey(eventStr: string, dateStr: string): string {
+  const normEvent = normalizeEventTitle(eventStr);
+  const parts = parseDateParts(dateStr);
+  if (parts) {
+    return `${normEvent}_${parts.year}_${parts.month}_${parts.day}`;
+  }
+  return `${normEvent}_${dateStr.replace(/[^a-z0-9]/gi, '')}`;
 }
 
 function dedupeNewsEntries(entries: any[]) {

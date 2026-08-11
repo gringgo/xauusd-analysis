@@ -81,49 +81,100 @@ const ensureEnglishNewsDate = (dateStr: string): string => {
   return res;
 };
 
-const normalizeNewsKey = (eventStr: string, dateStr: string): string => {
-  let e = (eventStr || '').toLowerCase();
-  e = e.replace(/^usd\s*-\s*/g, '').replace(/\(usd\)/g, '');
-  
-  if (e.includes('non-farm') || e.includes('nonfarm') || e.includes('nfp') || e.includes('pekerjaan bukan ladang') || e.includes('employment change')) {
-    e = 'nfp';
-  } else if (e.includes('cpi') || e.includes('consumer price') || e.includes('indeks harga pengguna')) {
-    e = 'cpi';
-  } else if (e.includes('fomc') || e.includes('federal funds') || e.includes('fed interest') || e.includes('fomc statement') || e.includes('mesyuarat fomc')) {
-    e = 'fomc';
-  } else if (e.includes('ppi') || e.includes('producer price')) {
-    e = 'ppi';
-  } else if (e.includes('retail') || e.includes('jualan runcit')) {
-    e = 'retailsales';
-  } else if (e.includes('unemployment') || e.includes('pengangguran')) {
-    e = 'unemploymentrate';
-  } else if (e.includes('hourly earnings') || e.includes('pendapatan setiap jam')) {
-    e = 'hourlyearnings';
-  } else if (e.includes('gdp') || e.includes('kdnk')) {
-    e = 'gdp';
-  } else {
-    e = e.replace(/\(.*?\)/g, '')
-         .replace(/flash|final|services|y\/y|m\/m|q\/q/gi, '')
-         .replace(/[^a-z0-9]/g, '')
-         .trim();
+function parseDateParts(dateStr: string): { day: number; month: number; year: number } | null {
+  if (!dateStr) return null;
+  const str = dateStr.trim();
+
+  // 1. Try ISO YYYY-MM-DD
+  const isoMatch = str.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (isoMatch) {
+    return {
+      year: parseInt(isoMatch[1], 10),
+      month: parseInt(isoMatch[2], 10),
+      day: parseInt(isoMatch[3], 10)
+    };
   }
 
-  let d = (dateStr || '').toLowerCase();
-  d = d.replace(/jumaat|khamis|rabu|selasa|isnin|ahad|sabtu|monday|tuesday|wednesday|thursday|friday|saturday|sunday/gi, '');
-  d = d.replace(/januari/g, 'jan').replace(/februari/g, 'feb').replace(/mac/g, 'mar')
-       .replace(/april/g, 'apr').replace(/mei/g, 'may').replace(/juni/g, 'jun')
-       .replace(/julai|juai/g, 'jul').replace(/ogos|ogo/g, 'aug').replace(/september/g, 'sep')
-       .replace(/oktober|okt/g, 'oct').replace(/november/g, 'nov').replace(/disember|dis/g, 'dec');
-  
-  const numMatch = d.match(/(\d{1,2})/);
-  const dayNum = numMatch ? parseInt(numMatch[1], 10) : 0;
-  
-  let month = '';
-  ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].forEach(m => {
-    if (d.includes(m)) month = m;
+  // 2. Try MM-DD-YYYY or MM/DD/YYYY
+  const mmddyyyyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (mmddyyyyMatch) {
+    return {
+      month: parseInt(mmddyyyyMatch[1], 10),
+      day: parseInt(mmddyyyyMatch[2], 10),
+      year: parseInt(mmddyyyyMatch[3], 10)
+    };
+  }
+
+  // 3. Try "12 Aug 2026" or "Wednesday, 12 Aug 2026" or "12 Ogos 2026"
+  const monthMap: Record<string, number> = {
+    jan: 1, januari: 1, feb: 2, februari: 2, mar: 3, mac: 3,
+    apr: 4, april: 4, may: 5, mei: 5, jun: 6, june: 6,
+    jul: 7, julai: 7, juai: 7, aug: 8, ogos: 8, ogo: 8,
+    sep: 9, september: 9, oct: 10, okt: 10, oktober: 10,
+    nov: 11, november: 11, dec: 12, dis: 12, disember: 12
+  };
+
+  const lower = str.toLowerCase();
+  let foundMonth: number | null = null;
+  Object.keys(monthMap).forEach(m => {
+    if (lower.includes(m)) foundMonth = monthMap[m];
   });
 
-  return `${e}_${dayNum}_${month}`;
+  const dayMatch = str.match(/\b(\d{1,2})\b/);
+  const day = dayMatch ? parseInt(dayMatch[1], 10) : 0;
+
+  const yearMatch = str.match(/\b(20\d{2})\b/);
+  const year = yearMatch ? parseInt(yearMatch[1], 10) : 2026;
+
+  if (foundMonth && day) {
+    return { day, month: foundMonth, year };
+  }
+
+  return null;
+}
+
+function normalizeEventTitle(eventStr: string): string {
+  let e = (eventStr || '').toLowerCase().trim();
+  e = e.replace(/^usd\s*-\s*/g, '').replace(/\(usd\)/g, '');
+
+  if (e.includes('non-farm') || e.includes('nonfarm') || e.includes('nfp') || e.includes('pekerjaan bukan ladang')) {
+    return 'nfp';
+  }
+  if (e.includes('cpi') || e.includes('consumer price') || e.includes('indeks harga pengguna')) {
+    if (e.includes('core') || e.includes('teras')) return 'core_cpi';
+    return 'cpi';
+  }
+  if (e.includes('ppi') || e.includes('producer price')) {
+    if (e.includes('core') || e.includes('teras')) return 'core_ppi';
+    return 'ppi';
+  }
+  if (e.includes('pce') || e.includes('personal consumption')) {
+    if (e.includes('core') || e.includes('teras')) return 'core_pce';
+    return 'pce';
+  }
+  if (e.includes('fomc') || e.includes('federal funds') || e.includes('fed interest')) {
+    return 'fomc';
+  }
+  if (e.includes('retail') || e.includes('jualan runcit')) {
+    return 'retail_sales';
+  }
+  if (e.includes('unemployment') || e.includes('pengangguran')) {
+    return 'unemployment';
+  }
+  if (e.includes('gdp') || e.includes('kdnk')) {
+    return 'gdp';
+  }
+
+  return e.replace(/[^a-z0-9]/g, '');
+}
+
+const normalizeNewsKey = (eventStr: string, dateStr: string): string => {
+  const normEvent = normalizeEventTitle(eventStr);
+  const parts = parseDateParts(dateStr);
+  if (parts) {
+    return `${normEvent}_${parts.year}_${parts.month}_${parts.day}`;
+  }
+  return `${normEvent}_${dateStr.replace(/[^a-z0-9]/gi, '')}`;
 };
 
 export const LiveNewsFeedModule: React.FC<LiveNewsFeedModuleProps> = ({
@@ -158,14 +209,15 @@ export const LiveNewsFeedModule: React.FC<LiveNewsFeedModuleProps> = ({
     (news || []).forEach((item: any, idx: number) => {
       const imp = (item.impact || 'HIGH').toUpperCase();
       if (!imp.includes('HIGH')) return; // Strictly ignore non-HIGH impact
-      if (isWeekendNews(item.dateText || item.date || item.time || '')) return;
+      if (isWeekendNews(item.dateText || item.date || '')) return;
 
-      const key = normalizeNewsKey(item.event || item.title || '', item.time || item.dateText || item.date || '');
+      const dateStr = item.dateText || item.date || item.dateISO || '';
+      const key = normalizeNewsKey(item.event || item.title || '', dateStr);
       itemsMap.set(key, {
         id: item.id || `live_${idx}`,
         time: item.time || '-',
         dateText: item.dateText || item.date || '',
-        dateISO: item.dateISO || '',
+        dateISO: item.dateISO || item.date || '',
         event: item.event || item.title || 'USD News Event',
         impact: 'HIGH',
         forecast: item.forecast || '-',
@@ -195,7 +247,7 @@ export const LiveNewsFeedModule: React.FC<LiveNewsFeedModuleProps> = ({
           id: item.id,
           time: displayTime,
           dateText: dateText,
-          dateISO: item.createdAt || '',
+          dateISO: item.createdAt || item.date || '',
           event: item.event,
           impact: 'HIGH',
           forecast: item.forecast || '-',
@@ -223,24 +275,43 @@ export const LiveNewsFeedModule: React.FC<LiveNewsFeedModuleProps> = ({
 
   const filteredNews = combinedNews;
 
-  // Calculate countdown minutes left
-  const myt = toZonedTime(new Date(), 'Asia/Kuala_Lumpur');
-  const curH = myt.getHours();
-  const curM = myt.getMinutes();
+  // Calculate countdown minutes left taking full DATE & TIME into account
+  const getEventMinsLeft = (item: any) => {
+    const timeStr = item.time || '';
+    const dateText = item.dateText || item.date || '';
+    const dateISO = item.dateISO || '';
 
-  const getMinsLeft = (timeStr: string) => {
-    if (!timeStr || timeStr === '-') return null;
-    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
-    if (!match) return null;
-    let h = parseInt(match[1], 10);
-    const m = parseInt(match[2], 10);
-    const ampm = match[3].toUpperCase();
-    if (ampm === 'PM' && h < 12) h += 12;
-    if (ampm === 'AM' && h === 12) h = 0;
-    
-    const newsTotalMinutes = h * 60 + m;
-    const currentTotalMinutes = curH * 60 + curM;
-    return newsTotalMinutes - currentTotalMinutes;
+    let eventDate: Date | null = null;
+
+    if (dateISO && dateISO.includes('T')) {
+      const d = new Date(dateISO);
+      if (!isNaN(d.getTime())) eventDate = d;
+    }
+
+    if (!eventDate) {
+      const parts = parseDateParts(dateText);
+      if (parts) {
+        let hour = 12;
+        let min = 0;
+        if (timeStr && timeStr !== '-') {
+          const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+          if (timeMatch) {
+            hour = parseInt(timeMatch[1], 10);
+            min = parseInt(timeMatch[2], 10);
+            const ampm = (timeMatch[3] || '').toUpperCase();
+            if (ampm === 'PM' && hour < 12) hour += 12;
+            if (ampm === 'AM' && hour === 12) hour = 0;
+          }
+        }
+        eventDate = new Date(parts.year, parts.month - 1, parts.day, hour, min, 0);
+      }
+    }
+
+    if (!eventDate) return null;
+
+    const now = new Date();
+    const diffMs = eventDate.getTime() - now.getTime();
+    return Math.floor(diffMs / 60000);
   };
 
   return (
@@ -329,9 +400,65 @@ export const LiveNewsFeedModule: React.FC<LiveNewsFeedModuleProps> = ({
               </tr>
             ) : (
               filteredNews.map((item: any, idx: number) => {
-                const minsLeft = getMinsLeft(item.time);
+                const minsLeft = getEventMinsLeft(item);
                 const isExpanded = expandedId === item.id;
                 const isActualReady = item.actual && item.actual !== '-';
+
+                const renderCountdown = () => {
+                  if (item.status === 'BETUL') {
+                    return (
+                      <span className="text-emerald-400 font-bold text-[11px] bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded inline-flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" /> BETUL
+                      </span>
+                    );
+                  }
+                  if (item.status === 'SALAH') {
+                    return (
+                      <span className="text-rose-400 font-bold text-[11px] bg-rose-950/80 border border-rose-800 px-2 py-0.5 rounded inline-flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-rose-400" /> SALAH
+                      </span>
+                    );
+                  }
+                  if (minsLeft === null) {
+                    return (
+                      <span className="text-gray-400 text-[11px] bg-gray-900 border border-gray-800 px-2 py-0.5 rounded">
+                        PENDING
+                      </span>
+                    );
+                  }
+                  if (minsLeft < -15) {
+                    return (
+                      <span className="text-gray-400 font-medium text-[11px] bg-gray-900/80 border border-gray-800 px-2 py-0.5 rounded inline-flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-gray-500" /> Selesai
+                      </span>
+                    );
+                  }
+                  if (minsLeft >= -15 && minsLeft <= 15) {
+                    return (
+                      <span className="text-red-400 font-black text-[11px] bg-red-950 border border-red-800 px-2.5 py-0.5 rounded animate-pulse inline-flex items-center gap-1 shadow">
+                        🔥 LIVE
+                      </span>
+                    );
+                  }
+
+                  const days = Math.floor(minsLeft / 1440);
+                  const hours = Math.floor((minsLeft % 1440) / 60);
+                  const mins = minsLeft % 60;
+                  let countdownStr = '';
+                  if (days > 0) {
+                    countdownStr = `${days}d ${hours}h`;
+                  } else if (hours > 0) {
+                    countdownStr = `${hours}j ${mins}m`;
+                  } else {
+                    countdownStr = `${mins}m`;
+                  }
+
+                  return (
+                    <span className="font-mono font-extrabold text-[11px] text-[#ffcc00] bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 rounded inline-flex items-center gap-1 shadow-sm">
+                      ⏳ {countdownStr}
+                    </span>
+                  );
+                };
 
                 return (
                   <React.Fragment key={item.id || idx}>
@@ -417,31 +544,7 @@ export const LiveNewsFeedModule: React.FC<LiveNewsFeedModuleProps> = ({
 
                       {/* Status / Countdown */}
                       <td className="px-3.5 py-3 text-center">
-                        {item.status === 'BETUL' ? (
-                          <span className="text-emerald-400 font-bold text-[11px] bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded inline-flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-400" /> BETUL
-                          </span>
-                        ) : item.status === 'SALAH' ? (
-                          <span className="text-rose-400 font-bold text-[11px] bg-rose-950/80 border border-rose-800 px-2 py-0.5 rounded inline-flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3 text-rose-400" /> SALAH
-                          </span>
-                        ) : minsLeft === null ? (
-                          <span className="text-gray-400 text-[11px] bg-gray-900 border border-gray-800 px-2 py-0.5 rounded">
-                            PENDING
-                          </span>
-                        ) : minsLeft < -15 ? (
-                          <span className="text-gray-400 font-medium text-[11px] bg-gray-900/80 border border-gray-800 px-2 py-0.5 rounded inline-flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-gray-500" /> Selesai
-                          </span>
-                        ) : minsLeft >= -15 && minsLeft <= 15 ? (
-                          <span className="text-red-400 font-black text-[11px] bg-red-950 border border-red-800 px-2.5 py-0.5 rounded animate-pulse inline-flex items-center gap-1 shadow">
-                            🔥 LIVE
-                          </span>
-                        ) : (
-                          <span className="font-mono font-extrabold text-[11px] text-[#ffcc00] bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 rounded inline-flex items-center gap-1 shadow-sm">
-                            ⏳ {Math.floor(minsLeft / 60) > 0 ? `${Math.floor(minsLeft / 60)}j ` : ''}{minsLeft % 60}m
-                          </span>
-                        )}
+                        {renderCountdown()}
                       </td>
 
                       {/* Expand Icon */}
