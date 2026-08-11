@@ -8,6 +8,7 @@ interface ManualSetup {
   highPrice: number;
   direction: 'BUY' | 'SELL';
   strategy: 'REJECTION' | 'PULLBACK';
+  timeframe: 'M1' | 'M5';
   status: 'WAITING' | 'MONITORING' | 'REJECTION_DETECTED' | 'TRIGGERED';
   monitorStartTime?: number;
   rejectionTime?: number;
@@ -22,6 +23,7 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
   const [newHighPrice, setNewHighPrice] = useState<string>('');
   const [newDirection, setNewDirection] = useState<'BUY' | 'SELL'>('BUY');
   const [newStrategy, setNewStrategy] = useState<'REJECTION' | 'PULLBACK'>('REJECTION');
+  const [newTimeframe, setNewTimeframe] = useState<'M1' | 'M5'>('M5');
 
   // Load from local storage
   useEffect(() => {
@@ -54,38 +56,49 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
       if (setup.status === 'TRIGGERED') return setup;
 
       const isBuy = setup.direction === 'BUY';
+      const tf = setup.timeframe || 'M5';
+      const candleIntervalMs = tf === 'M1' ? 60000 : 300000;
       
       if (setup.status === 'WAITING') {
-        // Trigger condition: price reaches the setup zone (or beyond it, meaning not before it)
-        const hasReached = isBuy
-          ? currentPrice <= setup.highPrice
-          : currentPrice >= setup.lowPrice;
+        // Price touches or enters the defined setup zone
+        const touchesZone = isBuy
+          ? (currentPrice <= setup.highPrice + 0.5 && currentPrice >= setup.lowPrice - 2.0)
+          : (currentPrice >= setup.lowPrice - 0.5 && currentPrice <= setup.highPrice + 2.0);
 
-        if (hasReached) {
+        if (touchesZone) {
           updated = true;
           return { ...setup, status: 'MONITORING' as const, monitorStartTime: now, extremePrice: currentPrice };
         }
       } else if (setup.status === 'MONITORING') {
-        // Track the extreme price reached while monitoring
+        // Track the extreme price reached inside or near the zone
         const currentExtreme = setup.extremePrice ?? currentPrice;
         const newExtreme = isBuy ? Math.min(currentExtreme, currentPrice) : Math.max(currentExtreme, currentPrice);
         
         let updatedSetup = { ...setup, extremePrice: newExtreme };
 
-        // Check for rejection: price bounced back from its extreme point by at least 0.5 points
-        const hasRejected = isBuy
-          ? currentPrice >= newExtreme + 0.5 // Rebound up from lowest point
-          : currentPrice <= newExtreme - 0.5; // Rebound down from highest point
+        // If price blows past zone by > 3.0 points (30 pips SL area), reset monitoring
+        const zoneBlown = isBuy
+          ? currentPrice < setup.lowPrice - 3.0
+          : currentPrice > setup.highPrice + 3.0;
+
+        if (zoneBlown) {
+          updated = true;
+          return { ...setup, status: 'WAITING' as const, extremePrice: undefined };
+        }
+
+        // Check for rejection: price must bounce back from extreme by at least 0.8 points (8 pips)
+        const bounceDistance = isBuy ? (currentPrice - newExtreme) : (newExtreme - currentPrice);
+        const hasRejected = bounceDistance >= 0.8;
 
         if (hasRejected) {
           updated = true;
-          // Calculate when the current minute candle will close
-          const nextMinuteTop = Math.ceil(now / 60000) * 60000;
+          // Calculate when the current candle (M1 or M5) closes
+          const nextCandleClose = Math.ceil(now / candleIntervalMs) * candleIntervalMs;
           return { 
             ...updatedSetup, 
             status: 'REJECTION_DETECTED' as const, 
             rejectionTime: now,
-            rejectionCandleCloseTime: nextMinuteTop
+            rejectionCandleCloseTime: nextCandleClose
           };
         }
         
@@ -96,12 +109,12 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
       } else if (setup.status === 'REJECTION_DETECTED') {
         const currentExtreme = setup.extremePrice ?? currentPrice;
         
-        // If price breaks the extreme, the rejection is invalidated
-        const invalidated = isBuy
+        // If price breaks extreme (makes a lower low for BUY or higher high for SELL), rejection is broken
+        const brokenExtreme = isBuy
           ? currentPrice < currentExtreme
           : currentPrice > currentExtreme;
           
-        if (invalidated) {
+        if (brokenExtreme) {
           updated = true;
           return {
             ...setup,
@@ -112,23 +125,38 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
           };
         }
         
-        // If we reached the candle close time, dispatch signal
+        // When candle close time arrives, verify that the candle actually closed with rejection!
         if (setup.rejectionCandleCloseTime && now >= setup.rejectionCandleCloseTime) {
-          updated = true;
-          
-          // Dispatch signal
-          dispatchNewSignal({
-            type: `MANUAL ${setup.strategy}`,
-            timeframe: `M1/M5 (Candle Close)`,
-            direction: setup.direction,
-            entryRange: `${setup.lowPrice.toFixed(2)} - ${setup.highPrice.toFixed(2)}`,
-            entryPrice: isBuy ? setup.lowPrice : setup.highPrice,
-            triggerPrice: currentPrice,
-            tp: isBuy ? Number((setup.highPrice + 4.0).toFixed(2)) : Number((setup.lowPrice - 4.0).toFixed(2)),
-            sl: isBuy ? Number((setup.lowPrice - 5.0).toFixed(2)) : Number((setup.highPrice + 5.0).toFixed(2)),
-          });
+          const bounceAtClose = isBuy ? (currentPrice - currentExtreme) : (currentExtreme - currentPrice);
+          const candleClosedWithRejection = bounceAtClose >= 0.8;
 
-          return { ...setup, status: 'TRIGGERED' as const };
+          if (candleClosedWithRejection) {
+            updated = true;
+            
+            // Dispatch signal ONLY after verified candle close rejection
+            dispatchNewSignal({
+              type: `MANUAL ${setup.strategy}`,
+              timeframe: `${tf} (Candle Close)`,
+              direction: setup.direction,
+              entryRange: `${setup.lowPrice.toFixed(2)} - ${setup.highPrice.toFixed(2)}`,
+              entryPrice: isBuy ? setup.lowPrice : setup.highPrice,
+              triggerPrice: currentPrice,
+              candlePattern: isBuy ? `Bullish Rejection Wick (${tf} Candle Close)` : `Bearish Rejection Wick (${tf} Candle Close)`,
+              tp: isBuy ? Number((setup.highPrice + 4.0).toFixed(2)) : Number((setup.lowPrice - 4.0).toFixed(2)),
+              sl: isBuy ? Number((setup.lowPrice - 5.0).toFixed(2)) : Number((setup.highPrice + 5.0).toFixed(2)),
+            });
+
+            return { ...setup, status: 'TRIGGERED' as const };
+          } else {
+            // Candle closed without maintaining rejection wick -> Revert to monitoring
+            updated = true;
+            return {
+              ...setup,
+              status: 'MONITORING' as const,
+              rejectionTime: undefined,
+              rejectionCandleCloseTime: undefined
+            };
+          }
         }
       }
       return setup;
@@ -151,6 +179,7 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
       highPrice: highVal,
       direction: newDirection,
       strategy: newStrategy,
+      timeframe: newTimeframe,
       status: 'WAITING',
       createdAt: Date.now()
     };
@@ -232,7 +261,7 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
               <option value="SELL">SELL</option>
             </select>
           </div>
-          <div className="w-full sm:w-40 flex flex-col gap-1.5">
+          <div className="w-full sm:w-36 flex flex-col gap-1.5">
             <label className="text-[10px] font-bold text-gray-400 tracking-wider">STRATEGI</label>
             <select
               value={newStrategy}
@@ -241,6 +270,17 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
             >
               <option value="REJECTION">REJECTION</option>
               <option value="PULLBACK">PULLBACK</option>
+            </select>
+          </div>
+          <div className="w-full sm:w-28 flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold text-gray-400 tracking-wider">TIMEFRAME</label>
+            <select
+              value={newTimeframe}
+              onChange={e => setNewTimeframe(e.target.value as 'M1' | 'M5')}
+              className="w-full bg-gray-900 border border-gray-700 text-gray-300 rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:border-indigo-500"
+            >
+              <option value="M1">M1 (1 Minit)</option>
+              <option value="M5">M5 (5 Minit)</option>
             </select>
           </div>
           <button
@@ -288,9 +328,17 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
                         <span className="text-[10px] font-bold text-gray-400 px-2 py-0.5 rounded-full bg-gray-800 border border-gray-700">
                           {setup.strategy}
                         </span>
+                        <span className="text-[10px] font-bold text-indigo-400 px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">
+                          {setup.timeframe || 'M5'}
+                        </span>
                         {isTriggered && (
                           <span className="text-[10px] font-bold text-yellow-400 px-2 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center gap-1">
-                            <AlertCircle className="w-3 h-3" /> TRIGGERED
+                            <AlertCircle className="w-3 h-3" /> SIGNAL KELUAR
+                          </span>
+                        )}
+                        {setup.status === 'WAITING' && (
+                          <span className="text-[10px] font-bold text-gray-400 px-2 py-0.5 rounded-full bg-gray-800 border border-gray-700">
+                            MENUNGGU ZON
                           </span>
                         )}
                         {setup.status === 'MONITORING' && (
@@ -300,7 +348,7 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
                         )}
                         {setup.status === 'REJECTION_DETECTED' && (
                           <span className="text-[10px] font-bold text-amber-400 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center gap-1 animate-pulse">
-                            <Activity className="w-3 h-3" /> TUNGGU CANDLE CLOSE
+                            <Activity className="w-3 h-3" /> TUNGGU CANDLE CLOSE ({setup.timeframe || 'M5'})
                           </span>
                         )}
                       </div>
