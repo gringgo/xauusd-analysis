@@ -11,6 +11,8 @@ import { FrontPageNewsHistory } from './components/FrontPageNewsHistory';
 import { LiveNewsFeedModule } from './components/LiveNewsFeedModule';
 import { SidebarNav, NAV_SECTIONS } from './components/SidebarNav';
 import { useXauUsdLivePrice } from './lib/priceService';
+import { QuickCopyBtn } from "./components/QuickCopyBtn";
+import { StructureDataGrid } from "./components/StructureDataGrid";
 import { TwelveDataModal } from './components/TwelveDataModal';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, BarChart, Bar, Cell } from 'recharts';
 import { useState, useEffect } from 'react';
@@ -931,26 +933,6 @@ const renderFormattedSummary = (text: string) => {
   });
 };
 
-const QuickCopyBtn = ({ text, label }: { text: string | number, label?: string }) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(String(text));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <button 
-      onClick={handleCopy}
-      className="inline-flex items-center gap-1 bg-gray-800 hover:bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded text-[10px] ml-1 transition-colors border border-gray-700"
-      title="Salin ke MT5"
-    >
-      {copied ? <Check className="w-3 h-3 text-[#22c55e]" /> : <Copy className="w-3 h-3" />}
-      {label && <span>{copied ? 'Disalin' : label}</span>}
-    </button>
-  );
-};
 
 const RiskCalculator = ({ entryPrice, slPrice }: { entryPrice: string | number, slPrice: string | number }) => {
   const [balance, setBalance] = useState(100);
@@ -1849,6 +1831,7 @@ export default function App() {
                   <StructureSOPDashboard sbrRbsData={data.sbr_rbs} currentPrice={data.currentPrice} filterType="SNR" />
                   <SbrRbsVisualDiagram filterType="SNR" />
                 </div>
+                <StructureDataGrid sbrRbsData={data.sbr_rbs} filterType="SNR" />
               </div>
             )}
 
@@ -1873,6 +1856,7 @@ export default function App() {
                   <StructureSOPDashboard sbrRbsData={data.sbr_rbs} currentPrice={data.currentPrice} filterType="SND" />
                   <SbrRbsVisualDiagram filterType="SND" />
                 </div>
+                <StructureDataGrid sbrRbsData={data.sbr_rbs} filterType="SND" />
               </div>
             )}
 
