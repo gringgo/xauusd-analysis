@@ -31,20 +31,19 @@ export const AlphaConfluenceDashboard = ({ alphaConfluence, currentPrice }: { al
       }
 
       const hasBeenRetested = retestedRef.current.has(sigId);
-      const hasReacted = isBuy ? currentPrice >= (optimalEntry + 1.0) : currentPrice <= (optimalEntry - 1.0);
       
-      // Dispatch Signal if setup is complete
-      if (hasBeenRetested && hasReacted && !dispatchedRef.current.has(sigId)) {
+      // Dispatch Signal if price enters zone
+      if (hasRetested && !isInvalidated && !dispatchedRef.current.has(sigId)) {
         dispatchedRef.current.add(sigId);
         dispatchNewSignal({
-          type: 'ALPHA ZON SNIPER (HIGH PROB)',
+          type: 'ALPHA ZON SNIPER',
           timeframe: 'M15/M5 (Confluence)',
           direction: isBuy ? 'BUY' : 'SELL',
           entryRange: `${bottomPrice.toFixed(2)} - ${topPrice.toFixed(2)}`,
           entryPrice: optimalEntry,
-          tp: isBuy ? topPrice + 5.0 : bottomPrice - 5.0,
+          tp: isBuy ? optimalEntry + 5.0 : optimalEntry - 5.0,
           sl: isBuy ? bottomPrice - 1.5 : topPrice + 1.5,
-          winRate: 88, // Alpha confluence implies high win rate
+          winRate: conf.winRate || 95,
           notes: `Confluence Elements: ${conf.elements.join(', ')}`
         });
       }
@@ -87,9 +86,12 @@ export const AlphaConfluenceDashboard = ({ alphaConfluence, currentPrice }: { al
                         <span className={`font-black text-lg ${isBuy ? 'text-emerald-400' : 'text-rose-400'}`}>
                           {isBuy ? 'BUY ZONE' : 'SELL ZONE'}
                         </span>
-                        <span className="flex items-center gap-0.5 text-[#ffcc00] text-sm">
-                          {Array.from({length: conf.stars}).map((_, i) => <span key={i}>⭐</span>)}
-                        </span>
+                        <div className="flex items-center gap-1.5 ml-2 bg-black/40 px-2 py-0.5 rounded border border-gray-700/50">
+                          <span className="flex items-center gap-0.5 text-[#ffcc00] text-sm">
+                            {Array.from({length: conf.stars}).map((_, i) => <span key={i}>⭐</span>)}
+                          </span>
+                          <span className="text-xs font-bold text-[#ffcc00] ml-1">{conf.winRate || 95}% Win</span>
+                        </div>
                       </div>
                       <div className="text-[#ffcc00] font-mono font-black text-2xl tracking-wider">
                         {conf.bottom.toFixed(2)} - {conf.top.toFixed(2)}

@@ -435,8 +435,8 @@ export const SignalHistoryDashboard = ({
               {(() => {
                 const entry = getRealEntryPrice(signal);
                 const isBuy = signal.direction === 'BUY';
-                const slVal = isBuy ? entry - 5.0 : entry + 5.0;
-                const tp1 = isBuy ? entry + 4.0 : entry - 4.0;
+                const slVal = (signal.type && signal.type.includes('ALPHA') && signal.sl) ? signal.sl : (isBuy ? entry - 5.0 : entry + 5.0);
+                const tp1 = (signal.type && signal.type.includes('ALPHA') && signal.tp) ? signal.tp : (isBuy ? entry + 4.0 : entry - 4.0);
                 const tp2 = isBuy ? entry + 5.0 : entry - 5.0;
                 const tp3 = isBuy ? entry + 6.0 : entry - 6.0;
                 const tp4 = isBuy ? entry + 7.0 : entry - 7.0;
@@ -459,7 +459,11 @@ export const SignalHistoryDashboard = ({
                         </div>
                       </div>
                       <div className="col-span-2 sm:col-span-1">
-                        <div className="text-[9px] text-emerald-400 font-bold mb-0.5">MAIN TARGET (TP1: 40 PIPS)</div>
+                        {signal.type && signal.type.includes('ALPHA') ? (
+                          <div className="text-[9px] text-emerald-400 font-bold mb-0.5">MAIN TARGET (50 PIPS)</div>
+                        ) : (
+                          <div className="text-[9px] text-emerald-400 font-bold mb-0.5">MAIN TARGET (TP1: 40 PIPS)</div>
+                        )}
                         <div className="font-mono text-xs text-[#ffcc00] font-bold flex items-center gap-1">
                           <Target className="w-3.5 h-3.5" />
                           ${tp1.toFixed(2)}
@@ -468,6 +472,7 @@ export const SignalHistoryDashboard = ({
                     </div>
 
                     {/* TP1 - TP7 Multi-Level Targets Bar */}
+                    {!(signal.type && signal.type.includes('ALPHA')) && (
                     <div className="bg-[#111] p-2 rounded border border-gray-800/60 text-[10px]">
                       <div className="text-[9px] font-extrabold text-yellow-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                         <span>🎯 SASARAN TAKE PROFIT (TP1 - TP7):</span>
@@ -504,6 +509,7 @@ export const SignalHistoryDashboard = ({
                         </div>
                       </div>
                     </div>
+                    )}
                   </div>
                 );
               })()}

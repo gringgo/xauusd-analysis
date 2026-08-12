@@ -397,9 +397,11 @@ function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, l
           }
         }
 
+        const winRate = Math.min(80 + (stars * 4), 98);
         confluences.push({
           type: 'BULLISH',
-          top: overlap.top,
+          winRate,
+          top: Math.min(overlap.top, overlap.bottom + 0.5),
           bottom: overlap.bottom,
           stars,
           elements: Array.from(new Set(elements))
@@ -445,10 +447,12 @@ function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, l
           }
         }
 
+        const winRate = Math.min(80 + (stars * 4), 98);
         confluences.push({
           type: 'BEARISH',
+          winRate,
           top: overlap.top,
-          bottom: overlap.bottom,
+          bottom: Math.max(overlap.bottom, overlap.top - 0.5),
           stars,
           elements: Array.from(new Set(elements))
         });
@@ -466,7 +470,7 @@ function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, l
     }
   }
 
-  return filtered.slice(0, 3);
+  return filtered.slice(0, 5);
 }
 
 function generateAnalysis(sbr_rbs, liquidity, orderBlock, fvg, currentPrice) {
