@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { TrendingDown, Zap, TrendingUp, Info, Circle } from 'lucide-react';
 
-export const SbrRbsVisualDiagram: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<1 | 2 | 3 | 4>(1);
+export const SbrRbsVisualDiagram = ({ filterType = 'ALL' }: { filterType?: 'ALL' | 'SNR' | 'SND' }) => {
+  const [activeTab, setActiveTab] = useState<1 | 2 | 3 | 4>(filterType === 'SND' ? 2 : 1);
   const [showInfo, setShowInfo] = useState(true);
 
   return (
@@ -36,6 +36,7 @@ export const SbrRbsVisualDiagram: React.FC = () => {
       {/* Tabs */}
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="flex flex-col gap-2 w-full">
+          {(filterType === 'ALL' || filterType === 'SNR') && (
           <button
             onClick={() => setActiveTab(1)}
             className={`flex items-center gap-2 w-full p-2.5 sm:p-3 rounded-lg border font-bold text-xs sm:text-sm transition-all ${
@@ -47,6 +48,8 @@ export const SbrRbsVisualDiagram: React.FC = () => {
             <TrendingDown className="w-4 h-4 shrink-0" />
             1. SBR (Support Become Resistance)
           </button>
+          )}
+          {(filterType === 'ALL' || filterType === 'SND') && (
           <button
             onClick={() => setActiveTab(2)}
             className={`flex items-center gap-2 w-full p-2.5 sm:p-3 rounded-lg border font-bold text-xs sm:text-sm transition-all justify-start sm:justify-center ${
@@ -58,8 +61,10 @@ export const SbrRbsVisualDiagram: React.FC = () => {
             <Zap className="w-4 h-4 shrink-0" />
             2. DBD (Drop-Base-Drop)
           </button>
+          )}
         </div>
         <div className="flex flex-col gap-2 w-full">
+          {(filterType === 'ALL' || filterType === 'SNR') && (
           <button
             onClick={() => setActiveTab(3)}
             className={`flex items-center gap-2 w-full p-2.5 sm:p-3 rounded-lg border font-bold text-xs sm:text-sm transition-all ${
@@ -71,6 +76,8 @@ export const SbrRbsVisualDiagram: React.FC = () => {
             <TrendingUp className="w-4 h-4 shrink-0" />
             3. RBS (Resistance Become Support)
           </button>
+          )}
+          {(filterType === 'ALL' || filterType === 'SND') && (
           <button
             onClick={() => setActiveTab(4)}
             className={`flex items-center gap-2 w-full p-2.5 sm:p-3 rounded-lg border font-bold text-xs sm:text-sm transition-all justify-start sm:justify-center ${
@@ -82,6 +89,7 @@ export const SbrRbsVisualDiagram: React.FC = () => {
             <Zap className="w-4 h-4 shrink-0" />
             4. RBR (Rally-Base-Rally)
           </button>
+          )}
         </div>
       </div>
 

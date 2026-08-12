@@ -2,33 +2,33 @@ import React, { useEffect, useRef } from 'react';
 import { CheckCircle2, Circle, ArrowDown, ArrowUp, Zap, Clock, ShieldAlert } from 'lucide-react';
 import { dispatchNewSignal } from '../lib/signalStore';
 
-export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData: any, currentPrice: number }) => {
+export const StructureSOPDashboard = ({ sbrRbsData, currentPrice, filterType = 'ALL' }: { sbrRbsData: any, currentPrice: number, filterType?: 'ALL' | 'SNR' | 'SND' }) => {
   const dispatchedRef = useRef<Set<string>>(new Set());
   const retestedRef = useRef<Set<string>>(new Set());
   
   useEffect(() => {
     if (!sbrRbsData) return;
     
-    ['h4', 'h1'].forEach(tf => {
+    ['h8', 'h4', 'h1'].forEach(tf => {
       const dataForTf = sbrRbsData[tf];
       if (!dataForTf) return;
       
-      ['sbr', 'rbs'].forEach(type => {
+      ['sbr', 'rbs', 'dbd', 'rbr'].forEach(type => {
         const setup = dataForTf[type];
         if (setup) {
           const setupPrice = parseFloat(setup.price);
-          const isSBR = type === 'sbr';
+          const isSell = type === 'sbr' || type === 'dbd';
           
           const distance = Math.abs(currentPrice - setupPrice);
           const isRetesting = distance <= 0.5;
-          const hasRetested = isSBR ? currentPrice >= (setupPrice - 0.5) : currentPrice <= (setupPrice + 0.5);
+          const hasRetested = isSell ? currentPrice >= (setupPrice - 0.5) : currentPrice <= (setupPrice + 0.5);
           const step3Complete = isRetesting || hasRetested; 
           const sigId = tf + '-' + type + '-' + setup.price;
           if (step3Complete) {
             retestedRef.current.add(sigId);
           }
           const hasBeenRetested = retestedRef.current.has(sigId);
-          const hasReacted = isSBR ? currentPrice <= (setupPrice - 3.0) : currentPrice >= (setupPrice + 3.0);
+          const hasReacted = isSell ? currentPrice <= (setupPrice - 3.0) : currentPrice >= (setupPrice + 3.0);
           const step4Complete = hasBeenRetested && hasReacted;
           
           if (step4Complete) {
@@ -38,13 +38,13 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
               dispatchNewSignal({
               type: type.toUpperCase(),
               timeframe: tf.toUpperCase() + ' TIMEFRAME',
-              direction: isSBR ? 'SELL' : 'BUY',
+              direction: isSell ? 'SELL' : 'BUY',
               entryRange: setup.price,
               entryPrice: currentPrice,
               triggerPrice: currentPrice,
-              candlePattern: isSBR ? 'Bearish Rejection Wick & SBR Breakout Retest' : 'Bullish Rejection Wick & RBS Breakout Retest',
-              tp: isSBR ? Number((setupPrice - 4.0).toFixed(2)) : Number((setupPrice + 4.0).toFixed(2)),
-              sl: isSBR ? Number((setupPrice + 5.0).toFixed(2)) : Number((setupPrice - 5.0).toFixed(2)),
+              candlePattern: isSell ? `Bearish Rejection Wick & ${type.toUpperCase()} Retest` : `Bullish Rejection Wick & ${type.toUpperCase()} Retest`,
+              tp: isSell ? Number((setupPrice - 4.0).toFixed(2)) : Number((setupPrice + 4.0).toFixed(2)),
+              sl: isSell ? Number((setupPrice + 5.0).toFixed(2)) : Number((setupPrice - 5.0).toFixed(2)),
               winRate: 100
             });
             }
@@ -56,12 +56,12 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
 
   if (!sbrRbsData) return null;
 
-  const renderDashboard = (setup: any, type: 'SBR' | 'RBS', timeframe: string) => {
+  const renderDashboard = (setup: any, type: 'SBR' | 'RBS' | 'DBD' | 'RBR', timeframe: string) => {
     if (!setup) return null;
 
     const setupPrice = parseFloat(setup.price);
-    const isSBR = type === 'SBR'; // Sell setup
-    const isRBS = type === 'RBS'; // Buy setup
+    const isSell = type === 'SBR' || type === 'DBD'; // Sell setup
+    const isBuy = type === 'RBS' || type === 'RBR'; // Buy setup
 
     // Step logic
     // Step 1: Identify Key Level
@@ -74,17 +74,17 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
     // We consider retest complete if current price is within 2 points (20 pips) of the setup price, or if it has touched/crossed it slightly
     const distance = Math.abs(currentPrice - setupPrice);
     const isRetesting = distance <= 0.5; 
-    const hasRetested = isSBR ? currentPrice >= (setupPrice - 0.5) : currentPrice <= (setupPrice + 0.5);
+    const hasRetested = isSell ? currentPrice >= (setupPrice - 0.5) : currentPrice <= (setupPrice + 0.5);
     const step3Complete = isRetesting || hasRetested;
     
     // Step 4: Signal
     const tf = (typeof timeframe !== 'undefined' ? timeframe.split(' ')[0].toLowerCase() : '');
-    const sigId = tf + '-' + type + '-' + setup.price;
+    const sigId = tf + '-' + type.toLowerCase() + '-' + setup.price;
     const hasBeenRetested = step3Complete || retestedRef.current.has(sigId);
-    const hasReacted = isSBR ? currentPrice <= (setupPrice - 3.0) : currentPrice >= (setupPrice + 3.0);
+    const hasReacted = isSell ? currentPrice <= (setupPrice - 3.0) : currentPrice >= (setupPrice + 3.0);
     const step4Complete = hasBeenRetested && hasReacted;
 
-    const colorScheme = isSBR ? {
+    const colorScheme = isSell ? {
       text: 'text-red-400',
       bg: 'bg-red-500',
       border: 'border-red-500',
@@ -125,14 +125,14 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
     );
 
     return (
-      <div className={`border ${isSBR ? 'border-red-900/40' : 'border-emerald-900/40'} rounded-xl overflow-hidden bg-[#0a0a0a]`}>
-        <div className={`px-4 py-2 flex justify-between items-center ${isSBR ? 'bg-red-950/40' : 'bg-emerald-950/40'} border-b ${isSBR ? 'border-red-900/30' : 'border-emerald-900/30'}`}>
+      <div className={`border ${isSell ? 'border-red-900/40' : 'border-emerald-900/40'} rounded-xl overflow-hidden bg-[#0a0a0a]`}>
+        <div className={`px-4 py-2 flex justify-between items-center ${isSell ? 'bg-red-950/40' : 'bg-emerald-950/40'} border-b ${isSell ? 'border-red-900/30' : 'border-emerald-900/30'}`}>
           <div className="flex items-center gap-2">
             <span className="text-[10px] sm:text-xs font-black text-white bg-black/60 px-2 py-1 rounded shadow">
               {timeframe}
             </span>
             <span className={`text-[10px] sm:text-xs font-black tracking-wide ${colorScheme.text}`}>
-              SOP STRUKTUR: {type === 'SBR' ? 'DBD/SBR' : 'RBR/RBS'}
+              SOP STRUKTUR: {type} ZON
             </span>
           </div>
           <div className="text-[10px] text-gray-300 font-mono font-bold bg-black/40 px-2 py-1 rounded">
@@ -142,21 +142,21 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
         <div className="p-4 sm:p-5">
           <Step 
             num="1" 
-            label={isSBR ? "Support Kunci Dikenalpasti" : "Resistance Kunci Dikenalpasti"}
-            desc={isSBR ? "Paras Support lama (Swing Low) dikesan." : "Paras Resistance lama (Swing High) dikesan."}
+            label={type === 'SBR' ? "Support Kunci Dikenalpasti" : type === 'RBS' ? "Resistance Kunci Dikenalpasti" : type === 'DBD' ? "Base Drop (Supply) Dibina" : "Base Rally (Demand) Dibina"}
+            desc={type === 'SBR' ? "Paras Support lama (Swing Low) dikesan." : type === 'RBS' ? "Paras Resistance lama (Swing High) dikesan." : type === 'DBD' ? "Momentum Drop terhenti sementara membentuk Base." : "Momentum Rally terhenti sementara membentuk Base."}
             isComplete={step1Complete}
             isLast={false}
           />
           <Step 
             num="2" 
-            label="Breakout & Bentuk Base" 
-            desc={isSBR ? "Support ditembus (Breakout). Base Drop-Base-Drop terbentuk." : "Resistance ditembus (Breakout). Base Rally-Base-Rally terbentuk."}
+            label={type === 'SBR' ? "Harga Break Support (Menjadi SBR)" : type === 'RBS' ? "Harga Break Resistance (Menjadi RBS)" : type === 'DBD' ? "Momentum Drop Diteruskan" : "Momentum Rally Diteruskan"}
+            desc={type === 'SBR' ? "Support ditembus (Breakout). Base SBR terbentuk." : type === 'RBS' ? "Resistance ditembus (Breakout). Base RBS terbentuk." : type === 'DBD' ? "Drop-Base-Drop berjaya terbentuk." : "Rally-Base-Rally berjaya terbentuk."}
             isComplete={step2Complete}
             isLast={false}
           />
           <Step 
             num="3" 
-            label="Retest / Pullback ke Zon" 
+            label={`Retest / Pullback ke Zon ${type}`} 
             desc={`Harga kini = ${currentPrice.toFixed(2)}. Menunggu harga masuk ke zon target ${setupPrice.toFixed(2)}.`}
             isComplete={step3Complete}
             isActive={!step3Complete}
@@ -165,7 +165,7 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
           <Step 
             num="4" 
             label={`Confirmation & ${colorScheme.label}`}
-            desc={isSBR ? "Rejection di zon SBR. Signal SELL valid!" : "Rejection di zon RBS. Signal BUY valid!"}
+            desc={`Rejection di zon ${type}. Signal ${isSell ? 'SELL' : 'BUY'} valid!`}
             isComplete={step4Complete}
             isActive={step3Complete && !step4Complete}
             isLast={true}
@@ -179,7 +179,7 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
                     {colorScheme.icon}
                   </div>
                   <div>
-                    <div className={`font-black text-sm tracking-wide ${colorScheme.text}`}>SIGNAL {isSBR ? 'SELL' : 'BUY'} AKTIF</div>
+                    <div className={`font-black text-sm tracking-wide ${colorScheme.text}`}>SIGNAL {isSell ? 'SELL' : 'BUY'} AKTIF</div>
                     <div className="text-[10px] text-gray-300">Zon {type} berjaya di-retest. Peluang entry (Abaikan jika harga masuk semula ke zon)!</div>
                   </div>
                 </div>
@@ -194,11 +194,11 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
                 </div>
                 <div className="text-center border-l border-gray-800">
                   <div className="text-[9px] text-gray-400 font-bold mb-0.5">TARGET (TP1: 40 PIPS)</div>
-                  <div className="font-mono font-black text-[11px] sm:text-xs text-[#ffcc00]">{isSBR ? (setupPrice - 4.0).toFixed(2) : (setupPrice + 4.0).toFixed(2)}</div>
+                  <div className="font-mono font-black text-[11px] sm:text-xs text-[#ffcc00]">{isSell ? (setupPrice - 4.0).toFixed(2) : (setupPrice + 4.0).toFixed(2)}</div>
                 </div>
                 <div className="text-center border-l border-gray-800">
                   <div className="text-[9px] text-gray-400 font-bold mb-0.5">STOP LOSS (SL: 50 PIPS)</div>
-                  <div className="font-mono font-black text-[11px] sm:text-xs text-rose-400">{isSBR ? (setupPrice + 5.0).toFixed(2) : (setupPrice - 5.0).toFixed(2)}</div>
+                  <div className="font-mono font-black text-[11px] sm:text-xs text-rose-400">{isSell ? (setupPrice + 5.0).toFixed(2) : (setupPrice - 5.0).toFixed(2)}</div>
                 </div>
               </div>
             </div>
@@ -208,21 +208,41 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice }: { sbrRbsData
     );
   };
 
-  const hasH4SBR = !!sbrRbsData?.h4?.sbr;
-  const hasH4RBS = !!sbrRbsData?.h4?.rbs;
-  const hasH1SBR = !!sbrRbsData?.h1?.sbr;
-  const hasH1RBS = !!sbrRbsData?.h1?.rbs;
+  const hasH8SBR = (filterType === 'ALL' || filterType === 'SNR') && !!sbrRbsData?.h8?.sbr;
+  const hasH8RBS = (filterType === 'ALL' || filterType === 'SNR') && !!sbrRbsData?.h8?.rbs;
+  const hasH8DBD = (filterType === 'ALL' || filterType === 'SND') && !!sbrRbsData?.h8?.dbd;
+  const hasH8RBR = (filterType === 'ALL' || filterType === 'SND') && !!sbrRbsData?.h8?.rbr;
 
-  if (!hasH4SBR && !hasH4RBS && !hasH1SBR && !hasH1RBS) {
+  const hasH4SBR = (filterType === 'ALL' || filterType === 'SNR') && !!sbrRbsData?.h4?.sbr;
+  const hasH4RBS = (filterType === 'ALL' || filterType === 'SNR') && !!sbrRbsData?.h4?.rbs;
+  const hasH4DBD = (filterType === 'ALL' || filterType === 'SND') && !!sbrRbsData?.h4?.dbd;
+  const hasH4RBR = (filterType === 'ALL' || filterType === 'SND') && !!sbrRbsData?.h4?.rbr;
+  
+  const hasH1SBR = (filterType === 'ALL' || filterType === 'SNR') && !!sbrRbsData?.h1?.sbr;
+  const hasH1RBS = (filterType === 'ALL' || filterType === 'SNR') && !!sbrRbsData?.h1?.rbs;
+  const hasH1DBD = (filterType === 'ALL' || filterType === 'SND') && !!sbrRbsData?.h1?.dbd;
+  const hasH1RBR = (filterType === 'ALL' || filterType === 'SND') && !!sbrRbsData?.h1?.rbr;
+
+  if (!hasH8SBR && !hasH8RBS && !hasH8DBD && !hasH8RBR && !hasH4SBR && !hasH4RBS && !hasH1SBR && !hasH1RBS && !hasH4DBD && !hasH4RBR && !hasH1DBD && !hasH1RBR) {
     return null;
   }
 
   return (
     <div className="flex flex-col gap-3">
+      {hasH8SBR && renderDashboard(sbrRbsData.h8.sbr, 'SBR', 'H8 TIMEFRAME')}
+      {hasH8RBS && renderDashboard(sbrRbsData.h8.rbs, 'RBS', 'H8 TIMEFRAME')}
+      {hasH8DBD && renderDashboard(sbrRbsData.h8.dbd, 'DBD', 'H8 TIMEFRAME')}
+      {hasH8RBR && renderDashboard(sbrRbsData.h8.rbr, 'RBR', 'H8 TIMEFRAME')}
+
       {hasH4SBR && renderDashboard(sbrRbsData.h4.sbr, 'SBR', 'H4 TIMEFRAME')}
       {hasH4RBS && renderDashboard(sbrRbsData.h4.rbs, 'RBS', 'H4 TIMEFRAME')}
+      {hasH4DBD && renderDashboard(sbrRbsData.h4.dbd, 'DBD', 'H4 TIMEFRAME')}
+      {hasH4RBR && renderDashboard(sbrRbsData.h4.rbr, 'RBR', 'H4 TIMEFRAME')}
+      
       {hasH1SBR && renderDashboard(sbrRbsData.h1.sbr, 'SBR', 'H1 TIMEFRAME')}
       {hasH1RBS && renderDashboard(sbrRbsData.h1.rbs, 'RBS', 'H1 TIMEFRAME')}
+      {hasH1DBD && renderDashboard(sbrRbsData.h1.dbd, 'DBD', 'H1 TIMEFRAME')}
+      {hasH1RBR && renderDashboard(sbrRbsData.h1.rbr, 'RBR', 'H1 TIMEFRAME')}
     </div>
   );
 };

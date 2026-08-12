@@ -374,7 +374,7 @@ export const getWinRate = (price: number) => {
 
 function findSBR_RBS(candles: any[], currentPrice: number) {
   if (!candles || candles.length === 0) {
-    return { sbr: null, rbs: null };
+    return { sbr: null, rbs: null, dbd: null, rbr: null };
   }
 
   const swings: any[] = [];
@@ -441,22 +441,71 @@ function findSBR_RBS(candles: any[], currentPrice: number) {
     }
   }
 
+  let dbdVal: number | null = null;
+  let rbrVal: number | null = null;
+  
+  for (let i = 2; i < candles.length; i++) {
+    const c1 = candles[i-2];
+    const c2 = candles[i-1];
+    const c3 = candles[i];
+    
+    const c1Body = Math.abs(c1.open - c1.close);
+    const c2Body = Math.abs(c2.open - c2.close);
+    const c3Body = Math.abs(c3.open - c3.close);
+    const avgBody = (c1Body + c3Body) / 2;
+    
+    const isC1Drop = c1.close < c1.open;
+    const isC3Drop = c3.close < c3.open;
+    const isC1Rally = c1.close > c1.open;
+    const isC3Rally = c3.close > c3.open;
+    
+    const isBase = c2Body < avgBody * 0.4 && (c2.high - c2.low) < avgBody;
+    
+    if (isC1Drop && isC3Drop && isBase && c1Body > 0.5 && c3Body > 0.5) {
+      if (dbdVal === null || Math.abs(currentPrice - c2.high) < Math.abs(currentPrice - dbdVal)) {
+        dbdVal = c2.high;
+      }
+    }
+    
+    if (isC1Rally && isC3Rally && isBase && c1Body > 0.5 && c3Body > 0.5) {
+      if (rbrVal === null || Math.abs(currentPrice - c2.low) < Math.abs(currentPrice - rbrVal)) {
+        rbrVal = c2.low;
+      }
+    }
+  }
+
   return {
     sbr: sbrVal ? { 
       price: sbrVal.toFixed(2), 
       winRate: getWinRate(sbrVal),
-      type: 'DBD / SBR',
-      pattern: 'Drop-Base-Drop (SBR)',
+      type: 'SBR',
+      pattern: 'Support Becomes Resistance',
       signal: 'SELL',
       description: 'Support/High tembus → Bertukar menjadi Resistance (Sell Zone).'
     } : null,
     rbs: rbsVal ? { 
       price: rbsVal.toFixed(2), 
       winRate: getWinRate(rbsVal),
-      type: 'RBR / RBS',
-      pattern: 'Rally-Base-Rally (RBS)',
+      type: 'RBS',
+      pattern: 'Resistance Becomes Support',
       signal: 'BUY',
       description: 'Resistance/Low tembus → Bertukar menjadi Support (Buy Zone).'
+    } : null,
+    dbd: dbdVal ? {
+      price: dbdVal.toFixed(2),
+      winRate: getWinRate(dbdVal),
+      type: 'DBD',
+      pattern: 'Drop-Base-Drop',
+      signal: 'SELL',
+      description: 'Momentum kejatuhan berehat seketika (Base) sebelum jatuh lagi. Base ini menjadi Hidden Supply.'
+    } : null,
+    rbr: rbrVal ? {
+      price: rbrVal.toFixed(2),
+      winRate: getWinRate(rbrVal),
+      type: 'RBR',
+      pattern: 'Rally-Base-Rally',
+      signal: 'BUY',
+      description: 'Momentum kenaikan berehat seketika (Base) sebelum naik lagi. Base ini menjadi Hidden Demand.'
     } : null
   };
 }

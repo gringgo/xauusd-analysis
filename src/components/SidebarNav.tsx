@@ -87,12 +87,20 @@ export const NAV_SECTIONS: NavSection[] = [
     badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30'
   },
   {
-    id: 'sec-sbr-rbs',
-    label: 'SBR / RBS & SND Rajah',
+    id: 'sec-snr',
+    label: 'Modul SNR (SBR & RBS)',
     category: 'TEKNIKAL LUKISAN',
     icon: <Ruler className="w-4.5 h-4.5 text-amber-400" />,
-    badge: 'DIAGRAM',
+    badge: 'SNR',
     badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+  },
+  {
+    id: 'sec-snd',
+    label: 'Modul SND (DBD & RBR)',
+    category: 'STRUKTUR PASARAN',
+    icon: <Layers className="w-4.5 h-4.5 text-purple-400" />,
+    badge: 'SND',
+    badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30'
   },
   {
     id: 'sec-liquidity-bos',
