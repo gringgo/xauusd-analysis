@@ -20,3 +20,41 @@ body {
   -webkit-font-smoothing: antialiased;
   font-size: 1.02rem;
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  /* The modal container */
+  #journal-modal-content, #journal-modal-content * {
+    visibility: visible;
+  }
+  #journal-modal-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    background: white !important;
+    color: black !important;
+  }
+  
+  /* Hide UI elements inside modal during print */
+  #journal-modal-content button {
+    display: none !important;
+  }
+  
+  /* Force text colors for print readability */
+  #journal-modal-content div, 
+  #journal-modal-content span, 
+  #journal-modal-content p, 
+  #journal-modal-content input, 
+  #journal-modal-content select {
+    color: black !important;
+    background-color: transparent !important;
+    border-color: #ccc !important;
+  }
+}
