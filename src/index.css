@@ -58,3 +58,57 @@ body {
     border-color: #ccc !important;
   }
 }
+
+/* COMPACT MODE STYLES */
+.compact-mode p.text-\[10px\].text-gray-400,
+.compact-mode p.text-\[11px\].text-gray-400 {
+  display: none !important;
+}
+
+.compact-mode .bg-black\\/40.p-2\\.5.rounded.border.border-gray-800\\/80.leading-relaxed.italic {
+  display: none !important;
+}
+
+/* Hide header descriptions in SOP dashboards */
+.compact-mode .border-b.border-gray-800 p.text-xs.text-gray-400,
+.compact-mode .border-b.border-gray-800 p.text-\[11px\].text-gray-400 {
+  display: none !important;
+}
+
+/* Reduce padding in compact mode for main panels */
+.compact-mode .p-4 {
+  padding: 0.75rem !important;
+}
+.compact-mode .p-5 {
+  padding: 1rem !important;
+}
+.compact-mode .gap-4 {
+  gap: 0.5rem !important;
+}
+.compact-mode .mb-4 {
+  margin-bottom: 0.5rem !important;
+}
+.compact-mode .mb-5 {
+  margin-bottom: 0.75rem !important;
+}
+
+
+/* Additional overrides */
+.compact-mode .italic.leading-relaxed {
+  display: none !important;
+}
+
+/* Let's also hide the descriptions under headers in App.tsx */
+.compact-mode p.text-\[10px\].text-gray-400 {
+  display: none !important;
+}
+
+/* Hide descriptions in SOP Dashboards */
+.compact-mode p.text-xs.text-gray-400.leading-relaxed {
+  display: none !important;
+}
+
+/* Hide descriptions in FVG / OB / SNR headers */
+.compact-mode .text-\[11px\].text-gray-400.mt-1 {
+  display: none !important;
+}

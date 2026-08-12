@@ -11,6 +11,8 @@ interface Props {
   source: string;
   isConnected: boolean;
   currentPrice: number | null;
+  isCompactMode?: boolean;
+  setIsCompactMode?: (val: boolean) => void;
 }
 
 export const TwelveDataModal: React.FC<Props> = ({
@@ -23,8 +25,10 @@ export const TwelveDataModal: React.FC<Props> = ({
   source,
   isConnected,
   currentPrice,
+  isCompactMode = false,
+  setIsCompactMode,
 }) => {
-  const [activeTab, setActiveTab] = useState<'TWELVEDATA' | 'SWISSQUOTE'>('SWISSQUOTE');
+  const [activeTab, setActiveTab] = useState<'TWELVEDATA' | 'SWISSQUOTE' | 'PAPARAN'>('PAPARAN');
   const [inputKey, setInputKey] = useState(apiKey);
   const [inputSqUrl, setInputSqUrl] = useState(swissquoteUrl);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -54,28 +58,37 @@ export const TwelveDataModal: React.FC<Props> = ({
         <div className="flex items-center gap-2.5 mb-4 border-b border-gray-800 pb-3">
           <Zap className="w-6 h-6 text-[#ffcc00] animate-pulse" />
           <div>
-            <h3 className="text-base font-black tracking-wide text-white">TETAPAN PRICE FEED XAU/USD</h3>
-            <p className="text-[11px] text-gray-400">Pilih / Masukkan API Key bagi Twelve Data atau Swissquote</p>
+            <h3 className="text-base font-black tracking-wide text-white">TETAPAN SISTEM & PAPARAN</h3>
+            <p className="text-[11px] text-gray-400">Konfigurasi Price Feed XAU/USD dan Paparan Antaramuka</p>
           </div>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex bg-black p-1 rounded-xl border border-gray-800 mb-4 text-xs font-bold">
+        
+        <div className="flex bg-black p-1 rounded-xl border border-gray-800 mb-4 text-xs font-bold overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab('PAPARAN')}
+            className={`flex-1 py-1.5 px-2 min-w-[80px] rounded-lg text-center transition-all ${activeTab === 'PAPARAN' ? 'bg-[#ffcc00] text-black font-black' : 'text-gray-400 hover:text-white'}`}
+          >
+            📱 PAPARAN UI
+          </button>
           <button
             type="button"
             onClick={() => setActiveTab('TWELVEDATA')}
-            className={`flex-1 py-1.5 rounded-lg text-center transition-all ${activeTab === 'TWELVEDATA' ? 'bg-[#ffcc00] text-black font-black' : 'text-gray-400 hover:text-white'}`}
+            className={`flex-1 py-1.5 px-2 min-w-[80px] rounded-lg text-center transition-all ${activeTab === 'TWELVEDATA' ? 'bg-[#ffcc00] text-black font-black' : 'text-gray-400 hover:text-white'}`}
           >
-            ⚡ TWELVE DATA (WS)
+            ⚡ TWELVEDATA
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('SWISSQUOTE')}
-            className={`flex-1 py-1.5 rounded-lg text-center transition-all ${activeTab === 'SWISSQUOTE' ? 'bg-[#ffcc00] text-black font-black' : 'text-gray-400 hover:text-white'}`}
+            className={`flex-1 py-1.5 px-2 min-w-[80px] rounded-lg text-center transition-all ${activeTab === 'SWISSQUOTE' ? 'bg-[#ffcc00] text-black font-black' : 'text-gray-400 hover:text-white'}`}
           >
-            🇨🇭 SWISSQUOTE FEED
+            🇨🇭 SWISSQUOTE
           </button>
         </div>
+
 
         {/* Status Box */}
         <div className="bg-[#181818] border border-gray-800 rounded-xl p-3.5 mb-4 space-y-2">
@@ -110,6 +123,29 @@ export const TwelveDataModal: React.FC<Props> = ({
 
         {/* Form Content */}
         <form onSubmit={handleSave} className="space-y-4">
+          
+          {activeTab === 'PAPARAN' && (
+            <div className="space-y-4">
+              <div className="bg-[#181818] border border-gray-800 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-bold text-white block mb-0.5">Mod Kompak (Compact Mode)</label>
+                    <p className="text-[10px] text-gray-400">Sembunyikan teks penerangan (Nota Trader) untuk antaramuka yang lebih padat dan bersih (sesuai untuk mobile).</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCompactMode && setIsCompactMode(!isCompactMode)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isCompactMode ? 'bg-[#ffcc00]' : 'bg-gray-700'}`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isCompactMode ? 'translate-x-5' : 'translate-x-0'}`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'TWELVEDATA' && (
             <div>
               <label className="text-xs font-bold text-gray-300 block mb-1.5 flex items-center gap-1.5">

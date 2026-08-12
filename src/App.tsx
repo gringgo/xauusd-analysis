@@ -1181,6 +1181,15 @@ export default function App() {
   const [showJournal, setShowJournal] = useState(false);
   const [showNewsModal, setShowNewsModal] = useState(false);
   const [showTwelveDataModal, setShowTwelveDataModal] = useState(false);
+  const [isCompactMode, setIsCompactMode] = useState(() => {
+    const saved = localStorage.getItem('gringgo_compact_mode');
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('gringgo_compact_mode', JSON.stringify(isCompactMode));
+  }, [isCompactMode]);
+
   const [newsHistoryList, setNewsHistoryList] = useState<NewsItem[]>([]);
 
   const livePriceState = useXauUsdLivePrice(data?.currentPrice);
@@ -1685,7 +1694,7 @@ export default function App() {
                 <button
                   onClick={() => setShowTwelveDataModal(true)}
                   className="bg-[#141414] hover:bg-[#1f1f1f] border border-[#ffcc00]/50 text-[#ffcc00] px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow transition-all hover:scale-105"
-                  title="Tetapan Twelve Data WebSocket API Key"
+                  title="Tetapan Sistem & Paparan"
                 >
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   <span className="font-mono text-[10px] bg-[#ffcc00]/20 text-[#ffcc00] px-1.5 py-0.5 rounded font-black">
@@ -2638,6 +2647,8 @@ export default function App() {
 
       <TwelveDataModal
         isOpen={showTwelveDataModal}
+        isCompactMode={isCompactMode}
+        setIsCompactMode={setIsCompactMode}
         onClose={() => setShowTwelveDataModal(false)}
         apiKey={livePriceState.apiKey}
         setApiKey={livePriceState.setApiKey}
