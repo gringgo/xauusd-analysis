@@ -67,23 +67,21 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
       const isBuy = setupRef.direction === 'BUY';
       
       if (setupRef.status === 'WAITING') {
-        // Price touches or enters the defined setup zone
-        const touchesZone = isBuy
-          ? (currentPrice <= setupRef.highPrice + 0.5 && currentPrice >= setupRef.lowPrice - 2.0)
-          : (currentPrice >= setupRef.lowPrice - 0.5 && currentPrice <= setupRef.highPrice + 2.0);
+        // Strict zone entry: price must be INSIDE the zone
+        const inZone = currentPrice <= setupRef.highPrice && currentPrice >= setupRef.lowPrice;
 
-        if (touchesZone) {
+        if (inZone) {
           updated = true;
           return { ...setupRef, status: 'MONITORING' as const, monitorStartTime: now, extremePrice: currentPrice };
         }
       } else if (setupRef.status === 'MONITORING') {
-        // Track the extreme price reached inside or near the zone
+        // Track the extreme price reached inside the zone
         const currentExtreme = setupRef.extremePrice ?? currentPrice;
         const newExtreme = isBuy ? Math.min(currentExtreme, currentPrice) : Math.max(currentExtreme, currentPrice);
         
         let updatedSetup = { ...setupRef, extremePrice: newExtreme };
 
-        // If price blows past zone by > 3.0 points (30 pips SL area), reset monitoring
+        // Check if price blew past zone by > 3.0 points (30 pips SL area)
         const zoneBlown = isBuy
           ? currentPrice < setupRef.lowPrice - 3.0
           : currentPrice > setupRef.highPrice + 3.0;
@@ -93,8 +91,38 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
           return { ...setupRef, status: 'WAITING' as const, extremePrice: undefined };
         }
 
-        // Check for rejection: price must bounce back from extreme by at least 0.8 points (8 pips)
+        // Check if price flew away from zone without triggering
+        // If price is > 4.0 points away favorably and we are still monitoring, it means we missed the move or it's a gap
+        const flewAway = isBuy
+          ? currentPrice > setupRef.highPrice + 4.0
+          : currentPrice < setupRef.lowPrice - 4.0;
+          
+        if (flewAway) {
+          updated = true;
+          return { ...setupRef, status: 'WAITING' as const, extremePrice: undefined };
+        }
+
         const bounceDistance = isBuy ? (currentPrice - newExtreme) : (newExtreme - currentPrice);
+
+        // 1. PULLBACK DETECTION (Instant trigger if price bounces strongly before candle close)
+        if (bounceDistance >= 1.5) {
+          updated = true;
+          dispatchNewSignal({
+            type: `MANUAL SETUP${setupRef.name ? ` (${setupRef.name})` : ''}`,
+            timeframe: `PULLBACK`,
+            direction: setupRef.direction,
+            entryRange: `${setupRef.lowPrice.toFixed(2)} - ${setupRef.highPrice.toFixed(2)}`,
+            entryPrice: currentPrice,
+            triggerPrice: currentPrice,
+            candlePattern: isBuy ? `Bullish Pullback Bounce` : `Bearish Pullback Bounce`,
+            tp: isBuy ? Number((setupRef.highPrice + 4.0).toFixed(2)) : Number((setupRef.lowPrice - 4.0).toFixed(2)),
+            sl: isBuy ? Number((setupRef.lowPrice - 5.0).toFixed(2)) : Number((setupRef.highPrice + 5.0).toFixed(2)),
+          });
+          return { ...setupRef, status: 'TRIGGERED' as const };
+        }
+
+        // 2. REJECTION DETECTION (Wait for candle close)
+        // Check if price bounced enough to form a wick
         const hasRejected = bounceDistance >= 0.8;
 
         if (hasRejected) {
@@ -135,13 +163,33 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
           };
         }
         
+        const bounceDistance = isBuy ? (currentPrice - currentExtreme) : (currentExtreme - currentPrice);
+
+        // 1. PULLBACK DETECTION (Instant trigger if price bounces strongly before candle close)
+        if (bounceDistance >= 1.5) {
+          updated = true;
+          dispatchNewSignal({
+            type: `MANUAL SETUP${setupRef.name ? ` (${setupRef.name})` : ''}`,
+            timeframe: `PULLBACK`,
+            direction: setupRef.direction,
+            entryRange: `${setupRef.lowPrice.toFixed(2)} - ${setupRef.highPrice.toFixed(2)}`,
+            entryPrice: currentPrice,
+            triggerPrice: currentPrice,
+            candlePattern: isBuy ? `Bullish Pullback Bounce` : `Bearish Pullback Bounce`,
+            tp: isBuy ? Number((setupRef.highPrice + 4.0).toFixed(2)) : Number((setupRef.lowPrice - 4.0).toFixed(2)),
+            sl: isBuy ? Number((setupRef.lowPrice - 5.0).toFixed(2)) : Number((setupRef.highPrice + 5.0).toFixed(2)),
+          });
+          return { ...setupRef, status: 'TRIGGERED' as const };
+        }
+        
         // When candle close time arrives, verify that the candle actually closed with rejection!
         let triggered = false;
         let triggeredTf = '';
 
         if (setupRef.rejectionM1CloseTime && now >= setupRef.rejectionM1CloseTime) {
+          const isStale = now > setupRef.rejectionM1CloseTime + 60000; // 1 min late
           const bounceAtClose = isBuy ? (currentPrice - currentExtreme) : (currentExtreme - currentPrice);
-          if (bounceAtClose >= 0.8) {
+          if (!isStale && bounceAtClose >= 0.8) {
             triggered = true;
             triggeredTf = 'M1';
           } else {
@@ -151,8 +199,9 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
         }
 
         if (!triggered && setupRef.rejectionM5CloseTime && now >= setupRef.rejectionM5CloseTime) {
+          const isStale = now > setupRef.rejectionM5CloseTime + 60000; // 1 min late
           const bounceAtClose = isBuy ? (currentPrice - currentExtreme) : (currentExtreme - currentPrice);
-          if (bounceAtClose >= 0.8) {
+          if (!isStale && bounceAtClose >= 0.8) {
             triggered = true;
             triggeredTf = 'M5';
           } else {
@@ -168,7 +217,7 @@ export const ManualSetupModule = ({ currentPrice }: { currentPrice?: number }) =
             timeframe: `${triggeredTf} (Candle Close)`,
             direction: setupRef.direction,
             entryRange: `${setupRef.lowPrice.toFixed(2)} - ${setupRef.highPrice.toFixed(2)}`,
-            entryPrice: isBuy ? setupRef.lowPrice : setupRef.highPrice,
+            entryPrice: currentPrice,
             triggerPrice: currentPrice,
             candlePattern: isBuy ? `Bullish Rejection Wick (${triggeredTf} Candle Close)` : `Bearish Rejection Wick (${triggeredTf} Candle Close)`,
             tp: isBuy ? Number((setupRef.highPrice + 4.0).toFixed(2)) : Number((setupRef.lowPrice - 4.0).toFixed(2)),
