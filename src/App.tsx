@@ -1756,7 +1756,7 @@ export default function App() {
           </div>
 
           {/* RIGHT COLUMN (Analysis Panels) */}
-          <div className={`${viewMode === 'FOCUS' && !['sec-bias-plan', 'sec-manual-setup', 'sec-ob-fvg', 'sec-sbr-rbs', 'sec-liquidity', 'sec-liquidity-bos'].includes(activeSection) ? 'hidden' : viewMode === 'FOCUS' ? 'col-span-12 flex flex-col gap-3 lg:gap-4' : 'lg:col-span-5 xl:col-span-4 flex flex-col gap-3 lg:gap-4'}`}>
+          <div className={`${viewMode === 'FOCUS' && !['sec-bias-plan', 'sec-manual-setup', 'sec-ob-fvg', 'sec-snr', 'sec-snd', 'sec-liquidity', 'sec-liquidity-bos'].includes(activeSection) ? 'hidden' : viewMode === 'FOCUS' ? 'col-span-12 flex flex-col gap-3 lg:gap-4' : 'lg:col-span-5 xl:col-span-4 flex flex-col gap-3 lg:gap-4'}`}>
             {(viewMode === 'ALL' || activeSection === 'sec-bias-plan') && (
               <div id="sec-bias-plan" className="scroll-mt-6 flex flex-col gap-3 lg:gap-4">
                 <SessionWarning />
