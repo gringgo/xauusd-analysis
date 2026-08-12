@@ -23,7 +23,7 @@ export function getSignalWinRate(signal: Partial<SignalRecord>): number {
   if (typeUpper.includes('ZEUS') || typeUpper.includes('KEBENARAN') || typeUpper.includes('GOLDEN')) return 88;
   if (typeUpper.includes('OB') || typeUpper.includes('ORDER')) return 84;
   if (typeUpper.includes('FVG')) return 81;
-  if (typeUpper.includes('SBR') || typeUpper.includes('RBS')) {
+  if (typeUpper.includes('SBR') || typeUpper.includes('RBS') || typeUpper.includes('DBD') || typeUpper.includes('RBR')) {
     return tfUpper.includes('H4') ? 76 : 85;
   }
   if (tfUpper.includes('H4')) return 76;

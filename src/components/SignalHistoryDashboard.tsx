@@ -21,7 +21,9 @@ export const SignalHistoryDashboard = ({
   const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'COMPLETED' | 'TODAY' | 'ALL'>('ALL');
   const [activeTab, setActiveTab] = useState<string>('ALL');
 
-  const uniqueTypes = Array.from(new Set(signals.map(s => s.type)));
+  const predefinedTypes = ['ORDER BLOCK', 'FVG', 'SBR', 'RBS', 'DBD', 'RBR', 'ZON KEBENARAN'];
+  const dynamicTypes = Array.from(new Set(signals.map(s => s.type)));
+  const uniqueTypes = Array.from(new Set([...predefinedTypes, ...dynamicTypes]));
 
   // Filter by status first, then by SOP type
   const statusFiltered = statusFilter === 'ALL' 

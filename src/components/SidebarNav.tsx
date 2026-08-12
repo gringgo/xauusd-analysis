@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { 
-  LayoutDashboard, 
+  LayoutDashboard,
+  Activity, 
   Newspaper, 
   LineChart, 
   Target, 
@@ -63,7 +64,14 @@ export const NAV_SECTIONS: NavSection[] = [
     badgeColor: 'bg-red-500/20 text-red-400 border-red-500/30'
   },
   {
-    id: 'sec-bias-plan',
+    id: 'sec-alpha',
+    label: 'Alpha Confluence (Sniper)',
+    category: 'HIGH PROBABILITY SETUP',
+    icon: <Target className="w-4.5 h-4.5 text-[#ffcc00]" />,
+    badge: 'ALPHA',
+    badgeColor: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+  },
+  {    id: 'sec-bias-plan',
     label: 'Bias Utama & Plan Trade',
     category: 'STRATEGI ENTRY',
     icon: <Target className="w-4.5 h-4.5 text-emerald-400" />,
@@ -79,12 +87,20 @@ export const NAV_SECTIONS: NavSection[] = [
     badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30'
   },
   {
-    id: 'sec-ob-fvg',
-    label: 'Order Block & FVG Zone',
+    id: 'sec-ob',
+    label: 'Order Block (OB)',
     category: 'SMART MONEY FLOW',
     icon: <Layers className="w-4.5 h-4.5 text-purple-400" />,
-    badge: 'SMC',
+    badge: 'OB',
     badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+  },
+  {
+    id: 'sec-fvg',
+    label: 'Fair Value Gap (FVG)',
+    category: 'SMART MONEY FLOW',
+    icon: <Layers className="w-4.5 h-4.5 text-indigo-400" />,
+    badge: 'FVG',
+    badgeColor: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30'
   },
   {
     id: 'sec-snr',
@@ -103,12 +119,20 @@ export const NAV_SECTIONS: NavSection[] = [
     badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30'
   },
   {
-    id: 'sec-liquidity-bos',
-    label: 'Liquidity & BOS Structure',
+    id: 'sec-liquidity',
+    label: 'Zon Liquidity (Perangkap)',
     category: 'STRUKTUR PASARAN',
-    icon: <Droplets className="w-4.5 h-4.5 text-indigo-400" />,
+    icon: <Droplets className="w-4.5 h-4.5 text-blue-400" />,
     badge: 'LIQ',
-    badgeColor: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30'
+    badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+  },
+  {
+    id: 'sec-bos',
+    label: 'Break of Structure (BOS)',
+    category: 'STRUKTUR PASARAN',
+    icon: <Activity className="w-4.5 h-4.5 text-cyan-400" />,
+    badge: 'BOS',
+    badgeColor: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
   },
   {
     id: 'sec-signal-history',
