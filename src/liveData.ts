@@ -234,6 +234,54 @@ function findFVG(candles: any[]) {
   }
   return null;
 }
+
+function findBothFVGs(candles: any[]) {
+  let bullish = null;
+  let bearish = null;
+  for (let i = candles.length - 1; i >= 2; i--) {
+    const c1 = candles[i - 2];
+    const c2 = candles[i - 1];
+    const c3 = candles[i];
+    if (!bullish && c3.low > c1.high) {
+      const avgPrice = (c3.low + c1.high) / 2;
+      bullish = { direction: "BULLISH", top: c3.low, bottom: c1.high, candleIndex: i - 1, winRate: getWinRate(avgPrice) };
+    }
+    if (!bearish && c3.high < c1.low) {
+      const avgPrice = (c1.low + c3.high) / 2;
+      bearish = { direction: "BEARISH", top: c1.low, bottom: c3.high, candleIndex: i - 1, winRate: getWinRate(avgPrice) };
+    }
+    if (bullish && bearish) break;
+  }
+  return { bullish, bearish };
+}
+
+function findBothOrderBlocks(candles: any[]) {
+  let bullish = null;
+  let bearish = null;
+  for (let i = candles.length - 1; i >= 2; i--) {
+    const c1 = candles[i - 2];
+    const c3 = candles[i];
+    if (!bullish && c3.low > c1.high) {
+      let obIndex = i - 2;
+      while (obIndex >= 0 && candles[obIndex].close >= candles[obIndex].open) obIndex--;
+      if (obIndex >= 0) {
+        const avgPrice = (candles[obIndex].high + candles[obIndex].low) / 2;
+        bullish = { direction: "BULLISH", top: candles[obIndex].high, bottom: candles[obIndex].low, type: "OB (Order Block)", winRate: getWinRate(avgPrice) };
+      }
+    }
+    if (!bearish && c3.high < c1.low) {
+      let obIndex = i - 2;
+      while (obIndex >= 0 && candles[obIndex].close <= candles[obIndex].open) obIndex--;
+      if (obIndex >= 0) {
+        const avgPrice = (candles[obIndex].high + candles[obIndex].low) / 2;
+        bearish = { direction: "BEARISH", top: candles[obIndex].high, bottom: candles[obIndex].low, type: "OB (Order Block)", winRate: getWinRate(avgPrice) };
+      }
+    }
+    if (bullish && bearish) break;
+  }
+  return { bullish, bearish };
+}
+
 function findOrderBlock(candles: any[]) {
   for (let i = candles.length - 1; i >= 2; i--) {
     const c1 = candles[i - 2];
@@ -296,11 +344,16 @@ const safeJson = async (res: Response | null) => {
 
 
 
-function generateAlphaConfluence(ob: any, fvg: any, snr: any, liquidity: any) {
+function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, liquidity: any) {
   const confluences = [];
+  
+  const h4Ob = findBothOrderBlocks(h4Candles);
+  const h1Ob = findBothOrderBlocks(h1Candles);
+  const h4Fvg = findBothFVGs(h4Candles);
+  const h1Fvg = findBothFVGs(h1Candles);
 
   // Helper to find overlaps
-  const getOverlap = (top1, bot1, top2, bot2) => {
+  const getOverlap = (top1: number, bot1: number, top2: number, bot2: number) => {
     const top = Math.min(top1, top2);
     const bot = Math.max(bot1, bot2);
     if (top >= bot) return { top, bottom: bot };
@@ -309,12 +362,11 @@ function generateAlphaConfluence(ob: any, fvg: any, snr: any, liquidity: any) {
 
   // 1. BULLISH SCENARIOS
   const bullZones = [];
-  if (ob?.h4?.direction === 'BULLISH') bullZones.push({ type: 'OB', label: 'H4 OB', top: ob.h4.top, bot: ob.h4.bottom });
-  if (ob?.h1?.direction === 'BULLISH') bullZones.push({ type: 'OB', label: 'H1 OB', top: ob.h1.top, bot: ob.h1.bottom });
-  if (fvg?.h4?.direction === 'BULLISH') bullZones.push({ type: 'FVG', label: 'H4 FVG', top: fvg.h4.top, bot: fvg.h4.bottom });
-  if (fvg?.h1?.direction === 'BULLISH') bullZones.push({ type: 'FVG', label: 'H1 FVG', top: fvg.h1.top, bot: fvg.h1.bottom });
+  if (h4Ob.bullish) bullZones.push({ type: 'OB', label: 'H4 OB', top: h4Ob.bullish.top, bot: h4Ob.bullish.bottom });
+  if (h1Ob.bullish) bullZones.push({ type: 'OB', label: 'H1 OB', top: h1Ob.bullish.top, bot: h1Ob.bullish.bottom });
+  if (h4Fvg.bullish) bullZones.push({ type: 'FVG', label: 'H4 FVG', top: h4Fvg.bullish.top, bot: h4Fvg.bullish.bottom });
+  if (h1Fvg.bullish) bullZones.push({ type: 'FVG', label: 'H1 FVG', top: h1Fvg.bullish.top, bot: h1Fvg.bullish.bottom });
 
-  // Compare Bull Zones to find intersections
   for (let i = 0; i < bullZones.length; i++) {
     for (let j = i + 1; j < bullZones.length; j++) {
       const z1 = bullZones[i];
@@ -325,23 +377,19 @@ function generateAlphaConfluence(ob: any, fvg: any, snr: any, liquidity: any) {
         let stars = 2;
         let elements = [z1.label, z2.label];
         
-        // Check SNR (RBS) inside this overlap
         const rbsLines = [snr?.h4?.rbs, snr?.h1?.rbs, snr?.h8?.rbs].filter(x => x);
         for (const rbs of rbsLines) {
           const p = parseFloat(rbs.price);
-          // If RBS is within or very close to the zone (2 pips buffer)
           if (p <= overlap.top + 2 && p >= overlap.bottom - 2) {
             stars += 1;
             elements.push(`RBS (${p.toFixed(2)})`);
-            break; // only add SNR star once per overlap
+            break; 
           }
         }
         
-        // Check Liquidity (SSL) near this overlap
         const sslLines = liquidity?.sellSide || [];
         for (const ssl of sslLines) {
           const p = parseFloat(ssl.price);
-          // If SSL is just below or inside the zone (good for sweep)
           if (p <= overlap.top + 3 && p >= overlap.bottom - 3) {
             stars += 1;
             elements.push(`SSL Sweep (${p.toFixed(2)})`);
@@ -362,10 +410,10 @@ function generateAlphaConfluence(ob: any, fvg: any, snr: any, liquidity: any) {
 
   // 2. BEARISH SCENARIOS
   const bearZones = [];
-  if (ob?.h4?.direction === 'BEARISH') bearZones.push({ type: 'OB', label: 'H4 OB', top: ob.h4.top, bot: ob.h4.bottom });
-  if (ob?.h1?.direction === 'BEARISH') bearZones.push({ type: 'OB', label: 'H1 OB', top: ob.h1.top, bot: ob.h1.bottom });
-  if (fvg?.h4?.direction === 'BEARISH') bearZones.push({ type: 'FVG', label: 'H4 FVG', top: fvg.h4.top, bot: fvg.h4.bottom });
-  if (fvg?.h1?.direction === 'BEARISH') bearZones.push({ type: 'FVG', label: 'H1 FVG', top: fvg.h1.top, bot: fvg.h1.bottom });
+  if (h4Ob.bearish) bearZones.push({ type: 'OB', label: 'H4 OB', top: h4Ob.bearish.top, bot: h4Ob.bearish.bottom });
+  if (h1Ob.bearish) bearZones.push({ type: 'OB', label: 'H1 OB', top: h1Ob.bearish.top, bot: h1Ob.bearish.bottom });
+  if (h4Fvg.bearish) bearZones.push({ type: 'FVG', label: 'H4 FVG', top: h4Fvg.bearish.top, bot: h4Fvg.bearish.bottom });
+  if (h1Fvg.bearish) bearZones.push({ type: 'FVG', label: 'H1 FVG', top: h1Fvg.bearish.top, bot: h1Fvg.bearish.bottom });
 
   for (let i = 0; i < bearZones.length; i++) {
     for (let j = i + 1; j < bearZones.length; j++) {
@@ -377,7 +425,6 @@ function generateAlphaConfluence(ob: any, fvg: any, snr: any, liquidity: any) {
         let stars = 2;
         let elements = [z1.label, z2.label];
         
-        // Check SNR (SBR)
         const sbrLines = [snr?.h4?.sbr, snr?.h1?.sbr, snr?.h8?.sbr].filter(x => x);
         for (const sbr of sbrLines) {
           const p = parseFloat(sbr.price);
@@ -388,7 +435,6 @@ function generateAlphaConfluence(ob: any, fvg: any, snr: any, liquidity: any) {
           }
         }
         
-        // Check Liquidity (BSL)
         const bslLines = liquidity?.buySide || [];
         for (const bsl of bslLines) {
           const p = parseFloat(bsl.price);
@@ -410,19 +456,17 @@ function generateAlphaConfluence(ob: any, fvg: any, snr: any, liquidity: any) {
     }
   }
 
-  // Deduplicate and filter overlapping zones to pick highest stars
   const filtered = [];
-  confluences.sort((a, b) => b.stars - a.stars); // highest stars first
+  confluences.sort((a, b) => b.stars - a.stars);
   
   for (const conf of confluences) {
-    // Avoid very similar zones
     const isDup = filtered.find(f => f.type === conf.type && Math.abs(f.top - conf.top) < 3 && Math.abs(f.bottom - conf.bottom) < 3);
     if (!isDup) {
       filtered.push(conf);
     }
   }
 
-  return filtered.slice(0, 3); // Max 3 zones
+  return filtered.slice(0, 3);
 }
 
 function generateAnalysis(sbr_rbs, liquidity, orderBlock, fvg, currentPrice) {
@@ -1044,7 +1088,7 @@ function findLiquidity(d1: any[], h4: any[], h1: any[], currentPrice: number) {
       h1: findSBR_RBS(h1, currentPrice)
     };
     const computedAnalysis = generateAnalysis(computedSbrRbs, computedLiquidity, computedOrderBlock, computedFvg, currentPrice);
-    const computedAlpha = generateAlphaConfluence(computedOrderBlock, computedFvg, computedSbrRbs, computedLiquidity);
+    const computedAlpha = generateAlphaConfluence(h4Visible, h1Visible, computedSbrRbs, computedLiquidity);
 
   return {
     date: dateStr,

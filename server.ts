@@ -1,3 +1,4 @@
+import fs from 'fs';
 import "dotenv/config";
 import express from "express";
 import path from "path";
@@ -331,7 +332,7 @@ async function startServer() {
         try {
           const calendarRes = await fetch("https://nfs.faireconomy.media/ff_calendar_thisweek.json", {
             headers: {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              "User-Agent": "Mozilla/5.0",
               "Accept": "application/json"
             }
           });
@@ -348,6 +349,8 @@ async function startServer() {
         }
       }
 
+      
+      console.log("Raw news count:", rawNews.length);
       // Filter for USD news with High or Medium impact
       let highImpactUsd = rawNews.filter((n: any) => {
         if (n.country !== 'USD') return false;
@@ -432,9 +435,9 @@ Hanya pulangkan format JSON sahaja.`;
           } catch (e: any) {
             const errMsg = e?.message || "";
             if (errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
-              console.log("Gemini quota reached. Using fallback.");
+               console.log("Gemini quota reached. Using fallback.");
             } else {
-              console.log("Gemini generation issue:", e?.message || String(e));
+               console.log("Gemini generation issue:", e?.message || String(e));
             }
           }
         }
@@ -496,6 +499,8 @@ Hanya pulangkan format JSON sahaja.`;
       });
       const itemsToProcess = highImpactUsd.slice(0, 10);
 
+      
+      console.log("Items to process:", itemsToProcess.length);
       // Pre-process dates & categories
       const formattedItems = itemsToProcess.map((item: any) => {
         let dateStr = item.date;
@@ -628,6 +633,10 @@ Sila pulangkan JSON array yang mengandungi ramalan & analisis dalam Bahasa Melay
           isDuplicate = fallbackNewsHistory.some(existing => normalizeNewsKey(existing.event || '', existing.date || '') === newKey);
         }
 
+        
+  
+  
+  
         if (isDuplicate) {
           continue; // Skip this item as it already exists
         }
@@ -1228,6 +1237,68 @@ async function backgroundWeeklySync() {
     }
 }
 
+
+
+  app.post("/api/news-force-sync", async (req, res) => {
+    try {
+      isAutoSyncing = false; 
+      lastAutoSyncTime = 0; 
+      
+      const result = await autoSyncNewsCore();
+      console.log("Force sync result:", result.length);
+      res.json({ success: true, count: result.length, items: result });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Skip the duplicate route definition to not break
+  /*
+  
+    try {
+      isAutoSyncing = false; // Reset the lock
+      lastAutoSyncTime = 0; // Reset the timer
+      const result = await autoSyncNewsCore();
+      res.json({ success: true, count: result.length, items: result });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+
+  app.get("/api/debug-news", async (req, res) => {
+    try {
+      const calendarRes = await fetch("https://nfs.faireconomy.media/ff_calendar_thisweek.json", {
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+          "Accept": "application/json"
+        }
+      });
+      const rawNews = await calendarRes.json();
+      
+      let highImpactUsd = rawNews.filter((n) => {
+        if (n.country !== 'USD') return false;
+        if (n.impact !== 'High' && n.impact !== 'Medium') return false;
+        
+        if (n.date) {
+           const d = new Date(n.date).getTime();
+           if (!isNaN(d) && d < Date.now()) return false;
+        }
+        return true;
+      });
+
+      res.json({
+        totalRaw: rawNews.length,
+        filteredLength: highImpactUsd.length,
+        filtered: highImpactUsd
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+*/
   app.get("/api/news-history", async (req, res) => {
     try {
       // Background check for pending news to automatically check result
@@ -1873,7 +1944,8 @@ async function backgroundWeeklySync() {
         const isSameRange = (s.entryRange || '').trim() === (newSignal.entryRange || '').trim();
         const isPriceClose = Math.abs((s.entryPrice || 0) - (newSignal.entryPrice || 0)) <= 2.5;
 
-        return isSameRange || isPriceClose;
+        const isSameType = (s.type || '').trim() === (newSignal.type || '').trim();
+        return isSameType && (isSameRange || isPriceClose);
       });
 
       if (zoneDuplicate) {

@@ -62,7 +62,7 @@ export const dispatchNewSignal = (signal: Omit<SignalRecord, 'id' | 'timestamp' 
 
     const today = getTodayDateStrMYT();
     const zoneIdentifier = (signal.entryRange || '').trim();
-    const zoneKey = `${zoneIdentifier}`;
+    const zoneKey = `${signal.type}_${zoneIdentifier}`;
 
     // Max 1 signal per zone per day
     if (dispatchedZonesToday.get(zoneKey) === today) {
@@ -156,7 +156,8 @@ export function useSignals(currentPrice: number) {
         const isSameRange = (s.entryRange || '').trim() === (newSignal.entryRange || '').trim();
         const isPriceClose = Math.abs((s.entryPrice || 0) - (newSignal.entryPrice || 0)) <= 2.5;
         
-        return isSameRange || isPriceClose;
+        const isSameType = (s.type || '').trim() === (newSignal.type || '').trim();
+        return isSameType && (isSameRange || isPriceClose);
       });
       
       if (duplicateTodaySignals.length >= 1) {
