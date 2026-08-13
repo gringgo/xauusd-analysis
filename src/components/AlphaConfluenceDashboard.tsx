@@ -9,40 +9,37 @@ export const AlphaConfluenceDashboard = ({ alphaConfluence, currentPrice }: { al
   useEffect(() => {
     if (!alphaConfluence || alphaConfluence.length === 0 || !currentPrice) return;
 
-    alphaConfluence.forEach((conf: any, idx: number) => {
+    alphaConfluence.forEach((conf: any) => {
       const isBuy = conf.type === 'BULLISH';
       const topPrice = parseFloat(conf.top);
       const bottomPrice = parseFloat(conf.bottom);
       
       const optimalEntry = isBuy ? bottomPrice : topPrice;
       const isInsideZone = currentPrice <= topPrice && currentPrice >= bottomPrice;
-      
-      const hasRetested = isInsideZone || (isBuy ? currentPrice <= (optimalEntry + 0.5) : currentPrice >= (optimalEntry - 0.5));
+      const isNearZone = currentPrice <= (topPrice + 2.5) && currentPrice >= (bottomPrice - 2.5);
       
       const sigId = `alpha-${conf.type}-${conf.bottom}-${conf.top}`;
       
-      // Invalidation: if price pierces zone significantly
+      // Invalidation: if price pierces zone significantly (more than 5.0 points)
       const isInvalidated = isBuy ? currentPrice < (bottomPrice - 5.0) : currentPrice > (topPrice + 5.0);
       
       if (isInvalidated) {
         retestedRef.current.delete(sigId);
-      } else if (hasRetested) {
+      } else if (isInsideZone || isNearZone) {
         retestedRef.current.add(sigId);
       }
 
-      const hasBeenRetested = retestedRef.current.has(sigId);
-      
-      // Dispatch Signal if price enters zone
-      if (hasRetested && !isInvalidated && !dispatchedRef.current.has(sigId)) {
+      // Dispatch Signal if zone is valid and active/near
+      if (!isInvalidated && !dispatchedRef.current.has(sigId)) {
         dispatchedRef.current.add(sigId);
         dispatchNewSignal({
           type: 'ALPHA ZON SNIPER',
           timeframe: 'M15/M5 (Confluence)',
           direction: isBuy ? 'BUY' : 'SELL',
           entryRange: `${bottomPrice.toFixed(2)} - ${topPrice.toFixed(2)}`,
-          entryPrice: optimalEntry,
-          tp: isBuy ? optimalEntry + 4.0 : optimalEntry - 4.0,
-          sl: isBuy ? optimalEntry - 5.0 : optimalEntry + 5.0,
+          entryPrice: Number(optimalEntry.toFixed(2)),
+          tp: Number((isBuy ? topPrice + 4.0 : bottomPrice - 4.0).toFixed(2)),
+          sl: Number((isBuy ? bottomPrice - 5.0 : topPrice + 5.0).toFixed(2)),
           winRate: conf.winRate || 95,
           candlePattern: `Confluence Elements: ${conf.elements.join(', ')}`
         });

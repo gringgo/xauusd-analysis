@@ -345,42 +345,62 @@ const safeJson = async (res: Response | null) => {
 
 
 function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, liquidity: any) {
-  const confluences = [];
+  const confluences: any[] = [];
   
   const h4Ob = findBothOrderBlocks(h4Candles);
   const h1Ob = findBothOrderBlocks(h1Candles);
   const h4Fvg = findBothFVGs(h4Candles);
   const h1Fvg = findBothFVGs(h1Candles);
 
-  // Helper to find overlaps
-  const getOverlap = (top1: number, bot1: number, top2: number, bot2: number) => {
-    const top = Math.min(top1, top2);
-    const bot = Math.max(bot1, bot2);
-    if (top >= bot) return { top, bottom: bot };
+  // Helper to check overlap or proximity between two zones
+  const getZoneOverlapOrProximity = (z1: {top: number, bot: number}, z2: {top: number, bot: number}) => {
+    const top1 = Math.max(z1.top, z1.bot);
+    const bot1 = Math.min(z1.top, z1.bot);
+    const top2 = Math.max(z2.top, z2.bot);
+    const bot2 = Math.min(z2.top, z2.bot);
+
+    const overlapTop = Math.min(top1, top2);
+    const overlapBot = Math.max(bot1, bot2);
+
+    if (overlapTop >= overlapBot) {
+      // Direct overlap
+      const height = overlapTop - overlapBot;
+      if (height < 1.5) {
+        const mid = (overlapTop + overlapBot) / 2;
+        return { top: mid + 1.0, bottom: mid - 1.0 };
+      }
+      return { top: overlapTop, bottom: overlapBot };
+    } else {
+      // Gap between zones - check if close (within 4.0 pips / 40 pips)
+      const gap = overlapBot - overlapTop;
+      if (gap <= 4.0) {
+        return { top: Math.max(top1, top2), bottom: Math.min(bot1, bot2) };
+      }
+    }
     return null;
   };
 
   // 1. BULLISH SCENARIOS
-  const bullZones = [];
-  if (h4Ob.bullish) bullZones.push({ type: 'OB', label: 'H4 OB', top: h4Ob.bullish.top, bot: h4Ob.bullish.bottom });
-  if (h1Ob.bullish) bullZones.push({ type: 'OB', label: 'H1 OB', top: h1Ob.bullish.top, bot: h1Ob.bullish.bottom });
-  if (h4Fvg.bullish) bullZones.push({ type: 'FVG', label: 'H4 FVG', top: h4Fvg.bullish.top, bot: h4Fvg.bullish.bottom });
-  if (h1Fvg.bullish) bullZones.push({ type: 'FVG', label: 'H1 FVG', top: h1Fvg.bullish.top, bot: h1Fvg.bullish.bottom });
+  const bullZones: { type: string, label: string, top: number, bot: number }[] = [];
+  if (h4Ob?.bullish) bullZones.push({ type: 'OB', label: 'H4 OB', top: h4Ob.bullish.top, bot: h4Ob.bullish.bottom });
+  if (h1Ob?.bullish) bullZones.push({ type: 'OB', label: 'H1 OB', top: h1Ob.bullish.top, bot: h1Ob.bullish.bottom });
+  if (h4Fvg?.bullish) bullZones.push({ type: 'FVG', label: 'H4 FVG', top: h4Fvg.bullish.top, bot: h4Fvg.bullish.bottom });
+  if (h1Fvg?.bullish) bullZones.push({ type: 'FVG', label: 'H1 FVG', top: h1Fvg.bullish.top, bot: h1Fvg.bullish.bottom });
 
   for (let i = 0; i < bullZones.length; i++) {
     for (let j = i + 1; j < bullZones.length; j++) {
       const z1 = bullZones[i];
       const z2 = bullZones[j];
-      const overlap = getOverlap(z1.top, z1.bot, z2.top, z2.bot);
+      const overlap = getZoneOverlapOrProximity(z1, z2);
       
       if (overlap) {
-        let stars = 2;
+        let stars = 3;
         let elements = [z1.label, z2.label];
         
-        const rbsLines = [snr?.h4?.rbs, snr?.h1?.rbs, snr?.h8?.rbs].filter(x => x);
+        const rbsLines = [snr?.h4?.rbs, snr?.h1?.rbs, snr?.h8?.rbs].filter(Boolean);
         for (const rbs of rbsLines) {
           const p = parseFloat(rbs.price);
-          if (p <= overlap.top + 2 && p >= overlap.bottom - 2) {
+          if (p <= overlap.top + 3 && p >= overlap.bottom - 3) {
             stars += 1;
             elements.push(`RBS (${p.toFixed(2)})`);
             break; 
@@ -390,19 +410,57 @@ function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, l
         const sslLines = liquidity?.sellSide || [];
         for (const ssl of sslLines) {
           const p = parseFloat(ssl.price);
-          if (p <= overlap.top + 3 && p >= overlap.bottom - 3) {
+          if (p <= overlap.top + 4 && p >= overlap.bottom - 4) {
             stars += 1;
             elements.push(`SSL Sweep (${p.toFixed(2)})`);
             break;
           }
         }
 
-        const winRate = Math.min(80 + (stars * 4), 98);
+        const winRate = Math.min(85 + (stars * 3), 98);
         confluences.push({
           type: 'BULLISH',
           winRate,
-          top: Math.min(overlap.top, overlap.bottom + 0.5),
-          bottom: overlap.bottom,
+          top: Number(overlap.top.toFixed(2)),
+          bottom: Number(overlap.bottom.toFixed(2)),
+          stars: Math.min(stars, 5),
+          elements: Array.from(new Set(elements))
+        });
+      }
+    }
+  }
+
+  // Fallback for Bullish if no multi-zone overlap found
+  if (confluences.filter(c => c.type === 'BULLISH').length === 0) {
+    for (const z of bullZones) {
+      let elements = [z.label];
+      let stars = 2;
+      const rbsLines = [snr?.h4?.rbs, snr?.h1?.rbs, snr?.h8?.rbs].filter(Boolean);
+      for (const rbs of rbsLines) {
+        const p = parseFloat(rbs.price);
+        if (p <= z.top + 4 && p >= z.bot - 4) {
+          stars += 1;
+          elements.push(`RBS (${p.toFixed(2)})`);
+          break;
+        }
+      }
+      const sslLines = liquidity?.sellSide || [];
+      for (const ssl of sslLines) {
+        const p = parseFloat(ssl.price);
+        if (p <= z.top + 5 && p >= z.bot - 5) {
+          stars += 1;
+          elements.push(`SSL Sweep (${p.toFixed(2)})`);
+          break;
+        }
+      }
+      if (elements.length >= 2 || z.label.includes('H4')) {
+        const zTop = Math.max(z.top, z.bot);
+        const zBot = Math.min(z.top, z.bot);
+        confluences.push({
+          type: 'BULLISH',
+          winRate: 88 + stars * 2,
+          top: Number(zTop.toFixed(2)),
+          bottom: Number(zBot.toFixed(2)),
           stars,
           elements: Array.from(new Set(elements))
         });
@@ -411,26 +469,26 @@ function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, l
   }
 
   // 2. BEARISH SCENARIOS
-  const bearZones = [];
-  if (h4Ob.bearish) bearZones.push({ type: 'OB', label: 'H4 OB', top: h4Ob.bearish.top, bot: h4Ob.bearish.bottom });
-  if (h1Ob.bearish) bearZones.push({ type: 'OB', label: 'H1 OB', top: h1Ob.bearish.top, bot: h1Ob.bearish.bottom });
-  if (h4Fvg.bearish) bearZones.push({ type: 'FVG', label: 'H4 FVG', top: h4Fvg.bearish.top, bot: h4Fvg.bearish.bottom });
-  if (h1Fvg.bearish) bearZones.push({ type: 'FVG', label: 'H1 FVG', top: h1Fvg.bearish.top, bot: h1Fvg.bearish.bottom });
+  const bearZones: { type: string, label: string, top: number, bot: number }[] = [];
+  if (h4Ob?.bearish) bearZones.push({ type: 'OB', label: 'H4 OB', top: h4Ob.bearish.top, bot: h4Ob.bearish.bottom });
+  if (h1Ob?.bearish) bearZones.push({ type: 'OB', label: 'H1 OB', top: h1Ob.bearish.top, bot: h1Ob.bearish.bottom });
+  if (h4Fvg?.bearish) bearZones.push({ type: 'FVG', label: 'H4 FVG', top: h4Fvg.bearish.top, bot: h4Fvg.bearish.bottom });
+  if (h1Fvg?.bearish) bearZones.push({ type: 'FVG', label: 'H1 FVG', top: h1Fvg.bearish.top, bot: h1Fvg.bearish.bottom });
 
   for (let i = 0; i < bearZones.length; i++) {
     for (let j = i + 1; j < bearZones.length; j++) {
       const z1 = bearZones[i];
       const z2 = bearZones[j];
-      const overlap = getOverlap(z1.top, z1.bot, z2.top, z2.bot);
+      const overlap = getZoneOverlapOrProximity(z1, z2);
       
       if (overlap) {
-        let stars = 2;
+        let stars = 3;
         let elements = [z1.label, z2.label];
         
-        const sbrLines = [snr?.h4?.sbr, snr?.h1?.sbr, snr?.h8?.sbr].filter(x => x);
+        const sbrLines = [snr?.h4?.sbr, snr?.h1?.sbr, snr?.h8?.sbr].filter(Boolean);
         for (const sbr of sbrLines) {
           const p = parseFloat(sbr.price);
-          if (p <= overlap.top + 2 && p >= overlap.bottom - 2) {
+          if (p <= overlap.top + 3 && p >= overlap.bottom - 3) {
             stars += 1;
             elements.push(`SBR (${p.toFixed(2)})`);
             break;
@@ -440,19 +498,57 @@ function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, l
         const bslLines = liquidity?.buySide || [];
         for (const bsl of bslLines) {
           const p = parseFloat(bsl.price);
-          if (p <= overlap.top + 3 && p >= overlap.bottom - 3) {
+          if (p <= overlap.top + 4 && p >= overlap.bottom - 4) {
             stars += 1;
             elements.push(`BSL Sweep (${p.toFixed(2)})`);
             break;
           }
         }
 
-        const winRate = Math.min(80 + (stars * 4), 98);
+        const winRate = Math.min(85 + (stars * 3), 98);
         confluences.push({
           type: 'BEARISH',
           winRate,
-          top: overlap.top,
-          bottom: Math.max(overlap.bottom, overlap.top - 0.5),
+          top: Number(overlap.top.toFixed(2)),
+          bottom: Number(overlap.bottom.toFixed(2)),
+          stars: Math.min(stars, 5),
+          elements: Array.from(new Set(elements))
+        });
+      }
+    }
+  }
+
+  // Fallback for Bearish if no multi-zone overlap found
+  if (confluences.filter(c => c.type === 'BEARISH').length === 0) {
+    for (const z of bearZones) {
+      let elements = [z.label];
+      let stars = 2;
+      const sbrLines = [snr?.h4?.sbr, snr?.h1?.sbr, snr?.h8?.sbr].filter(Boolean);
+      for (const sbr of sbrLines) {
+        const p = parseFloat(sbr.price);
+        if (p <= z.top + 4 && p >= z.bot - 4) {
+          stars += 1;
+          elements.push(`SBR (${p.toFixed(2)})`);
+          break;
+        }
+      }
+      const bslLines = liquidity?.buySide || [];
+      for (const bsl of bslLines) {
+        const p = parseFloat(bsl.price);
+        if (p <= z.top + 5 && p >= z.bot - 5) {
+          stars += 1;
+          elements.push(`BSL Sweep (${p.toFixed(2)})`);
+          break;
+        }
+      }
+      if (elements.length >= 2 || z.label.includes('H4')) {
+        const zTop = Math.max(z.top, z.bot);
+        const zBot = Math.min(z.top, z.bot);
+        confluences.push({
+          type: 'BEARISH',
+          winRate: 88 + stars * 2,
+          top: Number(zTop.toFixed(2)),
+          bottom: Number(zBot.toFixed(2)),
           stars,
           elements: Array.from(new Set(elements))
         });
@@ -460,7 +556,7 @@ function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, l
     }
   }
 
-  const filtered = [];
+  const filtered: any[] = [];
   confluences.sort((a, b) => b.stars - a.stars);
   
   for (const conf of confluences) {
