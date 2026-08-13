@@ -380,6 +380,50 @@ function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, l
     return null;
   };
 
+  // Helper to compute Zon Besar (50 pips = $5.00) and Zon Kecil (10 pips = $1.00)
+  const computeZones = (type: 'BULLISH' | 'BEARISH', z1: {top: number, bot: number}, z2?: {top: number, bot: number}) => {
+    let anchorPrice: number;
+
+    if (z2) {
+      anchorPrice = type === 'BULLISH' ? Math.min(z1.top, z1.bot, z2.top, z2.bot) : Math.max(z1.top, z1.bot, z2.top, z2.bot);
+    } else {
+      anchorPrice = type === 'BULLISH' ? Math.min(z1.top, z1.bot) : Math.max(z1.top, z1.bot);
+    }
+
+    let macroTop: number;
+    let macroBottom: number;
+
+    // 1. ZON BESAR (50 Pips = $5.00)
+    if (type === 'BULLISH') {
+      macroBottom = Number(anchorPrice.toFixed(2));
+      macroTop = Number((macroBottom + 5.0).toFixed(2));
+    } else {
+      macroTop = Number(anchorPrice.toFixed(2));
+      macroBottom = Number((macroTop - 5.0).toFixed(2));
+    }
+
+    // 2. ZON KECIL (10 Pips = $1.00) dari dalam Zon Besar
+    let innerBottom: number;
+    let innerTop: number;
+
+    if (type === 'BULLISH') {
+      innerBottom = Number((macroBottom + 0.2).toFixed(2));
+      innerTop = Number((innerBottom + 1.0).toFixed(2));
+    } else {
+      innerTop = Number((macroTop - 0.2).toFixed(2));
+      innerBottom = Number((innerTop - 1.0).toFixed(2));
+    }
+
+    return {
+      macroTop: Number(macroTop.toFixed(2)),
+      macroBottom: Number(macroBottom.toFixed(2)),
+      innerTop: Number(innerTop.toFixed(2)),
+      innerBottom: Number(innerBottom.toFixed(2)),
+      top: Number(innerTop.toFixed(2)),
+      bottom: Number(innerBottom.toFixed(2))
+    };
+  };
+
   // 1. BULLISH SCENARIOS
   const bullZones: { type: string, label: string, top: number, bot: number }[] = [];
   if (h4Ob?.bullish) bullZones.push({ type: 'OB', label: 'H4 OB', top: h4Ob.bullish.top, bot: h4Ob.bullish.bottom });
@@ -418,11 +462,12 @@ function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, l
         }
 
         const winRate = Math.min(85 + (stars * 3), 98);
+        const zBounds = computeZones('BULLISH', z1, z2);
+
         confluences.push({
           type: 'BULLISH',
           winRate,
-          top: Number(overlap.top.toFixed(2)),
-          bottom: Number(overlap.bottom.toFixed(2)),
+          ...zBounds,
           stars: Math.min(stars, 5),
           elements: Array.from(new Set(elements))
         });
@@ -454,13 +499,11 @@ function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, l
         }
       }
       if (elements.length >= 2 || z.label.includes('H4')) {
-        const zTop = Math.max(z.top, z.bot);
-        const zBot = Math.min(z.top, z.bot);
+        const zBounds = computeZones('BULLISH', z);
         confluences.push({
           type: 'BULLISH',
           winRate: 88 + stars * 2,
-          top: Number(zTop.toFixed(2)),
-          bottom: Number(zBot.toFixed(2)),
+          ...zBounds,
           stars,
           elements: Array.from(new Set(elements))
         });
@@ -506,11 +549,12 @@ function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, l
         }
 
         const winRate = Math.min(85 + (stars * 3), 98);
+        const zBounds = computeZones('BEARISH', z1, z2);
+
         confluences.push({
           type: 'BEARISH',
           winRate,
-          top: Number(overlap.top.toFixed(2)),
-          bottom: Number(overlap.bottom.toFixed(2)),
+          ...zBounds,
           stars: Math.min(stars, 5),
           elements: Array.from(new Set(elements))
         });
@@ -542,13 +586,11 @@ function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, l
         }
       }
       if (elements.length >= 2 || z.label.includes('H4')) {
-        const zTop = Math.max(z.top, z.bot);
-        const zBot = Math.min(z.top, z.bot);
+        const zBounds = computeZones('BEARISH', z);
         confluences.push({
           type: 'BEARISH',
           winRate: 88 + stars * 2,
-          top: Number(zTop.toFixed(2)),
-          bottom: Number(zBot.toFixed(2)),
+          ...zBounds,
           stars,
           elements: Array.from(new Set(elements))
         });
@@ -560,7 +602,7 @@ function generateAlphaConfluence(h4Candles: any[], h1Candles: any[], snr: any, l
   confluences.sort((a, b) => b.stars - a.stars);
   
   for (const conf of confluences) {
-    const isDup = filtered.find(f => f.type === conf.type && Math.abs(f.top - conf.top) < 3 && Math.abs(f.bottom - conf.bottom) < 3);
+    const isDup = filtered.find(f => f.type === conf.type && Math.abs(f.macroTop - conf.macroTop) < 3 && Math.abs(f.macroBottom - conf.macroBottom) < 3);
     if (!isDup) {
       filtered.push(conf);
     }

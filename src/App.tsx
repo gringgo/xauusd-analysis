@@ -1357,9 +1357,29 @@ export default function App() {
          if (!notifiedZones.has(name)) {
             // Browser Local Notification only (if granted)
             if ("Notification" in window && Notification.permission === "granted") {
-              new Notification(`Zon ${name}`, {
-                 body: `Harga semasa (${p.toFixed(2)}) berada di zon ${name} (${bottom.toFixed(2)} - ${top.toFixed(2)})`,
-              });
+              try {
+                if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+                  navigator.serviceWorker.ready.then(registration => {
+                    registration.showNotification(`Zon ${name}`, {
+                      body: `Harga semasa (${p.toFixed(2)}) berada di zon ${name} (${bottom.toFixed(2)} - ${top.toFixed(2)})`,
+                    });
+                  }).catch(() => {
+                    try {
+                      new Notification(`Zon ${name}`, {
+                        body: `Harga semasa (${p.toFixed(2)}) berada di zon ${name} (${bottom.toFixed(2)} - ${top.toFixed(2)})`,
+                      });
+                    } catch (e) {
+                      console.warn('Browser notification failed:', e);
+                    }
+                  });
+                } else {
+                  new Notification(`Zon ${name}`, {
+                    body: `Harga semasa (${p.toFixed(2)}) berada di zon ${name} (${bottom.toFixed(2)} - ${top.toFixed(2)})`,
+                  });
+                }
+              } catch (e) {
+                console.warn('Notification construct failed safely:', e);
+              }
             }
             setNotifiedZones(prev => new Set(prev).add(name));
          }
