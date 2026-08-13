@@ -22,7 +22,7 @@ export const AlphaConfluenceDashboard = ({ alphaConfluence, currentPrice }: { al
       const sigId = `alpha-${conf.type}-${conf.bottom}-${conf.top}`;
       
       // Invalidation: if price pierces zone significantly
-      const isInvalidated = isBuy ? currentPrice < (bottomPrice - 1.5) : currentPrice > (topPrice + 1.5);
+      const isInvalidated = isBuy ? currentPrice < (bottomPrice - 5.0) : currentPrice > (topPrice + 5.0);
       
       if (isInvalidated) {
         retestedRef.current.delete(sigId);
@@ -42,7 +42,7 @@ export const AlphaConfluenceDashboard = ({ alphaConfluence, currentPrice }: { al
           entryRange: `${bottomPrice.toFixed(2)} - ${topPrice.toFixed(2)}`,
           entryPrice: optimalEntry,
           tp: isBuy ? optimalEntry + 5.0 : optimalEntry - 5.0,
-          sl: isBuy ? bottomPrice - 1.5 : topPrice + 1.5,
+          sl: isBuy ? optimalEntry - 5.0 : optimalEntry + 5.0,
           winRate: conf.winRate || 95,
           notes: `Confluence Elements: ${conf.elements.join(', ')}`
         });
@@ -100,9 +100,9 @@ export const AlphaConfluenceDashboard = ({ alphaConfluence, currentPrice }: { al
                     
                     <div className={`flex-shrink-0 flex items-center justify-center p-3 rounded-lg border ${isBuy ? 'bg-emerald-900/40 border-emerald-500/30' : 'bg-rose-900/40 border-rose-500/30'}`}>
                       <div className="text-center">
-                        <div className="text-[10px] text-gray-300 font-bold mb-0.5 uppercase">Cadangan SL</div>
+                        <div className="text-[10px] text-gray-300 font-bold mb-0.5 uppercase">Cadangan SL (50 Pips)</div>
                         <div className="font-mono font-black text-white">
-                          {isBuy ? (conf.bottom - 1.5).toFixed(2) : (conf.top + 1.5).toFixed(2)}
+                          {isBuy ? (conf.bottom - 5.0).toFixed(2) : (conf.top + 5.0).toFixed(2)}
                         </div>
                       </div>
                     </div>
