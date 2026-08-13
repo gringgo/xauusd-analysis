@@ -1,8 +1,11 @@
 import { SbrRbsVisualDiagram } from './components/SbrRbsVisualDiagram';
 import { StructureSOPDashboard } from './components/StructureSOPDashboard';
+import { SndSOPDashboard } from './components/SndSOPDashboard';
 import { ObSOPDashboard } from './components/ObSOPDashboard';
 import { FvgSOPDashboard } from './components/FvgSOPDashboard';
 import { ZonKebenaranSOPDashboard } from './components/ZonKebenaranSOPDashboard';
+import { LiquiditySOPDashboard } from './components/LiquiditySOPDashboard';
+import { BosSOPDashboard } from './components/BosSOPDashboard';
 import { AlphaConfluenceDashboard } from './components/AlphaConfluenceDashboard';
 import { ManualSetupModule } from './components/ManualSetupModule';
 import { SignalHistoryDashboard } from './components/SignalHistoryDashboard';
@@ -10,6 +13,7 @@ import { useSignals } from './lib/signalStore';
 import { HighImpactNewsModal, NewsItem } from './components/HighImpactNewsModal';
 import { FrontPageNewsHistory } from './components/FrontPageNewsHistory';
 import { LiveNewsFeedModule } from './components/LiveNewsFeedModule';
+import { NewsBacktestModule } from './components/NewsBacktestModule';
 import { SidebarNav, NAV_SECTIONS } from './components/SidebarNav';
 import { useXauUsdLivePrice } from './lib/priceService';
 import { QuickCopyBtn } from "./components/QuickCopyBtn";
@@ -1777,7 +1781,7 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4">
           
           {/* LEFT COLUMN (Charts & Fundamentals) */}
-          <div className={`${viewMode === 'FOCUS' && !['sec-news-feed'].includes(activeSection) ? 'hidden' : viewMode === 'FOCUS' ? 'col-span-12 flex flex-col gap-3 lg:gap-4' : 'lg:col-span-7 xl:col-span-8 flex flex-col gap-3 lg:gap-4'}`}>
+          <div className={`${viewMode === 'FOCUS' && !['sec-news-feed', 'sec-backtest-news'].includes(activeSection) ? 'hidden' : viewMode === 'FOCUS' ? 'col-span-12 flex flex-col gap-3 lg:gap-4' : 'lg:col-span-7 xl:col-span-8 flex flex-col gap-3 lg:gap-4'}`}>
             
             {/* Fundamentals & Impact Row - Full Width */}
             {(viewMode === 'ALL' || activeSection === 'sec-news-feed') && (
@@ -1788,6 +1792,13 @@ export default function App() {
                   onOpenNewsModal={() => setShowNewsModal(true)}
                   onTriggerSync={handleAutoSyncNews}
                 />
+              </div>
+            )}
+
+            {/* MODUL BACKTEST NEWS & DECISION ENGINE */}
+            {(viewMode === 'ALL' || activeSection === 'sec-backtest-news') && (
+              <div className="w-full">
+                <NewsBacktestModule todayNews={data.news} currentPrice={data.currentPrice} />
               </div>
             )}
           </div>
@@ -1897,7 +1908,7 @@ export default function App() {
                 </div>
 
                 <div className="p-4 border-b border-gray-800/80 bg-[#111] flex flex-col gap-6">
-                  <StructureSOPDashboard sbrRbsData={data.sbr_rbs} currentPrice={data.currentPrice} filterType="SND" />
+                  <SndSOPDashboard sbrRbsData={data.sbr_rbs} currentPrice={data.currentPrice} />
                   <SbrRbsVisualDiagram filterType="SND" />
                 </div>
                 <StructureDataGrid sbrRbsData={data.sbr_rbs} filterType="SND" />
@@ -1920,6 +1931,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="p-4 space-y-4">
+                  <LiquiditySOPDashboard liquidityData={data.liquidity} currentPrice={data.currentPrice} />
                   {data.liquidity && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* BUY SIDE LIQUIDITY */}
@@ -1976,7 +1988,8 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                <div className="p-4">
+                <div className="p-4 space-y-4">
+                  <BosSOPDashboard bosData={data.bos} currentPrice={data.currentPrice} />
                   {data.bos && (
                     <div className="space-y-4">
                       <div className="flex flex-col md:flex-row gap-4 items-center">

@@ -41,7 +41,7 @@ export const AlphaConfluenceDashboard = ({ alphaConfluence, currentPrice }: { al
           direction: isBuy ? 'BUY' : 'SELL',
           entryRange: `${bottomPrice.toFixed(2)} - ${topPrice.toFixed(2)}`,
           entryPrice: optimalEntry,
-          tp: isBuy ? optimalEntry + 5.0 : optimalEntry - 5.0,
+          tp: isBuy ? optimalEntry + 4.0 : optimalEntry - 4.0,
           sl: isBuy ? optimalEntry - 5.0 : optimalEntry + 5.0,
           winRate: conf.winRate || 95,
           notes: `Confluence Elements: ${conf.elements.join(', ')}`

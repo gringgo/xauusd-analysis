@@ -64,6 +64,14 @@ export const NAV_SECTIONS: NavSection[] = [
     badgeColor: 'bg-red-500/20 text-red-400 border-red-500/30'
   },
   {
+    id: 'sec-backtest-news',
+    label: 'Modul Backtest News (SOP)',
+    category: 'BERITA EKONOMI',
+    icon: <Sparkles className="w-4.5 h-4.5 text-amber-400" />,
+    badge: 'BACKTEST',
+    badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+  },
+  {
     id: 'sec-alpha',
     label: 'Alpha Confluence (Sniper)',
     category: 'HIGH PROBABILITY SETUP',

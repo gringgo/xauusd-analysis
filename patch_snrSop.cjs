@@ -1,4 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+const fs = require('fs');
+
+const code = `import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, ArrowDown, ArrowUp, Clock, ShieldAlert, Activity, Crosshair, Filter, Target } from 'lucide-react';
 import { dispatchNewSignal } from '../lib/signalStore';
 
@@ -146,7 +148,7 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice, filterType = '
       {
         num: 3,
         label: 'Sistem Skor AI (Minimum 9)',
-        desc: `Skor Semasa: ${score}/9 mata. Syarat: SNR Sah, Alignment, Pengesahan HTF, Rejection.`,
+        desc: \`Skor Semasa: \${score}/9 mata. Syarat: SNR Sah, Alignment, Pengesahan HTF, Rejection.\`,
         isComplete: score >= 9,
         isActive: status === 'READY'
       },
@@ -162,18 +164,18 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice, filterType = '
     ];
 
     const Step = ({ num, label, desc, isComplete, isActive, isLast }: any) => (
-      <div className={`flex relative ${!isComplete && !isActive ? 'opacity-40' : 'opacity-100'}`}>
+      <div className={\`flex relative \${!isComplete && !isActive ? 'opacity-40' : 'opacity-100'}\`}>
         <div className="flex flex-col items-center mr-3">
-          <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 border-2 z-10 
-            ${isComplete ? colorScheme.bg + ' border-transparent' : isActive ? 'bg-yellow-500 border-yellow-400 animate-pulse' : 'bg-[#111] border-gray-700'}`}>
+          <div className={\`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 border-2 z-10 
+            \${isComplete ? colorScheme.bg + ' border-transparent' : isActive ? 'bg-yellow-500 border-yellow-400 animate-pulse' : 'bg-[#111] border-gray-700'}\`}>
             {isComplete ? <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-black" /> : isActive ? <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-black" /> : <span className="text-[10px] text-gray-500">{num}</span>}
           </div>
           {!isLast && (
-            <div className={`w-0.5 h-full min-h-[40px] my-1 ${isComplete ? colorScheme.bg : 'bg-gray-800'}`}></div>
+            <div className={\`w-0.5 h-full min-h-[40px] my-1 \${isComplete ? colorScheme.bg : 'bg-gray-800'}\`}></div>
           )}
         </div>
         <div className="pb-6 pt-1">
-          <h4 className={`text-xs sm:text-sm font-bold ${isComplete ? colorScheme.text : isActive ? 'text-yellow-400' : 'text-gray-500'}`}>
+          <h4 className={\`text-xs sm:text-sm font-bold \${isComplete ? colorScheme.text : isActive ? 'text-yellow-400' : 'text-gray-500'}\`}>
             {label}
           </h4>
           <p className="text-[10px] sm:text-xs text-gray-400 mt-1 leading-relaxed">{desc}</p>
@@ -182,35 +184,35 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice, filterType = '
     );
 
     return (
-      <div className={`rounded-xl border ${colorScheme.bgLight} ${colorScheme.border} border-opacity-30 p-4 relative overflow-hidden`}>
+      <div className={\`rounded-xl border \${colorScheme.bgLight} \${colorScheme.border} border-opacity-30 p-4 relative overflow-hidden\`}>
         {status === 'ENTRY' && (
           <div className="absolute top-0 right-0 p-4">
             <span className="flex h-3 w-3 relative">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${colorScheme.bg} opacity-75`}></span>
-              <span className={`relative inline-flex rounded-full h-3 w-3 ${colorScheme.bg}`}></span>
+              <span className={\`animate-ping absolute inline-flex h-full w-full rounded-full \${colorScheme.bg} opacity-75\`}></span>
+              <span className={\`relative inline-flex rounded-full h-3 w-3 \${colorScheme.bg}\`}></span>
             </span>
           </div>
         )}
         
         <div className="flex items-center gap-3 mb-6">
-          <div className={`p-2 rounded-lg ${colorScheme.bg} shadow-lg`}>
+          <div className={\`p-2 rounded-lg \${colorScheme.bg} shadow-lg\`}>
             {colorScheme.iconBase}
           </div>
           <div>
             <h3 className="font-black text-white text-sm sm:text-base tracking-wide flex items-center gap-2">
               SOP {type} ({timeframe})
-              <span className={`text-[10px] px-2 py-0.5 rounded font-black tracking-wider border ${
+              <span className={\`text-[10px] px-2 py-0.5 rounded font-black tracking-wider border \${
                 status === 'INVALID' ? 'border-gray-500 text-gray-400 bg-gray-900' :
                 status === 'ENTRY' ? colorScheme.border + ' ' + colorScheme.text + ' bg-black/40 animate-pulse' :
                 status === 'READY' ? 'border-blue-500/50 text-blue-400 bg-blue-950/40' :
                 'border-yellow-500/50 text-yellow-400 bg-yellow-950/40'
-              }`}>
+              }\`}>
                 {status}
               </span>
             </h3>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-[10px] text-gray-400">
-                Direction: <span className={`font-bold ${colorScheme.text}`}>{isBuy ? 'BUY' : 'SELL'}</span>
+                Direction: <span className={\`font-bold \${colorScheme.text}\`}>{isBuy ? 'BUY' : 'SELL'}</span>
                 <span className="mx-2">•</span> 
                 Level: <span className="text-white font-mono font-bold">{setup.price}</span>
               </p>
@@ -244,11 +246,11 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice, filterType = '
         <div className="mt-2 mb-4 bg-[#0a0a0a] rounded-lg border border-gray-800 p-3">
           <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-800">
             <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5"><Activity className="w-3.5 h-3.5 text-blue-400"/> Sistem Skor Signal SNR</span>
-            <span className={`text-xs font-black ${score >= 9 ? 'text-emerald-400' : 'text-yellow-400'}`}>{score} / 9 Mata</span>
+            <span className={\`text-xs font-black \${score >= 9 ? 'text-emerald-400' : 'text-yellow-400'}\`}>{score} / 9 Mata</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {breakdown.map((item, i) => (
-              <div key={i} className={`text-[9px] flex justify-between px-2 py-1 rounded ${item.achieved ? 'bg-blue-900/30 text-blue-300' : 'bg-gray-900 text-gray-500'}`}>
+              <div key={i} className={\`text-[9px] flex justify-between px-2 py-1 rounded \${item.achieved ? 'bg-blue-900/30 text-blue-300' : 'bg-gray-900 text-gray-500'}\`}>
                 <span>{item.label}</span>
                 <span className="font-bold">+{item.pts}</span>
               </div>
@@ -315,3 +317,5 @@ export const StructureSOPDashboard = ({ sbrRbsData, currentPrice, filterType = '
     </div>
   );
 };
+`
+fs.writeFileSync('src/components/StructureSOPDashboard.tsx', code);

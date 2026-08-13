@@ -621,6 +621,8 @@ function findSBR_RBS(candles: any[], currentPrice: number) {
 
   let dbdVal: number | null = null;
   let rbrVal: number | null = null;
+  let dbrVal: number | null = null;
+  let rbdVal: number | null = null;
   
   for (let i = 2; i < candles.length; i++) {
     const c1 = candles[i-2];
@@ -648,6 +650,16 @@ function findSBR_RBS(candles: any[], currentPrice: number) {
     if (isC1Rally && isC3Rally && isBase && c1Body > 0.5 && c3Body > 0.5) {
       if (rbrVal === null || Math.abs(currentPrice - c2.low) < Math.abs(currentPrice - rbrVal)) {
         rbrVal = c2.low;
+      }
+    }
+    if (isC1Drop && isC3Rally && isBase && c1Body > 0.5 && c3Body > 0.5) {
+      if (dbrVal === null || Math.abs(currentPrice - c2.low) < Math.abs(currentPrice - dbrVal)) {
+        dbrVal = c2.low;
+      }
+    }
+    if (isC1Rally && isC3Drop && isBase && c1Body > 0.5 && c3Body > 0.5) {
+      if (rbdVal === null || Math.abs(currentPrice - c2.high) < Math.abs(currentPrice - rbdVal)) {
+        rbdVal = c2.high;
       }
     }
   }
@@ -684,6 +696,22 @@ function findSBR_RBS(candles: any[], currentPrice: number) {
       pattern: 'Rally-Base-Rally',
       signal: 'BUY',
       description: 'Momentum kenaikan berehat seketika (Base) sebelum naik lagi. Base ini menjadi Hidden Demand.'
+    } : null,
+    dbr: dbrVal ? {
+      price: dbrVal.toFixed(2),
+      winRate: getWinRate(dbrVal),
+      type: 'DBR',
+      pattern: 'Drop-Base-Rally',
+      signal: 'BUY',
+      description: 'Momentum kejatuhan ditolak (Base) dan berubah arah naik. Base ini menjadi Demand Reversal.'
+    } : null,
+    rbd: rbdVal ? {
+      price: rbdVal.toFixed(2),
+      winRate: getWinRate(rbdVal),
+      type: 'RBD',
+      pattern: 'Rally-Base-Drop',
+      signal: 'SELL',
+      description: 'Momentum kenaikan ditolak (Base) dan berubah arah jatuh. Base ini menjadi Supply Reversal.'
     } : null
   };
 }
