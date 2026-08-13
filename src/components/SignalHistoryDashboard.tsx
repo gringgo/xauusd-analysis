@@ -20,6 +20,12 @@ export const SignalHistoryDashboard = ({
 }) => {
   const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'COMPLETED' | 'TODAY' | 'ALL'>('ALL');
   const [activeTab, setActiveTab] = useState<string>('ALL');
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  const handleConfirmReset = async () => {
+    await clearSignals();
+    setShowResetConfirm(false);
+  };
 
   const predefinedTypes = ['ORDER BLOCK', 'FVG', 'SBR', 'RBS', 'DBD', 'RBR', 'ZON KEBENARAN'];
   const dynamicTypes = Array.from(new Set(signals.map(s => s.type)));
@@ -148,11 +154,12 @@ export const SignalHistoryDashboard = ({
 
         <div className="flex items-center gap-3">
           <button 
-            onClick={clearSignals}
-            className="text-xs text-gray-500 hover:text-rose-400 flex items-center gap-1 transition-colors"
+            onClick={() => setShowResetConfirm(true)}
+            className="text-xs bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800/80 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all font-bold shadow-md hover:shadow-rose-950/50"
+            title="Reset semua rekod signal"
           >
-            <Trash2 className="w-3.5 h-3.5" />
-            Clear
+            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+            Reset Rekod Signal
           </button>
         </div>
       </div>
@@ -533,6 +540,46 @@ export const SignalHistoryDashboard = ({
           ))
         )}
       </div>
+      {/* RESET CONFIRMATION MODAL */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0f0f0f] border-2 border-rose-800/80 rounded-xl p-5 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-2 text-rose-400 font-black text-base border-b border-gray-800 pb-3">
+              <Trash2 className="w-5 h-5 text-rose-500" />
+              <span>PENGESAHAN RESET REKOD SIGNAL</span>
+            </div>
+            
+            <p className="text-xs text-gray-300 leading-relaxed font-medium">
+              Adakah anda pasti mahu memadamkan <strong className="text-white">semua {totalCount} rekod signal</strong> (aktif dan lalu) daripada pangkalan data dan simpanan memori?
+            </p>
+
+            <div className="bg-rose-950/30 border border-rose-900/40 p-3 rounded text-[11px] text-rose-300 space-y-1">
+              <p className="font-bold">⚠️ Nota Penting:</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                <li>Semua data win rate & pipswon signal akan dipadam.</li>
+                <li>Rekod signal baru akan direkodkan semula sebaik sahaja zon entry retest.</li>
+                <li>Tindakan ini tidak boleh diundur.</li>
+              </ul>
+            </div>
+
+            <div className="flex justify-end items-center gap-2 pt-2 border-t border-gray-800">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleConfirmReset}
+                className="px-4 py-2 rounded-lg text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-950 transition-colors flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Ya, Reset Semua Signal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

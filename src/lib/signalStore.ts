@@ -241,12 +241,13 @@ export function useSignals(currentPrice: number) {
   const clearSignals = useCallback(async () => {
     try {
       await fetch('/api/signals', { method: 'DELETE' });
+    } catch (err) {
+      console.error("Error clearing backend signals:", err);
+    } finally {
       setSignals([]);
       if (typeof window !== 'undefined') {
         localStorage.removeItem('xauusd_signal_history_backup');
       }
-    } catch (err) {
-      console.error(err);
     }
   }, []);
 

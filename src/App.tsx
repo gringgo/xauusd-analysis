@@ -41,8 +41,7 @@ import {
   Smartphone,
   Copy,
   Activity,
-  HistoryIcon,
-  Download
+  HistoryIcon
 } from 'lucide-react';
 import { getLiveAnalysis, getNewsTradeSuggestion } from './liveData';
 import { LightweightChart } from "./components/LightweightChart";

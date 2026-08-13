@@ -44,7 +44,7 @@ export const AlphaConfluenceDashboard = ({ alphaConfluence, currentPrice }: { al
           tp: isBuy ? optimalEntry + 4.0 : optimalEntry - 4.0,
           sl: isBuy ? optimalEntry - 5.0 : optimalEntry + 5.0,
           winRate: conf.winRate || 95,
-          notes: `Confluence Elements: ${conf.elements.join(', ')}`
+          candlePattern: `Confluence Elements: ${conf.elements.join(', ')}`
         });
       }
     });
