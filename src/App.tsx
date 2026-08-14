@@ -1831,6 +1831,13 @@ export default function App() {
               <AlphaConfluenceDashboard alphaConfluence={data.alphaConfluence} currentPrice={data.currentPrice} />
             )}
 
+            {/* MODUL MANUAL SETUP */}
+            {(viewMode === 'ALL' || activeSection === 'sec-manual-setup') && (
+              <div id="sec-manual-setup" className="scroll-mt-6">
+                <ManualSetupModule currentPrice={data.currentPrice} />
+              </div>
+            )}
+
             {(viewMode === 'ALL' || activeSection === 'sec-bias-plan') && (
               <div id="sec-bias-plan" className="scroll-mt-6 flex flex-col gap-3 lg:gap-4">
                 <SessionWarning />
