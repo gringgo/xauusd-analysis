@@ -54,20 +54,49 @@ export const NewsBacktestModule: React.FC<NewsBacktestModuleProps> = ({
   const [simResult, setSimResult] = useState<any>(null);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
 
-  // Today's High Impact News filter
+  // Helper to calculate minutes since news release
+  // Positive (+) = minutes after release (e.g. +15 = released 15 mins ago)
+  // Negative (-) = minutes until release (e.g. -30 = releasing in 30 mins)
+  const getNewsTiming = (item: any): number | null => {
+    if (!item) return null;
+    if (item.dateISO) {
+      const d = new Date(item.dateISO);
+      if (!isNaN(d.getTime())) {
+        return Math.floor((Date.now() - d.getTime()) / 60000);
+      }
+    }
+    const timeStr = item.time || '';
+    if (!timeStr || timeStr === '-') return null;
+    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+    if (match) {
+      let h = parseInt(match[1]);
+      const m = parseInt(match[2]);
+      const p = (match[3] || '').toUpperCase();
+      if (p === 'PM' && h !== 12) h += 12;
+      if (p === 'AM' && h === 12) h = 0;
+
+      const now = new Date();
+      const mytStr = now.toLocaleTimeString('en-US', { timeZone: 'Asia/Kuala_Lumpur', hour12: false, hour: '2-digit', minute: '2-digit' });
+      const [curH, curM] = mytStr.split(':').map(Number);
+
+      let diffMins = (curH * 60 + curM) - (h * 60 + m);
+      if (diffMins > 720) diffMins -= 1440;
+      if (diffMins < -720) diffMins += 1440;
+      return diffMins;
+    }
+    return null;
+  };
+
+  // Today's High Impact News filter (only real news, no fake hardcoded triggers)
   const highImpactToday = (todayNews && todayNews.length > 0) 
     ? todayNews.filter((n: any) => {
-        const impact = (n.impact || n.rating || '').toString().toLowerCase();
+        const impact = (n.impact || n.rating || '').toString().toUpperCase();
         const title = (n.title || n.event || '').toLowerCase();
-        return impact.includes('high') || impact.includes('flame') || impact.includes('3') ||
-               title.includes('nfp') || title.includes('cpi') || title.includes('fomc') || title.includes('gdp');
+        if (title.includes('tiada berita')) return false;
+        return impact.includes('HIGH') || impact.includes('FLAME') || impact.includes('3') ||
+               title.includes('nfp') || title.includes('cpi') || title.includes('fomc') || title.includes('gdp') || title.includes('retail');
       })
-    : [
-        { title: 'Consumer Price Index (CPI) YoY', time: '20:30', impact: 'High', forecast: '2.9%', previous: '3.0%', actual: '2.7%' },
-        { title: 'FOMC Interest Rate Decision', time: '02:00', impact: 'High', forecast: '5.25%', previous: '5.50%', actual: '5.00%' },
-        { title: 'Non-Farm Employment Change (NFP)', time: '20:30', impact: 'High', forecast: '175K', previous: '206K', actual: '142K' },
-        { title: 'FOMC Press Conference', time: '02:30', impact: 'High', forecast: '-', previous: '-', actual: 'Dovish' }
-      ];
+    : [];
 
   // Calculate score based on selected criteria
   const calcScore = (
@@ -103,35 +132,75 @@ export const NewsBacktestModule: React.FC<NewsBacktestModuleProps> = ({
     return { score, maxScore: 11 };
   };
 
-  // Determine SOP Status based on rules
+  // Determine SOP Status based on rules (STRICT: only 2m - 60m post release is allowed for ENTRY)
   const getSopStatus = (timeRel: number, score: number, spreadNorm: boolean) => {
-    // WAIT window: 5 minutes before release to 2 minutes after release
-    if (timeRel >= -5 && timeRel <= 2) {
-      return { status: 'WAIT', label: 'WAIT (DILARANG ENTRY - DANGER ZONE)', bg: 'bg-amber-950/80 border-amber-500/80 text-amber-300 animate-pulse' };
+    // 1. EXPIRED window (> 60 minutes after release): Impact window closed
+    if (timeRel > 60) {
+      return { 
+        status: 'PASS', 
+        label: 'PASS (MELEBIHI 1 JAM - KESAN NEWS TELAH BERLALU)', 
+        bg: 'bg-gray-900 border-gray-700 text-gray-400' 
+      };
     }
-    // PREPARE window: 60 minutes before release up to 5 minutes before
+    // 2. WAIT window: 5 minutes before release to 2 minutes after release (Danger / Whipsaw)
+    if (timeRel >= -5 && timeRel < 2) {
+      return { 
+        status: 'WAIT', 
+        label: 'WAIT (ZON BAHAYA RILIS NEWS - DILARANG TRADE)', 
+        bg: 'bg-rose-950/80 border-rose-500/80 text-rose-300 animate-pulse' 
+      };
+    }
+    // 3. PREPARE window: 60 minutes before release up to 5 minutes before
     if (timeRel < -5 && timeRel >= -60) {
-      return { status: 'PREPARE', label: 'PREPARE (MOD TUNGGU & LIHAT)', bg: 'bg-blue-950/80 border-blue-500/80 text-blue-300' };
+      return { 
+        status: 'PREPARE', 
+        label: `PREPARE (MENUNGGU NEWS RILIS DALAM ${Math.abs(timeRel)}M)`, 
+        bg: 'bg-blue-950/80 border-blue-500/80 text-blue-300' 
+      };
     }
-    // IGNORE window: > 60 minutes before release
+    // 4. IGNORE window: > 60 minutes before release
     if (timeRel < -60) {
-      return { status: 'IGNORE', label: 'IGNORE (TIADA NEWS IMPAK TINGGI DEKAT)', bg: 'bg-gray-900 border-gray-700 text-gray-400' };
+      return { 
+        status: 'IGNORE', 
+        label: 'IGNORE (TIADA NEWS IMPAK TINGGI DEKAT)', 
+        bg: 'bg-gray-900 border-gray-700 text-gray-400' 
+      };
     }
-    // Post-release (> 2 mins) -> Check score & spread
+    // 5. Post-release valid window (2 to 60 minutes) -> Check score & spread
     if (!spreadNorm) {
-      return { status: 'MONITOR', label: 'MONITOR (SPREAD TERLALU BESAR / WHIPSAW)', bg: 'bg-purple-950/80 border-purple-500/80 text-purple-300' };
+      return { 
+        status: 'MONITOR', 
+        label: 'MONITOR (SPREAD TERLALU BESAR / WHIPSAW)', 
+        bg: 'bg-purple-950/80 border-purple-500/80 text-purple-300' 
+      };
     }
     if (score < 5) {
-      return { status: 'IGNORE', label: 'IGNORE (SYARAT / SKOR AI LEMAH)', bg: 'bg-gray-900 border-gray-700 text-gray-400' };
+      return { 
+        status: 'IGNORE', 
+        label: 'IGNORE (SYARAT / SKOR AI LEMAH)', 
+        bg: 'bg-gray-900 border-gray-700 text-gray-400' 
+      };
     }
     if (score >= 5 && score <= 7) {
-      return { status: 'MONITOR', label: 'MONITOR (AI PANTAU REAKSI & STRUKTUR)', bg: 'bg-purple-950/80 border-purple-500/80 text-purple-300' };
+      return { 
+        status: 'MONITOR', 
+        label: 'MONITOR (AI PANTAU REAKSI & STRUKTUR PASCA NEWS)', 
+        bg: 'bg-purple-950/80 border-purple-500/80 text-purple-300' 
+      };
     }
     if (score >= 8 && score <= 9) {
-      return { status: 'READY', label: 'READY (SYARAT HAMPIR LENGKAP)', bg: 'bg-cyan-950/80 border-cyan-500/80 text-cyan-300 font-bold' };
+      return { 
+        status: 'READY', 
+        label: 'READY (SYARAT HAMPIR LENGKAP - RETEST)', 
+        bg: 'bg-cyan-950/80 border-cyan-500/80 text-cyan-300 font-bold' 
+      };
     }
     if (score >= 10) {
-      return { status: 'ENTRY', label: 'ENTRY (SYARAT SOP LENGKAP & SCORE ≥ 10)', bg: 'bg-emerald-950/90 border-emerald-500 text-emerald-300 font-black animate-pulse' };
+      return { 
+        status: 'ENTRY', 
+        label: `ENTRY PASCA NEWS (+${timeRel}m - SCORE ≥ 10)`, 
+        bg: 'bg-emerald-950/90 border-emerald-500 text-emerald-300 font-black animate-pulse' 
+      };
     }
 
     return { status: 'MONITOR', label: 'MONITOR', bg: 'bg-gray-800 text-gray-300' };
@@ -141,20 +210,63 @@ export const NewsBacktestModule: React.FC<NewsBacktestModuleProps> = ({
   useEffect(() => {
     if (!isAutoMode) return;
 
-    // Pick top high impact news item for today
-    const activeNews = highImpactToday[0] || {
-      title: 'Consumer Price Index (CPI) YoY',
-      time: '20:30',
-      impact: 'High',
-      forecast: '2.9%',
-      previous: '3.0%',
-      actual: '2.7%'
-    };
+    // Check if there is any High-Impact news today
+    if (highImpactToday.length === 0) {
+      setAutoDetectedNews(null);
+      setSimResult({
+        timestamp: new Date().toLocaleTimeString(),
+        eventType: 'NONE',
+        newsTitle: 'Tiada Berita Impak Tinggi',
+        score: 0,
+        maxScore: 11,
+        status: 'STANDBY',
+        statusLabel: 'TIADA BERITA IMPAK TINGGI HARI INI',
+        direction: 'NEUTRAL',
+        isEntryValid: false,
+        entryPrice: '-',
+        slPrice: '-',
+        tp1Price: '-',
+        tp2Price: '-',
+        riskReward: '-',
+        logs: [
+          `[SOP NEWS] Tiada berita impak tinggi (High Impact) dikesan pada kalendar ekonomi hari ini.`,
+          `[SOP PERATURAN] Signal news HANYA akan dijana selepas berita keluar dan dalam tempoh maksimum 1 jam.`,
+          `[STATUS] Engine berada dalam mod siap sedia (Standby). Tiada signal dikeluarkan.`
+        ]
+      });
+      return;
+    }
 
-    setAutoDetectedNews(activeNews);
+    // Find the news item closest to current time
+    let activeItem: any = null;
+    let activeTiming: number | null = null;
+
+    for (const item of highImpactToday) {
+      const timing = getNewsTiming(item);
+      if (timing !== null) {
+        // If we found a news item within active window (2 to 60 mins post release), prioritize it!
+        if (timing >= 2 && timing <= 60) {
+          activeItem = item;
+          activeTiming = timing;
+          break;
+        }
+        // Otherwise keep nearest upcoming or recent
+        if (activeTiming === null || Math.abs(timing) < Math.abs(activeTiming)) {
+          activeItem = item;
+          activeTiming = timing;
+        }
+      }
+    }
+
+    if (!activeItem || activeTiming === null) {
+      activeItem = highImpactToday[0];
+      activeTiming = getNewsTiming(activeItem) ?? -999;
+    }
+
+    setAutoDetectedNews(activeItem);
 
     // Map title to type
-    const titleUpper = (activeNews.title || '').toUpperCase();
+    const titleUpper = (activeItem.title || activeItem.event || '').toUpperCase();
     let evType: 'NFP' | 'CPI' | 'FOMC_RATE' | 'FOMC_PRESS' | 'GDP' | 'RETAIL' = 'CPI';
     if (titleUpper.includes('NFP') || titleUpper.includes('EMPLOYMENT')) evType = 'NFP';
     else if (titleUpper.includes('CPI') || titleUpper.includes('INFLATION')) evType = 'CPI';
@@ -165,11 +277,11 @@ export const NewsBacktestModule: React.FC<NewsBacktestModuleProps> = ({
 
     setSelectedEventType(evType);
 
-    // Auto calculate economic deviation
-    let dev: 'DOVISH_XAU_BULL' | 'HAWKISH_XAU_BEAR' | 'NEUTRAL' = 'DOVISH_XAU_BULL';
-    if (activeNews.actual && activeNews.forecast) {
-      const actNum = parseFloat(activeNews.actual);
-      const fcNum = parseFloat(activeNews.forecast);
+    // Calculate economic deviation if actual data exists
+    let dev: 'DOVISH_XAU_BULL' | 'HAWKISH_XAU_BEAR' | 'NEUTRAL' = 'NEUTRAL';
+    if (activeItem.actual && activeItem.actual !== '-' && activeItem.forecast && activeItem.forecast !== '-') {
+      const actNum = parseFloat(activeItem.actual);
+      const fcNum = parseFloat(activeItem.forecast);
       if (!isNaN(actNum) && !isNaN(fcNum)) {
         if (evType === 'CPI' || evType === 'NFP' || evType === 'GDP' || evType === 'RETAIL') {
           // Actual < Forecast => USD Weak => XAUUSD Bullish
@@ -178,14 +290,13 @@ export const NewsBacktestModule: React.FC<NewsBacktestModuleProps> = ({
           else dev = 'NEUTRAL';
         }
       }
+    } else if (activeItem.action) {
+      dev = activeItem.action === 'BUY' ? 'DOVISH_XAU_BULL' : activeItem.action === 'SELL' ? 'HAWKISH_XAU_BEAR' : 'NEUTRAL';
     }
     setActualDeviation(dev);
+    setTimeRelative(activeTiming);
 
-    // Calculate time relative (e.g., assuming post release 15 mins for backtest evaluation)
-    const relMins = 15;
-    setTimeRelative(relMins);
-
-    // Auto evaluate technical conditions based on live price & market structure
+    // Technical conditions
     const autoBos = true;
     const autoHtf = true;
     const autoLiq = true;
@@ -198,11 +309,14 @@ export const NewsBacktestModule: React.FC<NewsBacktestModuleProps> = ({
     setHasObFvgSnd(autoOb);
     setIsSpreadNormal(autoSpread);
 
-    // Run auto simulation output
-    const { score, maxScore } = calcScore(evType, relMins, autoBos, autoHtf, autoLiq, autoOb, autoSpread);
-    const statusObj = getSopStatus(relMins, score, autoSpread);
+    // Calculate score
+    const { score, maxScore } = calcScore(evType, activeTiming, autoBos, autoHtf, autoLiq, autoOb, autoSpread);
+    const statusObj = getSopStatus(activeTiming, score, autoSpread);
     const direction = dev === 'DOVISH_XAU_BULL' ? 'BUY' : dev === 'HAWKISH_XAU_BEAR' ? 'SELL' : 'NEUTRAL';
-    const isEntryValid = statusObj.status === 'ENTRY' && direction !== 'NEUTRAL';
+
+    // STRICT CHECK: Signal is ONLY valid if news has been released (>= 2 mins) AND is within 1 hour (<= 60 mins)
+    const isWithinOneHourPostRelease = activeTiming >= 2 && activeTiming <= 60;
+    const isEntryValid = isWithinOneHourPostRelease && statusObj.status === 'ENTRY' && direction !== 'NEUTRAL';
 
     const entryPrice = currentPrice;
     const slPips = 35;
@@ -216,32 +330,38 @@ export const NewsBacktestModule: React.FC<NewsBacktestModuleProps> = ({
     const autoResult = {
       timestamp: new Date().toLocaleTimeString(),
       eventType: evType,
-      newsTitle: activeNews.title,
+      newsTitle: activeItem.title || activeItem.event,
       score,
       maxScore,
-      status: statusObj.status,
-      statusLabel: statusObj.label,
-      direction,
+      status: isWithinOneHourPostRelease ? statusObj.status : (activeTiming > 60 ? 'PASS' : activeTiming < 2 && activeTiming >= -5 ? 'WAIT' : 'PREPARE'),
+      statusLabel: isWithinOneHourPostRelease ? statusObj.label : (activeTiming > 60 ? 'PASS (MELEBIHI 1 JAM - TIADA SIGNAL)' : activeTiming < 2 && activeTiming >= -5 ? 'WAIT (ZON BAHAYA WHIPSAW)' : `PREPARE (MENUNGGU NEWS RILIS)`),
+      direction: isEntryValid ? direction : 'NEUTRAL',
       isEntryValid,
-      entryPrice: entryPrice.toFixed(2),
-      slPrice: slPrice.toFixed(2),
-      tp1Price: tp1Price.toFixed(2),
-      tp2Price: tp2Price.toFixed(2),
-      riskReward: '1:2 Minimum (Skala ke 1:4+)',
+      entryPrice: isEntryValid ? entryPrice.toFixed(2) : '-',
+      slPrice: isEntryValid ? slPrice.toFixed(2) : '-',
+      tp1Price: isEntryValid ? tp1Price.toFixed(2) : '-',
+      tp2Price: isEntryValid ? tp2Price.toFixed(2) : '-',
+      riskReward: isEntryValid ? '1:2 Minimum (Skala ke 1:4+)' : '-',
       logs: [
-        `[AUTOMATIK AI] Mengimbas Berita Impak Tinggi: ${activeNews.title} (+3 Mata)`,
-        `[AUTOMATIK AI] Pengesahan Data Ekonomi: Actual ${activeNews.actual || 'Dovish'} vs Forecast ${activeNews.forecast || '-'} -> Bias: ${direction} XAUUSD`,
-        `[AUTOMATIK AI] Jarak Masa Relatif: +${relMins} Minit Pasca Release (SOP Pasca Whipsaw)`,
-        `[AUTOMATIK AI] Penilaian Teknikal: BOS/CHoCH Major (+2), HTF Trend (+2), Liquidity Sweep (+1), OB/FVG (+2), Spread Normal (+1)`,
-        `[KESIMPULAN AUTOMATIK] Skor Keseluruhan: ${score}/11 Mata -> Status SOP: ${statusObj.status} (${direction})`
+        `[SEMAKAN BERITA] ${activeItem.title || activeItem.event} | Waktu Rilis: ${activeItem.time || '-'}`,
+        `[STATUS MASA RELATIF] ${activeTiming >= 0 ? `+${activeTiming} Minit Selepas Rilis` : `${Math.abs(activeTiming)} Minit Sebelum Rilis`}`,
+        isWithinOneHourPostRelease
+          ? `[TETINGKAP 1 JAM: AKTIF] Berita berada dalam tetingkap 2-60 minit pasca rilis. Menilai deviasi data & struktur BOS.`
+          : activeTiming > 60
+          ? `[TETINGKAP 1 JAM: TAMAT] Telah melebihi 1 jam (+${activeTiming}m). Tiada signal baru dikeluarkan mengikut SOP.`
+          : activeTiming >= -5 && activeTiming < 2
+          ? `[ZON BAHAYA] 0-2 minit waktu rilis. Dilarang entry bagi mengelakkan spread liar & whipsaw.`
+          : `[STATUS MENUNGGU] Berita belum rilis. Signal hanya dijana SELEPAS berita keluar.`,
+        `[PENILAIAN DEV DATA] Actual: ${activeItem.actual || 'Belum Keluar'} vs Forecast: ${activeItem.forecast || '-'} -> Bias: ${direction}`,
+        `[KESIMPULAN SOP] Kelayakan Signal Entry: ${isEntryValid ? `SAH (ENTRY ${direction})` : 'TIDAK AKTIF (TIADA SIGNAL)'}`
       ]
     };
 
     setSimResult(autoResult);
 
-    // Auto dispatch signal if valid ENTRY
+    // Auto dispatch signal ONLY when valid within 1 hour post release
     if (isEntryValid) {
-      const sigId = `NEWS-AUTO-${evType}-${entryPrice.toFixed(1)}`;
+      const sigId = `NEWS-POST1H-${evType}-${activeItem.title || 'NEWS'}-${Math.floor(activeTiming / 5)}`;
       if (!dispatchedRef.current.has(sigId)) {
         dispatchedRef.current.add(sigId);
         dispatchNewSignal({
@@ -251,7 +371,7 @@ export const NewsBacktestModule: React.FC<NewsBacktestModuleProps> = ({
           entryRange: `${entryPrice.toFixed(2)} - ${(direction === 'BUY' ? entryPrice + 0.5 : entryPrice - 0.5).toFixed(2)}`,
           entryPrice: entryPrice,
           triggerPrice: entryPrice,
-          candlePattern: `Pengesahan Automatik ${activeNews.title} + BOS ${direction}`,
+          candlePattern: `Pasca 1 Jam ${activeItem.title || activeItem.event} (+${activeTiming}m) + BOS ${direction}`,
           tp: Number(tp1Price),
           sl: Number(slPrice),
           winRate: 92
@@ -642,14 +762,16 @@ export const NewsBacktestModule: React.FC<NewsBacktestModuleProps> = ({
                   onChange={(e) => setTimeRelative(Number(e.target.value))}
                   className="w-full bg-[#111] border border-gray-700 text-white text-xs rounded p-2 focus:border-amber-500 focus:outline-none"
                 >
-                  <option value="-65">-65 Minit (Status: IGNORE)</option>
-                  <option value="-30">-30 Minit (Status: PREPARE)</option>
+                  <option value="-65">-65 Minit SEBELUM (Status: IGNORE)</option>
+                  <option value="-30">-30 Minit SEBELUM (Status: PREPARE)</option>
                   <option value="-2">-2 Minit SEBELUM (Status: WAIT - NO TRADE)</option>
-                  <option value="0">0 Minit RILIS DATA (Status: WAIT - DANGER)</option>
+                  <option value="0">0 Minit WAKTU RILIS (Status: WAIT - DANGER)</option>
                   <option value="1">+1 Minit SELEPAS (Status: WAIT - DANGER)</option>
                   <option value="5">+5 Minit SELEPAS (Status: MONITOR)</option>
                   <option value="15">+15 Minit SELEPAS (Pasca Whipsaw / Confirmation)</option>
                   <option value="30">+30 Minit SELEPAS (Retest & Continuation)</option>
+                  <option value="45">+45 Minit SELEPAS (Dalam Tetingkap 1 Jam)</option>
+                  <option value="75">+75 Minit SELEPAS (Status: PASS - Melebihi 1 Jam)</option>
                 </select>
               </div>
 
