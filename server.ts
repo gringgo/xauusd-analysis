@@ -1861,7 +1861,41 @@ async function backgroundWeeklySync() {
     }
   }
 
+  function isForexMarketOpen(date = new Date()): boolean {
+    try {
+      const mytDayStr = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kuala_Lumpur',
+        weekday: 'short'
+      }).format(date);
+      const mytHourStr = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kuala_Lumpur',
+        hour: 'numeric',
+        hourCycle: 'h23'
+      }).format(date);
+      const mytHour = parseInt(mytHourStr, 10);
+
+      // Saturday from 5:00 AM MYT onwards: Market closed
+      if (mytDayStr === 'Sat' && mytHour >= 5) return false;
+      // Sunday all day: Market closed
+      if (mytDayStr === 'Sun') return false;
+      // Monday before 5:00 AM MYT: Market closed
+      if (mytDayStr === 'Mon' && mytHour < 5) return false;
+      // Daily maintenance break (04:00 AM - 05:59 AM MYT)
+      if (mytHour >= 4 && mytHour < 6) return false;
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   async function sendTelegramSignalAlert(signal: any) {
+    // Strictly do not send Telegram signal alerts when market is closed (Weekend/Sabtu/Ahad)
+    if (!isForexMarketOpen()) {
+      console.log("Telegram alert skipped: Pasaran XAUUSD sedang tutup (Hujung Minggu).");
+      return;
+    }
+
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
     
@@ -1919,6 +1953,10 @@ async function backgroundWeeklySync() {
 
   app.post("/api/signals", async (req, res) => {
     try {
+      if (!isForexMarketOpen()) {
+        return res.status(400).json({ error: "Pasaran Forex / XAUUSD sedang tutup (Hujung Minggu). Tiada signal baru dibenarkan." });
+      }
+
       if (!db) return res.status(503).json({ error: "DB not connected" });
       const newSignal = req.body;
 

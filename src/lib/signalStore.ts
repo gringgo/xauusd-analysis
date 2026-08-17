@@ -35,17 +35,30 @@ const dispatchedZonesToday = new Map<string, string>();
 
 export function isAllowedSignalHours(date = new Date()): boolean {
   try {
+    const mytDayStr = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kuala_Lumpur',
+      weekday: 'short'
+    }).format(date);
     const hourStr = new Intl.DateTimeFormat('en-US', {
       timeZone: 'Asia/Kuala_Lumpur',
       hour: 'numeric',
       hourCycle: 'h23'
     }).format(date);
     const hour = parseInt(hourStr, 10);
-    // Active from 06:00 AM to 04:00 AM MYT (i.e. hour >= 6 or hour < 4)
-    // Blocked between 04:00 AM and 05:59 AM MYT
-    return hour >= 6 || hour < 4;
-  } catch (e) {
+
+    // Saturday from 5:00 AM MYT onwards: Market closed
+    if (mytDayStr === 'Sat' && hour >= 5) return false;
+    // Sunday all day: Market closed
+    if (mytDayStr === 'Sun') return false;
+    // Monday before 5:00 AM MYT: Market closed
+    if (mytDayStr === 'Mon' && hour < 5) return false;
+
+    // Daily maintenance break between 04:00 AM and 05:59 AM MYT
+    if (hour >= 4 && hour < 6) return false;
+
     return true;
+  } catch (e) {
+    return false;
   }
 }
 

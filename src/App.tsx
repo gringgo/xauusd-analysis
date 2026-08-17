@@ -1151,14 +1151,33 @@ const HighImpactNewsBanner = ({ news, targetDate }: { news: any[], targetDate: D
 
 export default function App() {
   const getMarketStatus = () => {
-    const d = new Date();
-    const mytTime = new Date(d.getTime() + 8 * 3600 * 1000);
-    const day = mytTime.getUTCDay();
-    const hours = mytTime.getUTCHours();
-    if (day === 6 && hours >= 6) return false;
-    if (day === 0) return false;
-    if (day === 1 && hours < 6) return false;
-    return true;
+    try {
+      const now = new Date();
+      const mytDayStr = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kuala_Lumpur',
+        weekday: 'short'
+      }).format(now);
+      const mytHourStr = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kuala_Lumpur',
+        hour: 'numeric',
+        hourCycle: 'h23'
+      }).format(now);
+      const mytHour = parseInt(mytHourStr, 10);
+
+      // Saturday from 5:00 AM MYT onwards: Market closed
+      if (mytDayStr === 'Sat' && mytHour >= 5) return false;
+      // Sunday all day: Market closed
+      if (mytDayStr === 'Sun') return false;
+      // Monday before 5:00 AM MYT: Market closed
+      if (mytDayStr === 'Mon' && mytHour < 5) return false;
+
+      // Daily maintenance break (04:00 AM - 05:59 AM MYT)
+      if (mytHour >= 4 && mytHour < 6) return false;
+
+      return true;
+    } catch (e) {
+      return true;
+    }
   };
 
   const [aiSummary, setAiSummary] = useState<string | null>(null);
